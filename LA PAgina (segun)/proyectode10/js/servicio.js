@@ -45,6 +45,56 @@
       listarFerias: function () {
         return envolver(cliente.from("ferias").select("id,nombre,ubicacion,fecha_inicio,fecha_fin,estado"));
       },
+      // ---------- Entrega 6 ----------
+      /** Ferias con todos sus datos y ubicación (lectura pública). */
+      listarFeriasCompletas: function () {
+        return envolver(cliente.from("ferias").select("*").order("fecha_inicio", { ascending: true, nullsFirst: false }));
+      },
+      /** Crea o edita una feria (solo el administrador, lo exige la RLS). */
+      guardarFeria: function (fila) {
+        return envolver(cliente.from("ferias").upsert(fila, { onConflict: "id" }).select("*")).then(function (r) {
+          if (r.ok && (!r.datos || !r.datos.length)) return { ok: false, error: { message: "permission denied: la feria no se guardó" } };
+          return r;
+        });
+      },
+      listarAsociaciones: function () {
+        return envolver(cliente.from("asociaciones").select("*").order("nombre", { ascending: true }));
+      },
+      guardarAsociacion: function (fila) {
+        return envolver(cliente.from("asociaciones").upsert(fila, { onConflict: "id" }).select("*")).then(function (r) {
+          if (r.ok && (!r.datos || !r.datos.length)) return { ok: false, error: { message: "permission denied: la asociación no se guardó" } };
+          return r;
+        });
+      },
+      /** El administrador asigna (o quita, con null) la asociación de una tienda. */
+      asignarAsociacion: function (tiendaId, asociacionId) {
+        return envolver(cliente.from("tiendas").update({ asociacion_id: asociacionId }).eq("id", tiendaId).select("id,asociacion_id")).then(function (r) {
+          if (r.ok && (!r.datos || !r.datos.length || r.datos[0].asociacion_id !== asociacionId)) return { ok: false, error: { message: "permission denied: no se cambió la asociación" } };
+          return r;
+        });
+      },
+      /** Valor de configuración de la plataforma (p. ej. navegacion_anonima). */
+      leerConfiguracion: function (clave) {
+        return envolver(cliente.from("configuracion").select("valor").eq("clave", clave).maybeSingle()).then(function (r) {
+          return r.ok ? { ok: true, datos: r.datos ? r.datos.valor : null } : r;
+        });
+      },
+      guardarConfiguracion: function (clave, valor) {
+        return envolver(cliente.from("configuracion").upsert({ clave: clave, valor: valor }, { onConflict: "clave" }).select("valor")).then(function (r) {
+          if (r.ok && (!r.datos || !r.datos.length || r.datos[0].valor !== valor)) return { ok: false, error: { message: "permission denied: la configuración no se guardó" } };
+          return r;
+        });
+      },
+      /** Mensaje del formulario de contacto de una tienda (sin sesión también). */
+      enviarContacto: function (contacto) {
+        return envolver(cliente.from("contactos").insert({
+          tienda_id: contacto.tiendaId,
+          producto_id: contacto.productoId || null,
+          nombre: contacto.nombre,
+          medio: contacto.medio || "",
+          mensaje: contacto.mensaje
+        }));
+      },
       leerPerfil: function (uid) {
         return envolver(cliente.from("perfiles").select("nombre,rol,tienda_id,foto_url").eq("id", uid).maybeSingle());
       },

@@ -1,0 +1,97 @@
+/* Entrega 6 — directorio con filtros, asociaciones, contacto, mapas y administración.
+   Adaptable a computador y teléfono (RNF-CPT-02): todo se apila bajo 640 px y los
+   controles táctiles tienen al menos 44 px de alto. */
+
+.e6-directorio-tabs { display: flex; gap: 8px; margin: 6px 0 12px; flex-wrap: wrap; }
+.e6-tab {
+  min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--gris-borde, #e5e7eb);
+  background: #fff; font-weight: 700; font-size: 14px; cursor: pointer; color: var(--negro-apple, #111);
+}
+.e6-tab.activo { background: var(--negro-apple, #111); color: #fff; border-color: var(--negro-apple, #111); }
+
+.e6-filtros {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; align-items: end;
+  background: #fff; border: 1px solid var(--gris-borde, #e5e7eb); border-radius: 16px; padding: 12px 14px; margin-bottom: 16px;
+}
+.e6-filtro { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--gris-texto, #71717a); min-width: 0; }
+.e6-filtro input, .e6-filtro select {
+  min-height: 44px; border: 1px solid var(--gris-borde, #e5e7eb); border-radius: 12px; padding: 0 12px;
+  font-size: 14px; color: var(--negro-apple, #111); background: #fff; width: 100%; box-sizing: border-box;
+}
+.e6-limpiar { min-height: 44px; }
+.tarjeta-asociacion { color: #1e40af; font-weight: 600; }
+
+.e6-acciones-tienda, .e6-acciones-feria, .e6-fila { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+.e6-acciones-tienda > *, .e6-acciones-feria > * { min-height: 44px; flex: 1 1 140px; justify-content: center; text-align: center; }
+.e6-como-llegar { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+
+.e6-chip-asociacion {
+  border: 1px solid #bfdbfe; background: #eff6ff; color: #1e40af; border-radius: 999px; padding: 8px 14px;
+  font-weight: 700; font-size: 13px; cursor: pointer; min-height: 40px; align-self: flex-start;
+}
+.e6-nota { font-size: 12.5px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 8px 12px; }
+.e6-subtitulo { font-size: 15px; font-weight: 800; margin: 12px 0 6px; color: var(--negro-apple, #111); }
+.e6-punto { display: flex; flex-direction: column; gap: 8px; }
+
+.e6-mapa { width: 100%; height: 300px; border-radius: 14px; border: 1px solid var(--gris-borde, #e5e7eb); overflow: hidden; z-index: 0; }
+.e6-mapa-chico { height: 200px; }
+.e6-feria-imagen { width: 100%; max-height: 220px; object-fit: cover; border-radius: 14px; }
+.e6-feria-fecha { color: var(--rojo-alerce, #dc2626); font-weight: 800; font-size: 14px; }
+.e6-feria-sin-foto { display: flex; align-items: center; justify-content: center; font-size: 48px; background: #f4f4f5; }
+
+.prod-precio-consultar { font-size: 14px; color: var(--negro-apple, #111); background: #f4f4f5; border-radius: 999px; padding: 4px 10px; }
+
+.e6-lista-integrantes { display: flex; flex-direction: column; gap: 8px; }
+.e6-integrante { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--gris-borde, #e5e7eb); border-radius: 14px; }
+.e6-integrante-texto { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.e6-integrante-texto span { font-size: 12px; color: var(--gris-texto, #71717a); }
+.e6-integrante .btn-accion-pill { min-height: 44px; }
+
+.e6-form { display: flex; flex-direction: column; gap: 8px; }
+.e6-form label { font-size: 12.5px; font-weight: 700; }
+.e6-form input, .e6-form textarea, .e6-form select, .e6-admin-tarjeta input, .e6-admin-tarjeta select, .e6-admin-tarjeta textarea {
+  min-height: 44px; border: 1px solid var(--gris-borde, #e5e7eb); border-radius: 12px; padding: 8px 12px;
+  font-size: 14px; font-family: inherit; width: 100%; box-sizing: border-box; background: #fff;
+}
+.e6-aviso { font-size: 12.5px; color: #991b1b; margin: 2px 0; min-height: 1em; }
+.e6-aviso.ok { color: #166534; }
+
+.e6-admin-tarjeta { background: #fff; border: 1px solid #bfdbfe; border-radius: 14px; padding: 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }
+.e6-admin-titulo { font-size: 16px; font-weight: 900; margin: 0; }
+.e6-radios { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.e6-radio { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--gris-borde, #e5e7eb); border-radius: 12px; padding: 12px; cursor: pointer; }
+.e6-radio input { width: 20px; height: 20px; min-height: 0; margin-top: 2px; flex: none; }
+.e6-radio span { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.e6-radio small { color: var(--gris-texto, #71717a); }
+.e6-radio:has(input:checked) { border-color: #1e40af; background: #eff6ff; }
+.e6-admin-lista { display: flex; flex-direction: column; gap: 8px; }
+.e6-admin-item { display: flex; justify-content: space-between; gap: 10px; align-items: center; border: 1px solid var(--gris-borde, #e5e7eb); border-radius: 12px; padding: 10px 12px; flex-wrap: wrap; }
+.e6-admin-item > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 260px; }
+.e6-admin-item small { color: var(--gris-texto, #71717a); font-size: 12px; }
+.e6-admin-asoc select { max-width: 280px; }
+.e6-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.e6-chip-integrante { border: 1px solid #bfdbfe; background: #eff6ff; color: #1e40af; border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.e6-campo { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 700; flex: 1; min-width: 0; }
+.e6-grilla-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.e6-grilla-3 { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 10px; }
+.e6-buscar-direccion { display: flex; gap: 8px; align-items: flex-end; }
+.e6-buscar-direccion .btn-accion-pill { min-height: 44px; }
+.e6-resultados { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--gris-texto, #71717a); }
+.e6-resultado { text-align: left; border: 1px solid var(--gris-borde, #e5e7eb); background: #fff; border-radius: 10px; padding: 8px 10px; cursor: pointer; font-size: 12.5px; min-height: 44px; }
+.e6-resultado:hover, .e6-resultado:focus { background: #eff6ff; }
+.e6-imagen-previa img { max-width: 220px; max-height: 140px; border-radius: 10px; object-fit: cover; }
+
+@media (max-width: 900px) {
+  .e6-filtros { grid-template-columns: 1fr 1fr; }
+  .e6-filtro-busqueda { grid-column: 1 / -1; }
+  .e6-radios { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .e6-filtros { grid-template-columns: 1fr; padding: 10px; }
+  .e6-grilla-2, .e6-grilla-3 { grid-template-columns: 1fr; }
+  .e6-buscar-direccion { flex-direction: column; align-items: stretch; }
+  .e6-mapa { height: 240px; }
+  .e6-integrante { flex-wrap: wrap; }
+  .e6-integrante .btn-accion-pill { width: 100%; }
+  .e6-admin-asoc select { max-width: none; }
+}

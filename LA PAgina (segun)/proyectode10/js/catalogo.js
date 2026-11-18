@@ -99,6 +99,63 @@
     };
   }
 
+  var MODOS_CONTACTO = ["WHATSAPP", "FORMULARIO", "AMBOS"];
+  function modoContacto(valor) {
+    var v = String(valor || "").toUpperCase();
+    return MODOS_CONTACTO.indexOf(v) >= 0 ? v : "AMBOS";
+  }
+  function puntoValido(lat, lng) {
+    if (lat === null || lat === undefined || lat === "" || lng === null || lng === undefined || lng === "") return false;
+    var a = Number(lat), b = Number(lng);
+    return isFinite(a) && isFinite(b) && a >= -90 && a <= 90 && b >= -180 && b <= 180;
+  }
+  /** Qué vías de contacto ofrece la vitrina según lo que configuró la emprendedora. */
+  function viasContacto(tienda) {
+    var modo = modoContacto(tienda && tienda.contactoModo);
+    var tieneNumero = !!(tienda && String(tienda.whatsapp || "").replace(/[^0-9]/g, "").length >= 8);
+    return {
+      whatsapp: (modo === "WHATSAPP" || modo === "AMBOS") && tieneNumero,
+      formulario: modo === "FORMULARIO" || modo === "AMBOS"
+    };
+  }
+  /** "Consultar precio" cuando la emprendedora ocultó sus precios. */
+  function textoPrecio(tienda, monto, formatear) {
+    if (tienda && tienda.mostrarPrecios === false) return "Consultar precio";
+    return formatear(monto);
+  }
+  /** Feria del servidor → feria de la web. */
+  function normalizarFeria(f) {
+    f = f || {};
+    var lat = f.latitud, lng = f.longitud;
+    return {
+      id: String(f.id || ""),
+      nombre: String(f.nombre || "Feria"),
+      descripcion: String(f.descripcion || ""),
+      imagenUrl: urlImagenSegura(f.imagen_url || ""),
+      lugar: String(f.ubicacion || ""),
+      fechaInicio: f.fecha_inicio || null,
+      fechaFin: f.fecha_fin || f.fecha_inicio || null,
+      horario: String(f.horario || ""),
+      organizador: String(f.organizador || ""),
+      estado: String(f.estado || "PROXIMA"),
+      lat: puntoValido(lat, lng) ? Number(lat) : null,
+      lng: puntoValido(lat, lng) ? Number(lng) : null
+    };
+  }
+  /** Próximas: no borrador/cancelada/finalizada y que no hayan terminado. Ordenadas por fecha. */
+  function feriasProximas(ferias, hoyIso) {
+    var hoy = hoyIso || new Date().toISOString().slice(0, 10);
+    return (ferias || []).filter(function (f) {
+      if (["BORRADOR", "CANCELADA", "FINALIZADA"].indexOf(f.estado) >= 0) return false;
+      return !f.fechaFin || String(f.fechaFin).slice(0, 10) >= hoy;
+    }).sort(function (a, b) { return String(a.fechaInicio || "9999").localeCompare(String(b.fechaInicio || "9999")); });
+  }
+  /** Enlace "Cómo llegar": en el celular abre la aplicación de mapas en ese punto. */
+  function urlComoLlegar(lat, lng) {
+    if (!puntoValido(lat, lng)) return "";
+    return "https://www.google.com/maps/dir/?api=1&destination=" + Number(lat) + "," + Number(lng);
+  }
+
   function normalizarTienda(t) {
     t = t || {};
     var nec = t.necesidades;
@@ -118,6 +175,11 @@
       colorLogo: colorHex(t.color_logo, "#2B6CB0"),
       logoUrl: urlImagenSegura(t.logo_url || ""),
       historialActivo: t.historial_activo !== false,
+      // Entrega 6: configuración de la vitrina (RF-CFG-01/02, RF-MAP-04) y asociación (RF-CMP-01).
+      mostrarPrecios: t.mostrar_precios !== false && t.mostrarPrecios !== false,
+      contactoModo: modoContacto(t.contacto_modo || t.contactoModo),
+      asociacionId: t.asociacion_id || t.asociacionId || null,
+      puntoRetiro: puntoValido(t.punto_lat, t.punto_lng) ? { lat: Number(t.punto_lat), lng: Number(t.punto_lng), nombre: String(t.punto_nombre || "") } : null,
       valoresProducto: valores,
       necesidades: {
         tieneStock: nec.tieneStock !== false,
@@ -328,6 +390,8 @@
     etiquetaCategoria: etiquetaCategoria, precioDeOpcion: precioDeOpcion, fotoDeOpcion: fotoDeOpcion,
     opcionVendible: opcionVendible, validarLineaVenta: validarLineaVenta,
     aplicarRespuesta: aplicarRespuesta, productoParaGuardar: productoParaGuardar,
-    ventaParaRegistrar: ventaParaRegistrar, mensajeError: mensajeError, nuevoId: nuevoId, fechaLocal: fechaLocal
+    ventaParaRegistrar: ventaParaRegistrar, mensajeError: mensajeError, nuevoId: nuevoId, fechaLocal: fechaLocal,
+    MODOS_CONTACTO: MODOS_CONTACTO, modoContacto: modoContacto, puntoValido: puntoValido, viasContacto: viasContacto,
+    textoPrecio: textoPrecio, normalizarFeria: normalizarFeria, feriasProximas: feriasProximas, urlComoLlegar: urlComoLlegar
   };
 });

@@ -16,7 +16,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600&display=swap" rel="stylesheet">
+  <!-- Mapas (Entrega 6, RF-MAP): Leaflet + OpenStreetMap, sin clave de API -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/vitrina6.css?v=20261118_e6">
 </head>
 <body>
 
@@ -70,7 +73,7 @@
       <!-- Acciones de cabecera: Carrito, POS, Descarga y Usuario -->
       <div class="header-acciones">
         <!-- Descarga directa APK Android -->
-        <a href="app-debug.apk" download="AlerceEmprende.apk" class="btn-accion-pill" id="btn-descarga-apk-header" style="text-decoration: none; background: var(--gris-chip); border: 1px solid var(--gris-borde); color: var(--negro-apple); font-weight: 700; height: 36px; padding: 0 11px; gap: 5px;" title="Descargar APK oficial para Android v1.3 (22.8 MB)">
+        <a href="app-debug.apk" download="AlerceEmprende.apk" class="btn-accion-pill" id="btn-descarga-apk-header" style="text-decoration: none; background: var(--gris-chip); border: 1px solid var(--gris-borde); color: var(--negro-apple); font-weight: 700; height: 36px; padding: 0 11px; gap: 5px;" title="Descargar APK oficial para Android v1.4 (Entrega 6)">
           <span>📱</span>
           <span>App Android</span>
         </a>
@@ -165,7 +168,7 @@
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <a href="app-debug.apk" download="AlerceEmprende.apk" class="btn-accion-pill" style="background: var(--rojo-alerce); color: #fff; border: none; font-weight: 800; height: 40px; padding: 0 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);">
             <span>📥</span>
-            <span>Descargar APK v1.3 (22.8 MB)</span>
+            <span>Descargar APK v1.4 (Entrega 6)</span>
           </a>
         </div>
       </div>
@@ -301,6 +304,32 @@
       </h2>
       <p class="subtitulo-seccion" id="subtitulo-conteo-tiendas">Explora las vitrinas, haz consultas en el muro comunitario o pide directo por WhatsApp y Carrito.</p>
 
+      <!-- Entrega 6 (RF-CMP-01): directorio de emprendedoras y asociaciones con búsqueda y filtros -->
+      <div class="e6-directorio-tabs" role="tablist" aria-label="Directorio">
+        <button type="button" class="e6-tab activo" role="tab" aria-selected="true" id="e6-tab-emprendedoras" onclick="AlerceVitrina6.verDirectorio('emprendedoras')">👩‍🌾 Emprendedoras</button>
+        <button type="button" class="e6-tab" role="tab" aria-selected="false" id="e6-tab-asociaciones" onclick="AlerceVitrina6.verDirectorio('asociaciones')">🤝 Asociaciones</button>
+      </div>
+      <div class="e6-filtros" id="e6-filtros" role="search" aria-label="Filtros del directorio">
+        <label class="e6-filtro e6-filtro-busqueda">
+          <span>Buscar</span>
+          <input type="search" id="e6-busqueda" placeholder="Nombre, rubro o sector…" autocomplete="off">
+        </label>
+        <label class="e6-filtro">
+          <span>Tipo de emprendimiento</span>
+          <select id="e6-filtro-tipo"><option value="">Todos</option></select>
+        </label>
+        <label class="e6-filtro">
+          <span>Sector</span>
+          <select id="e6-filtro-sector"><option value="">Todos</option></select>
+        </label>
+        <label class="e6-filtro">
+          <span>Asociación</span>
+          <select id="e6-filtro-asociacion"><option value="">Todas</option></select>
+        </label>
+        <button type="button" class="btn-accion-pill e6-limpiar" id="e6-limpiar-filtros">Limpiar</button>
+      </div>
+      <div id="e6-lista-asociaciones-directorio" class="grilla-tarjetas" style="display:none;" aria-live="polite"></div>
+
       <!-- Grilla de Tarjetas de Tiendas (Renderizado dinámico con JS) -->
       <div id="estado-datos-vitrina" class="estado-datos" role="status" style="display: none;"></div>
       <div class="grilla-tarjetas" id="grilla-tiendas-marketplace" role="region" aria-live="polite">
@@ -317,53 +346,9 @@
         <span>📅 Próximas Ferias Comunales</span>
       </h2>
       <p class="subtitulo-seccion">Encuentros presenciales en Puerto Montt y alrededores. Revisa lugares, mapas y participantes.</p>
-      <p class="aviso-referencia">Información de referencia: esta sección aún no se carga desde el servidor (se conectará en una próxima entrega).</p>
-
-      <div class="grilla-tarjetas" id="grilla-ferias-container">
-        <!-- FERIA 1 -->
-        <article class="tarjeta-feria-editorial">
-          <img class="tarjeta-feria-img" src="https://picsum.photos/seed/feria-valle/640/360" alt="Feria de Emprendedoras del Valle">
-          <div class="tarjeta-feria-body">
-            <span class="badge-necesidad badge-stock" style="align-self: flex-start;">En curso</span>
-            <h3 style="font-size: 16px; font-weight: 800;">Feria de Emprendedoras del Valle</h3>
-            <p style="font-size: 13px; color: var(--gris-texto);"><strong>Miércoles 7 de octubre</strong> · 9 a 18 hs</p>
-            <p style="font-size: 12.5px; color: var(--gris-texto);">Plaza de Armas, Puerto Montt</p>
-            <div style="margin-top: 10px; display: flex; gap: 8px;">
-              <button type="button" class="btn-accion-pill btn-negro" onclick="TramaWeb.abrirFichaFeria('valle')">Ver Ficha y Mapa</button>
-              <a href="https://maps.google.com/?q=Plaza+de+Armas+Puerto+Montt" target="_blank" rel="noopener" class="btn-accion-pill">Cómo llegar</a>
-            </div>
-          </div>
-        </article>
-
-        <!-- FERIA 2 -->
-        <article class="tarjeta-feria-editorial">
-          <img class="tarjeta-feria-img" src="https://picsum.photos/seed/feria-rio/640/360" alt="Artesanías del Río – Primavera">
-          <div class="tarjeta-feria-body">
-            <span class="badge-necesidad badge-agenda" style="align-self: flex-start;">Próxima feria</span>
-            <h3 style="font-size: 16px; font-weight: 800;">Artesanías del Río – Primavera</h3>
-            <p style="font-size: 13px; color: var(--gris-texto);"><strong>Domingo 8 y lunes 9 de nov</strong> · 9 a 18 hs</p>
-            <p style="font-size: 12.5px; color: var(--gris-texto);">Costanera, Puerto Varas</p>
-            <div style="margin-top: 10px; display: flex; gap: 8px;">
-              <button type="button" class="btn-accion-pill btn-negro" onclick="TramaWeb.abrirFichaFeria('rio')">Ver Ficha y Mapa</button>
-              <a href="https://maps.google.com/?q=Costanera+Puerto+Varas" target="_blank" rel="noopener" class="btn-accion-pill">Cómo llegar</a>
-            </div>
-          </div>
-        </article>
-
-        <!-- FERIA 3 -->
-        <article class="tarjeta-feria-editorial">
-          <img class="tarjeta-feria-img" src="https://picsum.photos/seed/feria-diseno/640/360" alt="Mercado de Diseño Independiente">
-          <div class="tarjeta-feria-body">
-            <span class="badge-necesidad badge-pedido" style="align-self: flex-start;">Próxima feria</span>
-            <h3 style="font-size: 16px; font-weight: 800;">Mercado de Diseño Independiente</h3>
-            <p style="font-size: 13px; color: var(--gris-texto);"><strong>Sábado 5 y domingo 6 de dic</strong> · 9 a 18 hs</p>
-            <p style="font-size: 12.5px; color: var(--gris-texto);">Centro Cultural, Puerto Montt</p>
-            <div style="margin-top: 10px; display: flex; gap: 8px;">
-              <button type="button" class="btn-accion-pill btn-negro" onclick="TramaWeb.abrirFichaFeria('diseno')">Ver Ficha y Mapa</button>
-              <a href="https://maps.google.com/?q=Centro+Cultural+Puerto+Montt" target="_blank" rel="noopener" class="btn-accion-pill">Cómo llegar</a>
-            </div>
-          </div>
-        </article>
+      <div id="e6-ferias-estado" class="estado-datos" role="status" style="display:none;"></div>
+      <div class="grilla-tarjetas" id="grilla-ferias-container" aria-live="polite">
+        <p class="subtitulo-seccion">Cargando ferias…</p>
       </div>
     </section>
 
@@ -375,7 +360,6 @@
         <span>🤝 Asociaciones y Redes de Emprendimiento</span>
       </h2>
       <p class="subtitulo-seccion">Agrupaciones de Puerto Montt que colaboran y fomentan el comercio local.</p>
-      <p class="aviso-referencia">Información de referencia: el directorio de asociaciones se conectará al servidor en una próxima entrega.</p>
 
       <div class="grilla-tarjetas" id="grilla-asociaciones-container">
         <!-- Renderizado dinámico de asociaciones -->
@@ -481,6 +465,9 @@
 
       <!-- Contenedor del Cuerpo con Scroll -->
       <div class="modal-cuerpo" style="flex: 1; overflow-y: auto; padding: 16px 0; gap: 16px;">
+
+        <!-- ENTREGA 6: navegación anónima de la app, ferias con mapa y asociaciones (datos del servidor) -->
+        <div id="admin-e6"></div>
         
         <!-- ==========================================
              SECCIÓN 1: CUENTAS DE EMPRENDEDORAS (W04-W09)
@@ -832,17 +819,71 @@
           </div>
         </div>
 
-        <!-- Acciones inferiores del modal -->
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <a id="btn-modal-tienda-whatsapp" href="#" target="_blank" rel="noopener" class="btn-accion-pill btn-negro" style="flex: 2; height: 44px;">
+        <!-- Entrega 6: asociación, punto de venta o retiro (RF-MAP-04) -->
+        <div id="modal-tienda-extras"></div>
+
+        <!-- Acciones inferiores del modal: contacto según configuración (RF-CMP-05) -->
+        <div class="e6-acciones-tienda">
+          <a id="btn-modal-tienda-whatsapp" href="#" target="_blank" rel="noopener" class="btn-accion-pill btn-negro">
             Contactar por WhatsApp
           </a>
-          <button type="button" class="btn-accion-pill" id="btn-modal-tienda-qr" style="flex: 1; height: 44px;" onclick="TramaWeb.abrirQRTiendaActual()">
+          <button type="button" class="btn-accion-pill btn-negro" id="btn-modal-tienda-formulario" onclick="TramaWeb.abrirFormularioContactoActual()">
+            ✉️ Escribir un mensaje
+          </button>
+          <button type="button" class="btn-accion-pill" id="btn-modal-tienda-compartir" onclick="TramaWeb.compartirTiendaActual()">
+            🔗 Compartir
+          </button>
+          <button type="button" class="btn-accion-pill" id="btn-modal-tienda-qr" onclick="TramaWeb.abrirQRTiendaActual()">
             Compartir QR
           </button>
         </div>
 
       </div>
+    </div>
+  </div>
+
+  <!-- ENTREGA 6: FORMULARIO DE CONTACTO (RF-CMP-05, RF-CFG-03) -->
+  <div class="modal-overlay" id="modal-contacto" role="dialog" aria-modal="true" aria-labelledby="modal-contacto-titulo">
+    <div class="modal-panel-editorial" style="max-width: 480px;">
+      <div class="modal-cabecera">
+        <div>
+          <h2 id="modal-contacto-titulo" style="font-size: 17px; font-weight: 800;">Escribir a la tienda</h2>
+          <p id="modal-contacto-sub" style="font-size: 12px; color: var(--gris-texto);"></p>
+        </div>
+        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-contacto')" aria-label="Cerrar formulario">✕</button>
+      </div>
+      <form class="modal-cuerpo e6-form" id="form-contacto" novalidate>
+        <label for="contacto-nombre">Tu nombre</label>
+        <input id="contacto-nombre" maxlength="80" required autocomplete="name" placeholder="Ej: Marta Gómez">
+        <label for="contacto-medio">Correo o teléfono para responderte</label>
+        <input id="contacto-medio" maxlength="120" autocomplete="email" placeholder="Ej: +56 9 1234 5678">
+        <label for="contacto-mensaje">Mensaje</label>
+        <textarea id="contacto-mensaje" maxlength="1000" required rows="4" placeholder="¿Qué te gustaría consultar?"></textarea>
+        <p id="contacto-aviso" class="e6-aviso" role="alert"></p>
+        <button type="submit" class="btn-accion-pill btn-negro" id="btn-enviar-contacto" style="height: 44px;">Enviar mensaje</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ENTREGA 6: FICHA PÚBLICA DE ASOCIACIÓN (RF-ASO-03) -->
+  <div class="modal-overlay" id="modal-asociacion" role="dialog" aria-modal="true" aria-labelledby="modal-asociacion-titulo">
+    <div class="modal-panel-editorial" style="max-width: 640px;">
+      <div class="modal-cabecera">
+        <h2 id="modal-asociacion-titulo" style="font-size: 17px; font-weight: 800;">Asociación</h2>
+        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-asociacion')" aria-label="Cerrar ficha">✕</button>
+      </div>
+      <div class="modal-cuerpo" id="modal-asociacion-cuerpo"></div>
+    </div>
+  </div>
+
+  <!-- ENTREGA 6: DETALLE DE PRODUCTO (enlace compartido ?producto=ID) -->
+  <div class="modal-overlay" id="modal-producto" role="dialog" aria-modal="true" aria-labelledby="modal-producto-titulo">
+    <div class="modal-panel-editorial" style="max-width: 560px;">
+      <div class="modal-cabecera">
+        <h2 id="modal-producto-titulo" style="font-size: 17px; font-weight: 800;">Producto</h2>
+        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-producto')" aria-label="Cerrar producto">✕</button>
+      </div>
+      <div class="modal-cuerpo" id="modal-producto-cuerpo"></div>
     </div>
   </div>
 
@@ -1446,6 +1487,18 @@
           <input type="tel" id="edit-tienda-whatsapp" class="input-fb-market" placeholder="+56991234567">
         </div>
 
+        <div class="e6-config-vitrina">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+            <input type="checkbox" id="edit-tienda-mostrar-precios"> 💲 Mostrar mis precios (si lo apagas se ve «Consultar precio»)
+          </label>
+          <label for="edit-tienda-contacto-modo" class="label-fb-market" style="margin-top: 8px;">¿Cómo te contactan?</label>
+          <select id="edit-tienda-contacto-modo" class="input-fb-market">
+            <option value="AMBOS">WhatsApp y formulario</option>
+            <option value="WHATSAPP">Solo WhatsApp</option>
+            <option value="FORMULARIO">Solo formulario</option>
+          </select>
+        </div>
+
         <div>
           <label for="edit-tienda-bio" class="label-fb-market">Descripción del negocio</label>
           <textarea id="edit-tienda-bio" class="input-fb-market" style="height: 70px; resize: none;" placeholder="Cuéntale a los vecinos qué ofreces y tus horarios..."></textarea>
@@ -1960,8 +2013,10 @@
 
   <!-- Scripts -->
   <script src="js/qrcode.min.js"></script>
-  <script src="js/catalogo.js?v=20261111_e5"></script>
-  <script src="js/servicio.js?v=20261111_e5"></script>
-  <script src="js/main.js?v=20261111_e5"></script>
+  <script src="js/catalogo.js?v=20261118_e6"></script>
+  <script src="js/servicio.js?v=20261118_e6"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="js/vitrina6.js?v=20261118_e6"></script>
+  <script src="js/main.js?v=20261118_e6"></script>
 </body>
 </html>

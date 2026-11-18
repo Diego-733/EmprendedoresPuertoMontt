@@ -146,4 +146,4 @@ La web inicializa Supabase solo cuando `js/config.js` define URL y anon key. El 
 - Las pruebas unitarias se compilan junto con el APK: si renombras clases, actualiza `app/src/test/…`.
 - Nunca escribas cantidades directamente en `productos` desde un cliente nuevo: usa `guardar_producto()` con `stockBase`; el trigger `proteger_producto` ignora cantidades enviadas por otra vía.
 - Las ventas solo se registran con `registrar_venta()`; reintenta siempre con el mismo `id`.
-- `index.html` de la raíz redirige a la web; la URL pública es `https://agustin671.github.io/EmprendedoresPuertoMontt/`.
+- `index.html` de la raíz redirige a la web; la URL pública es `https://diego-733.github.io/EmprendedoresPuertoMontt/`.

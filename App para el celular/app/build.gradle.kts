@@ -22,8 +22,8 @@ android {
         applicationId = "com.company.ultrapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3-entrega5"
+        versionCode = 5
+        versionName = "1.4-entrega6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -73,6 +73,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.zxing:core:3.5.3")
+
+    // Entrega 6: mapas OpenStreetMap sin clave de API (RF-MAP-01 a 04)
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

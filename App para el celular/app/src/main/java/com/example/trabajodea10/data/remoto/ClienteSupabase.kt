@@ -30,7 +30,7 @@ object ConfigSupabase {
     const val BUCKET_PERFILES = "perfiles"
 
     /** Página web que recibe el enlace del correo y permite escribir la clave nueva. */
-    const val URL_RECUPERACION = "https://agustin671.github.io/EmprendedoresPuertoMontt/?recuperar=1"
+    const val URL_RECUPERACION = "https://diego-733.github.io/EmprendedoresPuertoMontt/?recuperar=1"
 }
 
 /**
@@ -254,6 +254,29 @@ object ClienteSupabase {
         }.toString()
         val texto = pedir("POST", "/auth/v1/token?grant_type=password", cuerpoJson = cuerpo, conToken = false)
         val nueva = leerSesion(texto, email.trim())
+        guardarSesion(nueva)
+        return nueva
+    }
+
+    /**
+     * Ingreso con Google (RF-ACC-06): Supabase devuelve los tokens en el enlace de
+     * regreso a la app. Se valida el token pidiendo el usuario al servidor.
+     */
+    suspend fun establecerSesionOAuth(accessToken: String, refreshToken: String): SesionSupabase {
+        val (codigo, texto) = withContext(Dispatchers.IO) {
+            val req = Request.Builder()
+                .url(ConfigSupabase.url + "/auth/v1/user")
+                .header("apikey", ConfigSupabase.anonKey)
+                .header("Authorization", "Bearer $accessToken")
+                .get()
+                .build()
+            http.newCall(req).execute().use { it.code to (it.body?.string() ?: "") }
+        }
+        if (codigo !in 200..299) throw ErrorSupabase(codigo, "No se pudo completar el ingreso con Google.")
+        val o = json.parseToJsonElement(texto).jsonObject
+        val id = o["id"]?.jsonPrimitive?.contentOrNull ?: throw ErrorSupabase(0, "Respuesta de Google incompleta.")
+        val email = o["email"]?.jsonPrimitive?.contentOrNull ?: ""
+        val nueva = SesionSupabase(accessToken, refreshToken, id, email)
         guardarSesion(nueva)
         return nueva
     }

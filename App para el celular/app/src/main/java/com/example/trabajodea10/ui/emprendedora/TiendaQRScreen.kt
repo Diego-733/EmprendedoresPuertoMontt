@@ -66,6 +66,25 @@ fun PantallaTiendaQR(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+            // Entrega 6 (RF-COM-02): guardar o compartir el QR como imagen.
+            val contexto = androidx.compose.ui.platform.LocalContext.current
+            val nombre = com.example.trabajodea10.data.TramaStore.tienda.takeIf { it.id == tiendaId }?.nombre ?: "Mi tienda"
+            val imagen = remember(url) { com.example.trabajodea10.ui.comprador.generarImagenQR(url, nombre) }
+            Spacer(modifier = Modifier.height(20.dp))
+            com.example.trabajodea10.ui.componentes.BotonPrimario(
+                texto = "Compartir imagen del QR",
+                enabled = imagen != null,
+                onClick = { imagen?.let { com.example.trabajodea10.ui.comprador.compartirQRComoImagen(contexto, it, nombre, url) } }
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            com.example.trabajodea10.ui.componentes.BotonSecundario(
+                texto = "Guardar en el celular",
+                enabled = imagen != null,
+                onClick = {
+                    val lugar = imagen?.let { com.example.trabajodea10.ui.comprador.guardarQREnGaleria(contexto, it, nombre) }
+                    android.widget.Toast.makeText(contexto, if (lugar != null) "QR guardado en $lugar" else "No se pudo guardar el QR.", android.widget.Toast.LENGTH_LONG).show()
+                }
+            )
         }
     }
 }

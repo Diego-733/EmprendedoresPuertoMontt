@@ -358,7 +358,11 @@
   function tiendaDemo(t) {
     return Cat.normalizarTienda({
       id: t.id, nombre: t.nombre, rubro: t.rubro, sector: t.sector, bio: t.bio, whatsapp: t.whatsapp,
-      color_portada: t.colorPortada, color_logo: t.colorLogo, necesidades: t.necesidades
+      color_portada: t.colorPortada, color_logo: t.colorLogo, necesidades: t.necesidades,
+      asociacion_id: { t_minimarket_rosa: "as1", t_tejidos_austral: "as1", t_reposteria_surena: "as2" }[t.id] || null,
+      contacto_modo: t.id === "t_barberia_alerce" ? "WHATSAPP" : "AMBOS",
+      punto_lat: t.id === "t_minimarket_rosa" ? -41.3959 : null, punto_lng: t.id === "t_minimarket_rosa" ? -72.8955 : null,
+      punto_nombre: t.id === "t_minimarket_rosa" ? "Local Doña Rosa" : null
     });
   }
 
@@ -521,6 +525,10 @@
   var estado = {
     categoriaActiva: "Todos",
     textoBusqueda: "",
+    // Entrega 6 (RF-CMP-01): filtros del directorio.
+    filtroTipo: "",
+    filtroSector: "",
+    filtroAsociacion: "",
     tiendaSeleccionada: null,
     tabModalActiva: 0, // 0 = Catalogo, 1 = Muro y Foro
     medioPagoSeleccionado: "Efectivo",
@@ -625,6 +633,7 @@
     var estadoP = Cat.estadoPublico(prod);
     if (estadoP === "OCULTO") return;
     var tienda = TIENDAS.find(function (t) { return t.id === prod.tiendaId; });
+    if (tienda && tienda.mostrarPrecios === false) { mostrarToast("Esta tienda muestra «Consultar precio»: escríbele para saber el valor."); return; }
     var variante = prod.variantes.find(function (v) { return v.id === varianteId; }) || prod.variantes[0] || null;
     var encargo = estadoP === "A_PEDIDO";
     if (!encargo && (estadoP === "AGOTADO" || !Cat.opcionVendible(prod, variante))) {
@@ -930,14 +939,20 @@
       var coincideTexto = texto === "" ||
         t.nombre.toLowerCase().indexOf(texto) !== -1 ||
         t.rubro.toLowerCase().indexOf(texto) !== -1 ||
-        t.sector.toLowerCase().indexOf(texto) !== -1;
-      return coincideCategoria && coincideTexto;
+        t.sector.toLowerCase().indexOf(texto) !== -1 ||
+        (t.bio || "").toLowerCase().indexOf(texto) !== -1;
+      var coincideTipo = !estado.filtroTipo || t.rubro === estado.filtroTipo;
+      var coincideSector = !estado.filtroSector || t.sector === estado.filtroSector;
+      var coincideAsoc = !estado.filtroAsociacion ||
+        (estado.filtroAsociacion === "__ninguna" ? !t.asociacionId : t.asociacionId === estado.filtroAsociacion);
+      return coincideCategoria && coincideTexto && coincideTipo && coincideSector && coincideAsoc;
     });
 
     if (subtitulo) {
+      var activos = [estado.filtroTipo, estado.filtroSector, estado.filtroAsociacion ? "asociación" : ""].filter(Boolean);
       subtitulo.textContent = estadoCatalogo.cargando && !estadoCatalogo.cargado
         ? "Cargando emprendimientos…"
-        : "Mostrando " + tiendasFiltradas.length + " emprendimientos de Alerce (" + filtro + ")";
+        : "Mostrando " + tiendasFiltradas.length + " de " + TIENDAS.length + " emprendimientos" + (activos.length ? " (filtrado por " + activos.join(", ") + ")" : "");
     }
 
     contenedor.textContent = "";
@@ -968,7 +983,9 @@
       var accionPrincipal = nec.tieneAgendamiento
         ? h("button", { type: "button", class: "btn-accion-pill btn-agenda", text: "Agendar cita", onclick: function () { abrirAgendamientoDirecto(tienda.id); } })
         : h("button", { type: "button", class: "btn-accion-pill btn-negro", text: nec.tieneForoComunidad ? "Vitrina y foro" : "Ver vitrina", onclick: function () { abrirVitrinaTienda(tienda.id); } });
-      var urlWsp = enlaceWhatsapp(tienda.whatsapp, "Hola " + tienda.nombre + "! Vi tu tienda en Alerce Emprende y me gustaría hacer una consulta.");
+      var vias = Cat.viasContacto(tienda);
+      var urlWsp = vias.whatsapp ? enlaceWhatsapp(tienda.whatsapp, "Hola " + tienda.nombre + "! Vi tu tienda en Alerce Emprende y me gustaría hacer una consulta.") : null;
+      var asocTienda = window.AlerceVitrina6 ? window.AlerceVitrina6.nombreAsociacion(tienda.asociacionId) : "";
 
       contenedor.appendChild(h("article", { class: "tarjeta-tienda" }, [
         h("div", { class: "tarjeta-franja-color", style: "background-color: " + Cat.colorHex(tienda.colorPortada, "#1A202C") + ";" }, [
@@ -987,7 +1004,8 @@
             logo,
             h("div", { class: "tarjeta-titulos" }, [
               h("h3", { class: "tarjeta-nombre", text: tienda.nombre }),
-              h("p", { class: "tarjeta-sub", text: [tienda.rubro, tienda.sector].filter(Boolean).join(" · ") })
+              h("p", { class: "tarjeta-sub", text: [tienda.rubro, tienda.sector].filter(Boolean).join(" · ") }),
+              asocTienda ? h("p", { class: "tarjeta-sub tarjeta-asociacion", text: "🤝 " + asocTienda }) : null
             ])
           ]),
           h("p", { class: "tarjeta-descripcion", text: tienda.bio }),
@@ -996,6 +1014,7 @@
           h("div", { class: "tarjeta-acciones-fila" }, [
             accionPrincipal,
             urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-accion-pill", text: "WhatsApp" }) : null,
+            vias.formulario ? h("button", { type: "button", class: "btn-accion-pill", text: "Escribir", onclick: function () { abrirFormularioContacto(tienda.id); } }) : null,
             h("button", { type: "button", class: "btn-qr-icon", "aria-label": "Código QR de " + tienda.nombre, title: "Código QR de la tienda", text: "▦", onclick: function () { abrirQRTienda(tienda.id); } })
           ])
         ])
@@ -1043,10 +1062,14 @@
     if (rubroSector) rubroSector.textContent = [tienda.rubro, tienda.sector].filter(Boolean).join(" · ");
     if (bio) bio.textContent = tienda.bio;
     if (bannerAgenda) bannerAgenda.style.display = tienda.necesidades.tieneAgendamiento ? "block" : "none";
+    var viasModal = Cat.viasContacto(tienda);
     if (btnWhatsapp) {
-      var url = enlaceWhatsapp(tienda.whatsapp, "Hola " + tienda.nombre + "! Vi tu vitrina en Alerce Emprende.");
+      var url = viasModal.whatsapp ? enlaceWhatsapp(tienda.whatsapp, "Hola " + tienda.nombre + "! Vi tu vitrina en Alerce Emprende.") : null;
       if (url) { btnWhatsapp.href = url; btnWhatsapp.style.display = ""; } else { btnWhatsapp.removeAttribute("href"); btnWhatsapp.style.display = "none"; }
     }
+    var btnFormulario = document.getElementById("btn-modal-tienda-formulario");
+    if (btnFormulario) btnFormulario.style.display = viasModal.formulario ? "" : "none";
+    if (window.AlerceVitrina6) window.AlerceVitrina6.pintarExtrasTienda(tienda);
 
     cambiarTabModal(0);
     actualizarContadorTabsModal();
@@ -1166,9 +1189,12 @@
         }));
     }
 
-    var urlWsp = estado.tiendaSeleccionada ? enlaceWhatsapp(estado.tiendaSeleccionada.whatsapp,
-      "Hola " + estado.tiendaSeleccionada.nombre + "! Me interesa «" + p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "") +
-      "» (" + formatearMoneda(precio) + ") que vi en tu vitrina de Alerce.") : null;
+    var tiendaP = TIENDAS.find(function (t) { return t.id === p.tiendaId; }) || estado.tiendaSeleccionada;
+    var preciosVisibles = !tiendaP || tiendaP.mostrarPrecios !== false;
+    var viasP = tiendaP ? Cat.viasContacto(tiendaP) : { whatsapp: false, formulario: false };
+    var urlWsp = tiendaP && viasP.whatsapp ? enlaceWhatsapp(tiendaP.whatsapp,
+      "Hola " + tiendaP.nombre + "! Me interesa «" + p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "") +
+      "»" + (preciosVisibles ? " (" + formatearMoneda(precio) + ")" : "") + " que vi en tu vitrina de Alerce.") : null;
 
     return h("article", { class: "producto-fila-card", "data-producto-vitrina": p.id }, [
       h("div", { class: "producto-card-top" }, [
@@ -1181,19 +1207,20 @@
           ])
         ]),
         h("div", { class: "producto-card-precio" }, [
-          h("span", { class: "prod-precio", text: formatearMoneda(precio) }),
+          h("span", { class: "prod-precio" + (preciosVisibles ? "" : " prod-precio-consultar"), "data-precio-opcion": opcion ? opcion.id : "", text: Cat.textoPrecio(tiendaP, precio, formatearMoneda) }),
           h("div", null, [h("span", { class: "badge-necesidad " + claseEstado, text: Cat.etiquetaEstado(estadoP) })]),
           detalleUnidades ? h("small", { class: "prod-unidades", text: detalleUnidades }) : null
         ])
       ]),
       chips,
       h("div", { class: "producto-botones-fila" }, [
-        h("button", {
+        preciosVisibles ? h("button", {
           type: "button", class: "btn-anadir-carrito", disabled: !vendible,
           text: !vendible ? "Agotado" : (estadoP === "A_PEDIDO" ? "🛒 Encargar" : "🛒 Agregar al carrito"),
           onclick: function () { agregarAlCarrito(p.id, opcion ? opcion.id : null); }
-        }),
-        urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-whatsapp-prod", text: "Pedir por WhatsApp" }) : null
+        }) : null,
+        urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-whatsapp-prod", text: preciosVisibles ? "Pedir por WhatsApp" : "Consultar por WhatsApp" }) : null,
+        viasP.formulario && tiendaP ? h("button", { type: "button", class: "btn-accion-pill", text: "Consultar por mensaje", onclick: function () { abrirFormularioContacto(tiendaP.id, p.id, p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "")); } }) : null
       ])
     ]);
   }
@@ -1330,7 +1357,7 @@
     if (!estado.tiendaSeleccionada) return;
     var t = estado.tiendaSeleccionada;
     // Enlace real a la vitrina que abre directo la ficha de esta tienda
-    var url = "https://agustin671.github.io/EmprendedoresPuertoMontt/?tienda=" + encodeURIComponent(t.id);
+    var url = "https://diego-733.github.io/EmprendedoresPuertoMontt/?tienda=" + encodeURIComponent(t.id);
 
     var nombreEl = document.getElementById("qr-tienda-nombre");
     var urlEl = document.getElementById("qr-tienda-url");
@@ -1355,7 +1382,7 @@
 
   function copiarEnlaceQR() {
     if (!estado.tiendaSeleccionada) return;
-    var url = "https://agustin671.github.io/EmprendedoresPuertoMontt/?tienda=" + encodeURIComponent(estado.tiendaSeleccionada.id);
+    var url = "https://diego-733.github.io/EmprendedoresPuertoMontt/?tienda=" + encodeURIComponent(estado.tiendaSeleccionada.id);
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(function () {
         mostrarToast("¡Enlace copiado al portapapeles!");
@@ -1450,11 +1477,17 @@
     mostrarToast("¡Cita agendada para " + estado.fechaAgendaSeleccionada + " a las " + estado.horaAgendaSeleccionada + " hrs!");
   }
 
+  /** Formulario de contacto (RF-CMP-05): solo si la emprendedora lo activó. */
+  function abrirFormularioContacto(tiendaId, productoId, referencia) {
+    if (window.AlerceVitrina6) window.AlerceVitrina6.abrirFormulario(tiendaId, productoId || null, referencia || "");
+  }
+
   // ============================================================
   // FICHA DE FERIAS & ASOCIACIONES
   // ============================================================
 
   function abrirFichaFeria(feriaClave) {
+    if (window.AlerceVitrina6 && window.AlerceVitrina6.abrirFeria(feriaClave)) return;
     var modalCuerpo = document.getElementById("modal-feria-cuerpo");
     if (!modalCuerpo) return;
 
@@ -1522,6 +1555,7 @@
   function renderizarAsociaciones() {
     var contenedor = document.getElementById("grilla-asociaciones-container");
     if (!contenedor) return;
+    if (window.AlerceVitrina6) { window.AlerceVitrina6.pintarAsociaciones(); return; }
 
     var html = "";
     ASOCIACIONES.forEach(function (aso) {
@@ -2742,6 +2776,28 @@
     // Accesibilidad
     configurarAccesibilidad();
 
+    // Entrega 6: directorio con filtros, asociaciones, ferias con mapa, contacto y administración.
+    if (window.AlerceVitrina6) {
+      window.AlerceVitrina6.iniciar({
+        modo: MODO, servicio: servicio, Cat: Cat, h: h, imagenSegura: imagenSegura,
+        abrirModal: abrirModal, cerrarModal: cerrarModal, mostrarToast: mostrarToast,
+        formatearMoneda: formatearMoneda, enlaceWhatsapp: enlaceWhatsapp,
+        tiendas: function () { return TIENDAS; },
+        productos: function () { return PRODUCTOS; },
+        usuario: function () { return estado.usuario; },
+        esAdmin: function () { return esUsuarioAdmin(); },
+        abrirVitrinaTienda: abrirVitrinaTienda,
+        tarjetaProducto: function (p) { return tarjetaProductoVitrina(p); },
+        promesaCatalogo: function () { return promesaCatalogo; },
+        fijarFiltros: function (f) {
+          estado.filtroTipo = f.tipo || ""; estado.filtroSector = f.sector || ""; estado.filtroAsociacion = f.asociacion || "";
+          renderizarTiendasMarketplace();
+        },
+        fijarTiendaSeleccionada: function (t) { estado.tiendaSeleccionada = t; },
+        recargarCatalogo: function () { return cargarCatalogoPublico(); }
+      });
+    }
+
     // Render inicial
     actualizarBadgesCarrito();
     renderizarTiendasMarketplace();
@@ -3121,6 +3177,7 @@
   }
 
   function refrescarVistasCatalogo() {
+    if (window.AlerceVitrina6) window.AlerceVitrina6.alActualizarCatalogo();
     renderizarTiendasMarketplace();
     var modal = document.getElementById("modal-tienda-vitrina");
     if (modal && modal.classList.contains("abierto") && estado.tabModalActiva === 0) renderizarProductosModal();
@@ -4072,6 +4129,8 @@
     marcar("check-cap-foro", nec.tieneForoComunidad);
     marcar("check-cap-agenda", nec.tieneAgendamiento);
     marcar("check-historial-ventas", tienda.historialActivo !== false);
+    marcar("edit-tienda-mostrar-precios", tienda.mostrarPrecios !== false);
+    poner("edit-tienda-contacto-modo", tienda.contactoModo || "AMBOS");
     var v = valoresIniciales();
     poner("def-categoria", v.categoria);
     poner("def-modalidad", v.modalidad);
@@ -4102,6 +4161,8 @@
         tieneAgendamiento: marcado("check-cap-agenda", false)
       },
       historial_activo: marcado("check-historial-ventas", true),
+      mostrar_precios: marcado("edit-tienda-mostrar-precios", true),
+      contacto_modo: Cat.modoContacto(valor("edit-tienda-contacto-modo")),
       valores_producto: {
         categoria: valor("def-categoria") || "TEXTIL",
         modalidad: valor("def-modalidad") || "REGULAR",
@@ -4499,6 +4560,7 @@
 
     actualizarKPIsAdmin();
     renderizarAdminEmprendedoras();
+    if (window.AlerceVitrina6) window.AlerceVitrina6.pintarAdmin();
 
     // Activar pestaña visual en el menú y desplazarse suavemente
     document.querySelectorAll(".menu-navegacion a").forEach(function (l) { l.classList.remove("activo"); });
@@ -4790,7 +4852,7 @@
                 "Hola " + (c.nombre || "") + ", aquí están tus credenciales de acceso:\\n" +
                 "Usuario: " + c.email + "\\n" +
                 "Contraseña: " + c.clave + "\\n" +
-                "Ingresa en: https://agustin671.github.io/EmprendedoresPuertoMontt/";
+                "Ingresa en: https://diego-733.github.io/EmprendedoresPuertoMontt/";
     
     if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(texto).then(function() {
@@ -5849,7 +5911,11 @@
     aplicarUsuarioLocal: aplicarUsuarioLocal,
     esUsuarioEmprendedora: esUsuarioEmprendedora,
     seleccionarModoUsuario: seleccionarModoUsuario,
-    registrarUsuarioNormalModal: registrarUsuarioNormalModal
+    registrarUsuarioNormalModal: registrarUsuarioNormalModal,
+    // Entrega 6
+    abrirFormularioContacto: abrirFormularioContacto,
+    abrirFormularioContactoActual: function () { if (estado.tiendaSeleccionada) abrirFormularioContacto(estado.tiendaSeleccionada.id); },
+    compartirTiendaActual: function () { if (estado.tiendaSeleccionada && window.AlerceVitrina6) window.AlerceVitrina6.compartir("tienda", estado.tiendaSeleccionada.id, estado.tiendaSeleccionada.nombre); }
   };
 
   // Si se llegó por el QR o el enlace de una tienda (?tienda=ID), abrir su ficha.
@@ -5859,6 +5925,8 @@
   function abrirTiendaDesdeEnlace() {
     var id = null;
     try { id = new URLSearchParams(window.location.search).get("tienda"); } catch (e) { id = null; }
+    // Entrega 6 (RF-COM-03): enlaces y QR de producto, asociación y feria.
+    if (!id && window.AlerceVitrina6 && window.AlerceVitrina6.abrirDesdeEnlace()) return;
     if (!id) return;
     promesaCatalogo.then(function () {
       if (TIENDAS.some(function (t) { return t.id === id; })) abrirVitrinaTienda(id);

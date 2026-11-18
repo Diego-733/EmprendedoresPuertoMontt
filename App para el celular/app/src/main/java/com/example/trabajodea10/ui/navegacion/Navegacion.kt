@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import com.example.trabajodea10.data.Rol
@@ -53,6 +54,21 @@ sealed class Ruta(val grafica: String? = null) {
     data object VisInicio : Ruta("vis_inicio")
     data object VisProductos : Ruta("vis_productos")
     data object VisAyuda : Ruta("vis_ayuda")
+
+    // Entrega 6: modo comprador, difusión y mapas
+    data object VisMarketplaceClasico : Ruta()
+    data class TiendaPublica(val tiendaId: String) : Ruta()
+    data class ProductoPublico(val productoId: String) : Ruta()
+    data class AsociacionPublica(val asociacionId: String) : Ruta()
+    data class FeriaPublica(val feriaId: String) : Ruta()
+    data object ConfigVitrina : Ruta()
+    data object BandejaContactos : Ruta()
+}
+
+/** Estado de la pantalla de entrada sin sesión (RF-ACC-06). */
+object AccesoApp {
+    /** true: mostrar el ingreso con correo en vez de la opción del administrador. */
+    var mostrarLogin by androidx.compose.runtime.mutableStateOf(false)
 }
 
 data class ItemNavegacion(
@@ -76,8 +92,8 @@ fun itemsSegunRol(rol: Rol): List<ItemNavegacion> = when (rol) {
         ItemNavegacion(Ruta.EmpTienda, "Tienda", Icons.Filled.Store)
     )
     Rol.VISITANTE -> listOf(
-        ItemNavegacion(Ruta.VisProductos, "Marketplace", Icons.Filled.Store),
-        ItemNavegacion(Ruta.VisInicio, "Ferias", Icons.Filled.CalendarMonth),
+        ItemNavegacion(Ruta.VisProductos, "Vitrina", Icons.Filled.Store),
+        ItemNavegacion(Ruta.VisInicio, "Mapa ferias", Icons.Filled.CalendarMonth),
         ItemNavegacion(Ruta.VisAyuda, "Ayuda", Icons.Filled.Phone),
         ItemNavegacion(Ruta.Ajustes, "Mi perfil", Icons.Filled.Person)
     )
@@ -133,7 +149,20 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
         }
     }
 
+    /** Desde el modo comprador sin cuenta: ir a la pantalla de ingreso con correo. */
+    fun irAIngreso() {
+        AccesoApp.mostrarLogin = true
+        TramaStore.cerrarSesion()
+        if (pila.isNotEmpty()) {
+            pila[0] = Ruta.Login
+            while (pila.size > 1) pila.removeAt(pila.lastIndex)
+        } else {
+            pila.add(Ruta.Login)
+        }
+    }
+
     fun cerrarSesion() {
+        AccesoApp.mostrarLogin = true
         // Cierra también la sesión del servidor (o la conserva si la huella está activada)
         SesionManager.cerrarSesion()
         if (pila.isNotEmpty()) {
@@ -150,7 +179,10 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
 private fun rutaInicialDe(rol: Rol?): Ruta = when (rol) {
     Rol.ADMIN -> Ruta.AdminInicio
     Rol.EMPRENDEDORA -> Ruta.EmpInicio
-    Rol.VISITANTE -> Ruta.VisInicio
+    // Sin sesión en el servidor, cada vez que se abre la app se vuelve a aplicar la
+    // navegación anónima del administrador (A08). Nunca se abre en el mapa: el permiso
+    // de ubicación se pide solo al entrar a esa pantalla (A15).
+    Rol.VISITANTE -> if (com.example.trabajodea10.data.remoto.ClienteSupabase.sesion == null) Ruta.Login else Ruta.VisProductos
     null -> Ruta.Login
 }
 

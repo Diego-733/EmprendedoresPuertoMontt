@@ -7,6 +7,7 @@ const { execFileSync } = require("child_process");
 const { PostgresLocal, versionesDisponibles, ejecutarArchivo, RAIZ } = require("./postgres_local");
 const { crearUsuarios, como, UID, Registro } = require("./ayudas");
 const pruebasEntrega5 = require("./pruebas_entrega5");
+const pruebasEntrega6 = require("./pruebas_entrega6");
 const concurrencia = require("./concurrencia");
 
 const COMMIT_ESQUEMA_ANTERIOR = "6859b8f";
@@ -17,7 +18,8 @@ async function instalacionLimpia(pg, r) {
   await c.connect();
   try {
     for (const f of ["supabase/stub_local.sql", "supabase/01_esquema.sql", "supabase/02_datos_prueba.sql",
-                     "supabase/03_migracion_fotos.sql", "supabase/04_registro_vendedores.sql", "supabase/05_catalogo_ventas.sql"]) {
+                     "supabase/03_migracion_fotos.sql", "supabase/04_registro_vendedores.sql", "supabase/05_catalogo_ventas.sql",
+                     "supabase/06_vitrina_mapas.sql", "supabase/06_vitrina_mapas.sql", "supabase/06_datos_demo.sql"]) {
       await ejecutarArchivo(c, f);
     }
     // Supabase del curso concede estos privilegios por defecto; RLS no protege TRUNCATE.
@@ -49,6 +51,7 @@ async function instalacionLimpia(pg, r) {
 
     await crearUsuarios(c);
     await pruebasEntrega5(c, r);
+    await pruebasEntrega6(c, r);
     await concurrencia(pg, "limpia", c, r);
   } finally {
     await c.end();
@@ -72,7 +75,8 @@ async function actualizacion(pg, r) {
       values ('p_custom_1', 't_minimarket_rosa', 'Alta web antigua', 'GENERAL', 3000, true, '[{"nombre":"Unidad","precio":3000}]', 'data:image/png;base64,AAAA')`);
     const antes = (await c.query("select (select count(*) from productos)::int p, (select count(*) from ventas)::int v, (select count(*) from tiendas)::int t")).rows[0];
 
-    for (const f of ["supabase/03_migracion_fotos.sql", "supabase/04_registro_vendedores.sql", "supabase/05_catalogo_ventas.sql"]) {
+    for (const f of ["supabase/03_migracion_fotos.sql", "supabase/04_registro_vendedores.sql", "supabase/05_catalogo_ventas.sql",
+                     "supabase/06_vitrina_mapas.sql"]) {
       await ejecutarArchivo(c, f);
     }
     const despues = (await c.query("select (select count(*) from productos)::int p, (select count(*) from ventas)::int v, (select count(*) from tiendas)::int t")).rows[0];
@@ -84,7 +88,7 @@ async function actualizacion(pg, r) {
     const visibles = (await como(c, null, "select count(*)::int n from productos where id like 'p\\_%' and tienda_id like 't\\_%' and publicado")).rows[0].n;
     r.ok("Los productos publicados con unidades siguen visibles sin sesión", visibles >= 14, visibles);
     const migr = (await c.query("select nombre from migraciones_aplicadas")).rows.map(x => x.nombre);
-    r.igual("Queda registrada la migración", migr, ["05_catalogo_ventas"]);
+    r.igual("Quedan registradas las migraciones", migr.sort(), ["05_catalogo_ventas", "06_vitrina_mapas"]);
     await pruebasEntrega5(c, r);
 
     // Diagnóstico de solo lectura: se ejecuta completo sin errores ni cambios.

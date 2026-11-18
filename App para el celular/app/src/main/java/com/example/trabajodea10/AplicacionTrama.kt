@@ -16,6 +16,9 @@ class AplicacionTrama : Application() {
         ClienteSupabase.inicializar(this)
         Sincronizador.inicializar(this)
         TramaStore.inicializar(this)
+        // Entrega 6: vitrina (navegación anónima guardada) y mapas OpenStreetMap.
+        com.example.trabajodea10.data.VitrinaStore.inicializar(this)
+        com.example.trabajodea10.ui.comprador.configurarMapas(this)
         // Si quedaron cambios sin subir (por ejemplo, sin señal en la feria), se intentan ahora.
         Sincronizador.subirEnSegundoPlano()
     }

@@ -467,6 +467,13 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
     val email = SesionManager.emailActual ?: "Sin correo registrado"
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Modo comprador sin cuenta (navegación anónima permitida): ofrecer ingresar.
+        if (SesionManager.emailActual == null) {
+            com.example.trabajodea10.ui.componentes.BotonPrimario(
+                texto = "Ingresar o crear cuenta",
+                onClick = { nav.irAIngreso() }
+            )
+        }
         Tarjeta {
             Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(

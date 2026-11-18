@@ -20,6 +20,7 @@
       update: function (v) { q.op = "update"; q.valores = v; return api; },
       delete: function () { q.op = "delete"; return api; },
       insert: function (v) { q.op = "insert"; q.valores = v; return api; },
+      upsert: function (v, o) { q.op = "upsert"; q.valores = v; q.clave = (o && o.onConflict) || "id"; return api; },
       eq: function (k, v) { q.filtros.push(function (f) { return f[k] === v; }); return api; },
       gte: function (k, v) { q.filtros.push(function (f) { return !f[k] || f[k] >= v; }); return api; },
       in: function (k, v) { q.filtros.push(function (f) { return v.indexOf(f[k]) >= 0; }); return api; },
@@ -39,6 +40,17 @@
         if (falla) {
           if (typeof falla === "string") return rechazar(new TypeError(falla));
           return resolver({ data: null, error: falla });
+        }
+        if (q.op === "insert" || q.op === "upsert") {
+          F.tablas[q.tabla] = F.tablas[q.tabla] || [];
+          var nuevas = [].concat(q.valores).map(copia);
+          var afectadas = nuevas.map(function (n) {
+            var previa = q.op === "upsert" ? F.tablas[q.tabla].find(function (f) { return f[q.clave] === n[q.clave]; }) : null;
+            if (previa) { Object.assign(previa, n); return previa; }
+            F.tablas[q.tabla].push(n);
+            return n;
+          });
+          return resolver({ data: copia(afectadas), error: null });
         }
         var filas = (F.tablas[q.tabla] || []).filter(function (f) { return q.filtros.every(function (fn) { return fn(f); }); });
         if (q.op === "update") { filas.forEach(function (f) { Object.assign(f, q.valores); }); }

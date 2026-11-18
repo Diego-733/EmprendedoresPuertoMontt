@@ -171,6 +171,42 @@ object SesionManager {
         prepararSesion()
     }.onFailure { Log.w(TAG, "No se pudo crear la tienda: ${it.message}") }
 
+    // ============================================================ Google (Entrega 6, RF-ACC-06)
+
+    /** Dirección a la que Supabase devuelve a la app (debe estar en Auth → URL Configuration → Redirect URLs). */
+    const val REDIRECCION_OAUTH = "com.company.ultrapp://login-callback"
+
+    /** Rol obtenido al volver del navegador; TramaApp lo usa para entrar. */
+    var rolPorOAuth by mutableStateOf<Rol?>(null)
+    var errorOAuth by mutableStateOf<String?>(null)
+
+    fun urlIngresoGoogle(): String =
+        ConfigSupabase.url + "/auth/v1/authorize?provider=google&redirect_to=" +
+            java.net.URLEncoder.encode(REDIRECCION_OAUTH, "UTF-8")
+
+    /** Procesa com.company.ultrapp://login-callback#access_token=…&refresh_token=… */
+    fun procesarRetornoOAuth(uri: Uri) {
+        val datos = (uri.fragment ?: uri.query ?: "").split("&").mapNotNull {
+            val i = it.indexOf('=')
+            if (i <= 0) null else it.substring(0, i) to Uri.decode(it.substring(i + 1))
+        }.toMap()
+        val error = datos["error_description"] ?: datos["error"]
+        val access = datos["access_token"]
+        val refresh = datos["refresh_token"].orEmpty()
+        if (access.isNullOrBlank()) {
+            errorOAuth = error?.replace('+', ' ') ?: "No se completó el ingreso con Google."
+            return
+        }
+        ambito.launch {
+            runCatching {
+                ClienteSupabase.establecerSesionOAuth(access, refresh)
+                olvidarHuellaDeOtraCuenta()
+                prepararSesion()
+            }.onSuccess { rolPorOAuth = it; errorOAuth = null }
+                .onFailure { errorOAuth = it.message ?: "No se completó el ingreso con Google." }
+        }
+    }
+
     /** Envía el correo con el enlace para crear una contraseña nueva. */
     suspend fun recuperarContrasena(correo: String): Result<Unit> = runCatching {
         if (correo.isBlank()) throw ErrorSupabase(0, "Escribe tu correo electrónico.")

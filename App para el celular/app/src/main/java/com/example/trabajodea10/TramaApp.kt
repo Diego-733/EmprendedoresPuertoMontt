@@ -59,6 +59,17 @@ fun TramaApp() {
     // Con una sesión guardada, al abrir se sube lo pendiente y se trae lo nuevo del servidor.
     androidx.compose.runtime.LaunchedEffect(Unit) { com.example.trabajodea10.data.SesionManager.actualizarAlAbrir() }
 
+    // Regreso del ingreso con Google (enlace com.company.ultrapp://login-callback).
+    val rolOAuth = com.example.trabajodea10.data.SesionManager.rolPorOAuth
+    androidx.compose.runtime.LaunchedEffect(rolOAuth) {
+        if (rolOAuth != null) {
+            com.example.trabajodea10.ui.navegacion.AccesoApp.mostrarLogin = false
+            nav.iniciarSesion(rolOAuth)
+            com.example.trabajodea10.data.SesionManager.rolPorOAuth = null
+            avisar("¡Bienvenida! Ingresaste con Google.")
+        }
+    }
+
     BackHandler(enabled = nav.pila.size > 1) {
         nav.volver()
     }
@@ -146,7 +157,7 @@ private fun ContenidoSegunRuta(
     avisar: (String) -> Unit
 ) {
     when (ruta) {
-        Ruta.Login -> PantallaLogin(nav = nav)
+        Ruta.Login -> com.example.trabajodea10.ui.auth.PantallaAcceso(nav = nav)
 
         Ruta.AdminInicio -> PantallaAdminInicio(nav = nav, avisar = avisar)
         Ruta.AdminFerias -> PantallaAdminFerias(nav = nav, avisar = avisar)
@@ -174,8 +185,16 @@ private fun ContenidoSegunRuta(
         Ruta.HistorialVentas -> com.example.trabajodea10.ui.emprendedora.PantallaHistorialVentas(nav = nav, avisar = avisar)
         Ruta.ConfigVentas -> com.example.trabajodea10.ui.emprendedora.PantallaConfigVentas(nav = nav, avisar = avisar)
 
-        Ruta.VisInicio -> PantallaVisFerias(avisar = avisar)
-        Ruta.VisProductos -> PantallaMarketplace(nav = nav, avisar = avisar)
+        // Entrega 6: mapa de próximas ferias (pide la ubicación al abrirse) y directorio con filtros.
+        Ruta.VisInicio -> com.example.trabajodea10.ui.comprador.PantallaMapaFerias(nav = nav)
+        Ruta.VisProductos -> com.example.trabajodea10.ui.comprador.PantallaDirectorio(nav = nav, avisar = avisar)
         Ruta.VisAyuda -> PantallaVisAyuda()
+        Ruta.VisMarketplaceClasico -> PantallaMarketplace(nav = nav, avisar = avisar)
+        is Ruta.TiendaPublica -> com.example.trabajodea10.ui.comprador.PantallaTiendaPublica(ruta.tiendaId, nav, avisar)
+        is Ruta.ProductoPublico -> com.example.trabajodea10.ui.comprador.PantallaProductoPublico(ruta.productoId, nav, avisar)
+        is Ruta.AsociacionPublica -> com.example.trabajodea10.ui.comprador.PantallaAsociacionPublica(ruta.asociacionId, nav)
+        is Ruta.FeriaPublica -> com.example.trabajodea10.ui.comprador.PantallaFeriaPublica(ruta.feriaId, nav)
+        Ruta.ConfigVitrina -> com.example.trabajodea10.ui.emprendedora.PantallaConfigVitrina(nav, avisar)
+        Ruta.BandejaContactos -> com.example.trabajodea10.ui.emprendedora.PantallaBandejaContactos(nav, avisar)
     }
 }

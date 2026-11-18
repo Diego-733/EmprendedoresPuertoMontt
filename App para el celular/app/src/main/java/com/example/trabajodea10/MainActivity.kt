@@ -31,6 +31,22 @@ import com.example.trabajodea10.ui.theme.TramaAppTheme
 // FragmentActivity (y no ComponentActivity) porque el aviso de huella de Android
 // (BiometricPrompt) solo funciona sobre una FragmentActivity.
 class MainActivity : FragmentActivity() {
+
+    // Regreso del ingreso con Google: com.company.ultrapp://login-callback#access_token=…
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        procesarEnlace(intent)
+    }
+
+    private fun procesarEnlace(intent: android.content.Intent?) {
+        val datos = intent?.data ?: return
+        if (datos.scheme == "com.company.ultrapp" && datos.host == "login-callback") {
+            com.example.trabajodea10.data.SesionManager.procesarRetornoOAuth(datos)
+            intent?.data = null
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("app_diagnostico", Context.MODE_PRIVATE)
@@ -46,6 +62,7 @@ class MainActivity : FragmentActivity() {
             defaultHandler?.uncaughtException(thread, throwable)
         }
         enableEdgeToEdge()
+        procesarEnlace(intent)
         setContent {
             com.example.trabajodea10.ui.theme.TramaAppTheme {
                 val errorPrevio = remember { prefs.getString("ultimo_error", null) }

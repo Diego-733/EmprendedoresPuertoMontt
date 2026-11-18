@@ -7,10 +7,15 @@ import android.net.Uri
 /**
  * Vitrina pública que se comparte por WhatsApp y se codifica en el QR.
  */
-const val URL_VITRINA = "https://agustin671.github.io/EmprendedoresPuertoMontt/"
+const val URL_VITRINA = "https://diego-733.github.io/EmprendedoresPuertoMontt/"
 
 /** Enlace que abre directamente la ficha de una tienda en la vitrina web (también va en su QR). */
 fun urlTienda(tiendaId: String): String = URL_VITRINA + "?tienda=" + android.net.Uri.encode(tiendaId)
+
+/** Enlaces públicos de la Entrega 6 (RF-COM-01/03): abren su página web sin iniciar sesión. */
+fun urlProducto(productoId: String): String = URL_VITRINA + "?producto=" + android.net.Uri.encode(productoId)
+fun urlAsociacion(asociacionId: String): String = URL_VITRINA + "?asociacion=" + android.net.Uri.encode(asociacionId)
+fun urlFeria(feriaId: String): String = URL_VITRINA + "?feria=" + android.net.Uri.encode(feriaId)
 
 /**
  * Acciones externas (mapas, teléfono, WhatsApp) pensadas para botones grandes.

@@ -160,7 +160,9 @@ fun PantallaTienda(
         tieneAgendamiento, tieneStock, tieneProductosAPedido, tieneVentaPorWhatsApp,
         participaEnFerias, tieneForoComunidad
     ) {
-        Tienda(
+        // copy(): conserva lo que esta pantalla no edita (precios, contacto, punto de retiro,
+        // historial y valores de producto). Antes se reiniciaban al guardar la ficha.
+        TramaStore.tienda.copy(
             id = tiendaBase.id,
             nombre = nombre.trim().ifBlank { "Mi Tienda" },
             rubro = rubro.trim().ifBlank { "Comercio" },
@@ -196,6 +198,28 @@ fun PantallaTienda(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // Entrega 6: configuración de la vitrina (A16, A18) y bandeja del formulario (A17)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = { nav.irA(com.example.trabajodea10.ui.navegacion.Ruta.ConfigVitrina) },
+                    colors = ButtonDefaults.buttonColors(containerColor = NegroApple),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Text("Precios, contacto y punto de retiro", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+                OutlinedButton(
+                    onClick = { nav.irA(com.example.trabajodea10.ui.navegacion.Ruta.BandejaContactos) },
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, NegroApple),
+                    modifier = Modifier.weight(1f).height(56.dp)
+                ) {
+                    Icon(Icons.Filled.Email, contentDescription = null, tint = NegroApple, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Mensajes recibidos", color = NegroApple, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+
             // Saludo personalizado estilo Apple Studio
             Surface(
                 shape = RoundedCornerShape(16.dp),

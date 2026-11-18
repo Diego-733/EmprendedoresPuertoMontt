@@ -157,6 +157,12 @@ object TiendaRepositorio {
                 tieneForoComunidad = n("tieneForoComunidad", false)
             ),
             historialActivo = o.booleano("historial_activo", true),
+            mostrarPrecios = o.booleano("mostrar_precios", true),
+            contactoModo = com.example.trabajodea10.data.ModoContacto.desde(o.texto("contacto_modo")),
+            asociacionId = o.texto("asociacion_id")?.takeIf { it.isNotBlank() },
+            puntoLat = o["punto_lat"]?.jsonPrimitive?.doubleOrNull,
+            puntoLng = o["punto_lng"]?.jsonPrimitive?.doubleOrNull,
+            puntoNombre = o.texto("punto_nombre")?.takeIf { it.isNotBlank() },
             valoresProducto = ValoresProducto(
                 categoria = enumO(vt("categoria"), Categoria.TEXTIL),
                 modalidad = enumO(vt("modalidad"), Modalidad.REGULAR),
@@ -168,7 +174,16 @@ object TiendaRepositorio {
         )
     }
 
-    private fun aJson(t: Tienda): String = buildJsonObject {
+    private fun aJson(t: Tienda, conVitrina: Boolean = true): String = buildJsonObject {
+        if (conVitrina) {
+            // Entrega 6 (supabase/06_vitrina_mapas.sql). La asociación la asigna solo el administrador.
+            put("mostrar_precios", t.mostrarPrecios)
+            put("contacto_modo", t.contactoModo.name)
+            val conPunto = t.puntoLat != null && t.puntoLng != null
+            put("punto_lat", if (conPunto) t.puntoLat else null)
+            put("punto_lng", if (conPunto) t.puntoLng else null)
+            put("punto_nombre", if (conPunto) t.puntoNombre?.trim()?.takeIf { it.isNotEmpty() } else null)
+        }
         put("nombre", t.nombre)
         put("rubro", t.rubro)
         put("sector", t.sector)
@@ -209,10 +224,19 @@ object TiendaRepositorio {
      * fila (por ejemplo, porque la tienda no es de quien inició sesión).
      */
     suspend fun actualizar(t: Tienda): Boolean {
-        val texto = ClienteSupabase.pedir(
-            "PATCH", "/rest/v1/tiendas?id=eq.${cod(t.id)}",
-            cuerpoJson = aJson(t), cabeceras = mapOf("Prefer" to "return=representation")
-        )
+        val texto = try {
+            ClienteSupabase.pedir(
+                "PATCH", "/rest/v1/tiendas?id=eq.${cod(t.id)}",
+                cuerpoJson = aJson(t), cabeceras = mapOf("Prefer" to "return=representation")
+            )
+        } catch (e: ErrorSupabase) {
+            // Base sin la migración 06: se guarda al menos la ficha (sin la configuración nueva).
+            if (e.codigo != 400 || !e.crudo.contains("column", ignoreCase = true)) throw e
+            ClienteSupabase.pedir(
+                "PATCH", "/rest/v1/tiendas?id=eq.${cod(t.id)}",
+                cuerpoJson = aJson(t, conVitrina = false), cabeceras = mapOf("Prefer" to "return=representation")
+            )
+        }
         return arreglo(texto).isNotEmpty()
     }
 }

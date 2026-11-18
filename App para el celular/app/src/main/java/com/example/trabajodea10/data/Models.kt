@@ -268,6 +268,69 @@ data class NecesidadesTienda(
     }
 }
 
+/** Cómo la contactan desde la vitrina (RF-CFG-02, RF-CMP-05). */
+@Serializable
+enum class ModoContacto(val etiqueta: String) {
+    WHATSAPP("Solo WhatsApp"),
+    FORMULARIO("Solo formulario"),
+    AMBOS("WhatsApp y formulario");
+
+    val usaWhatsApp: Boolean get() = this == WHATSAPP || this == AMBOS
+    val usaFormulario: Boolean get() = this == FORMULARIO || this == AMBOS
+
+    companion object {
+        fun desde(valor: String?): ModoContacto =
+            entries.firstOrNull { it.name == valor?.uppercase() } ?: AMBOS
+    }
+}
+
+/** Qué hace la app cuando se abre sin sesión (RF-ACC-06, la elige el administrador en la web). */
+enum class NavegacionAnonima { PERMITIR, INVITAR, OBLIGAR;
+    companion object {
+        fun desde(valor: String?): NavegacionAnonima =
+            entries.firstOrNull { it.name == valor?.uppercase() } ?: PERMITIR
+    }
+}
+
+/** Asociación pública (RF-ASO-03). */
+data class AsociacionPublica(
+    val id: String,
+    val nombre: String,
+    val sector: String = "",
+    val localidad: String = "",
+    val descripcion: String = "",
+    val activa: Boolean = true
+)
+
+/** Feria publicada en el servidor, con su ubicación (RF-FER-01, RF-MAP-02). */
+data class FeriaPublica(
+    val id: String,
+    val nombre: String,
+    val descripcion: String = "",
+    val imagenUrl: String? = null,
+    val lugar: String = "",
+    val fechaInicio: String? = null,   // AAAA-MM-DD
+    val fechaFin: String? = null,
+    val horario: String = "",
+    val organizador: String = "",
+    val estado: String = "PROXIMA",
+    val lat: Double? = null,
+    val lng: Double? = null
+) {
+    val tieneUbicacion: Boolean get() = lat != null && lng != null
+}
+
+/** Mensaje que llegó por el formulario de la vitrina (RF-CFG-03). */
+data class ContactoRecibido(
+    val id: String,
+    val nombre: String,
+    val medio: String,
+    val mensaje: String,
+    val productoId: String?,
+    val leido: Boolean,
+    val creadoEn: String
+)
+
 @Serializable
 data class Tienda(
     val id: String = "emp1",
@@ -282,8 +345,20 @@ data class Tienda(
     val logoUrl: String? = null,
     val necesidades: NecesidadesTienda = NecesidadesTienda(),
     val historialActivo: Boolean = true,
-    val valoresProducto: ValoresProducto = ValoresProducto()
+    val valoresProducto: ValoresProducto = ValoresProducto(),
+    // Entrega 6: vitrina y mapas
+    val mostrarPrecios: Boolean = true,
+    val contactoModo: ModoContacto = ModoContacto.AMBOS,
+    val asociacionId: String? = null,
+    val puntoLat: Double? = null,
+    val puntoLng: Double? = null,
+    val puntoNombre: String? = null
 ) {
+    val tienePuntoRetiro: Boolean get() = puntoLat != null && puntoLng != null
+    /** WhatsApp solo si lo eligió y dejó un número utilizable. */
+    val ofreceWhatsApp: Boolean get() = contactoModo.usaWhatsApp && whatsapp.count { it.isDigit() } >= 8
+    val ofreceFormulario: Boolean get() = contactoModo.usaFormulario
+
     fun toMap(): Map<String, Any> = mapOf(
         "id" to id,
         "nombre" to nombre,

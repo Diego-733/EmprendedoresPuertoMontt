@@ -352,7 +352,9 @@ data class Tienda(
     val asociacionId: String? = null,
     val puntoLat: Double? = null,
     val puntoLng: Double? = null,
-    val puntoNombre: String? = null
+    val puntoNombre: String? = null,
+    // Entrega 7: la emprendedora decide si recibe calificaciones (RF-CFG-05)
+    val calificacionesActivas: Boolean = false
 ) {
     val tienePuntoRetiro: Boolean get() = puntoLat != null && puntoLng != null
     /** WhatsApp solo si lo eligió y dejó un número utilizable. */

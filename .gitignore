@@ -37,3 +37,12 @@ playwright-report/
 /.agents/
 /.claude/
 /skills-lock.json
+
+# Servicio de envío de avisos: configuración y cuenta de servicio locales (nunca en git)
+servicios/notificador/.env
+**/*cuenta-servicio*.json
+**/*firebase-adminsdk*.json
+
+# Cachés, registros y temporales
+*.log
+.kotlin/

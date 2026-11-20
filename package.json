@@ -7,11 +7,14 @@
     "test:web": "node --test \"tests/web/**/*.test.js\"",
     "test:sql": "node tests/sql/ejecutar.js",
     "test:e2e": "playwright test --config tests/e2e/playwright.config.js",
-    "servir": "node tests/e2e/servidor.js"
+    "servir": "node tests/e2e/servidor.js",
+    "notificar": "node servicios/notificador/enviar.js",
+    "notificar:vigilar": "node servicios/notificador/enviar.js --vigilar 15"
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",
     "embedded-postgres": "17.11.0-beta.19",
+    "leaflet": "1.9.4",
     "pg": "8.23.1"
   }
 }

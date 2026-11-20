@@ -537,6 +537,9 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
         }
     }
 
+    // Entrega 7: consentimiento de avisos, lo que sigue y su bandeja (RNF-PRI-02)
+    com.example.trabajodea10.ui.comprador.SeccionAvisosCuenta(nav, avisar)
+
     if (mostrarCrearTienda) {
         AlertDialog(
             onDismissRequest = { if (!creandoTienda) mostrarCrearTienda = false },

@@ -16,3 +16,10 @@ local.properties
 
 # Credenciales de Supabase (RNF-SEG-03)
 /supabase.properties
+
+# Identificadores de Firebase de la app (RNF-SEG-03)
+firebase.properties
+
+# Configuración personal de Android Studio y cachés de Kotlin (no se versionan)
+/.idea/
+/.kotlin/

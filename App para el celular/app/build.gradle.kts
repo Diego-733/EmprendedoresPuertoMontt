@@ -12,6 +12,14 @@ val supabaseProps = Properties().apply {
     if (archivo.exists()) archivo.inputStream().use { load(it) }
 }
 
+// Entrega 7: Firebase Cloud Messaging (push). Identificadores PÚBLICOS de la app en
+// firebase.properties (fuera de git). Sin ese archivo la app funciona y revisa los avisos
+// periódicamente; el envío lo hace servicios/notificador desde un servidor, nunca la app.
+val firebaseProps = Properties().apply {
+    val archivo = rootProject.file("firebase.properties")
+    if (archivo.exists()) archivo.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.example.trabajodea10"
     compileSdk {
@@ -22,13 +30,17 @@ android {
         applicationId = "com.company.ultrapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.4-entrega6"
+        versionCode = 6
+        versionName = "1.5-entrega7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "SUPABASE_URL", "\"${supabaseProps.getProperty("supabase.url", "")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseProps.getProperty("supabase.anonKey", "")}\"")
+        buildConfigField("String", "FIREBASE_APP_ID", "\"${firebaseProps.getProperty("firebase.appId", "")}\"")
+        buildConfigField("String", "FIREBASE_API_KEY", "\"${firebaseProps.getProperty("firebase.apiKey", "")}\"")
+        buildConfigField("String", "FIREBASE_PROJECT_ID", "\"${firebaseProps.getProperty("firebase.projectId", "")}\"")
+        buildConfigField("String", "FIREBASE_SENDER_ID", "\"${firebaseProps.getProperty("firebase.senderId", "")}\"")
     }
 
     buildTypes {
@@ -76,6 +88,10 @@ dependencies {
 
     // Entrega 6: mapas OpenStreetMap sin clave de API (RF-MAP-01 a 04)
     implementation("org.osmdroid:osmdroid-android:6.1.20")
+
+    // Entrega 7: avisos (revisión periódica y push con Firebase Cloud Messaging)
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("com.google.firebase:firebase-messaging:24.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -134,6 +134,8 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
 
     fun iniciarSesion(rol: Rol) {
         TramaStore.iniciarSesion(rol)
+        // RF-ACC-08: si entra a la vitrina sin iniciar sesión, la acción pendiente se cancela.
+        if (com.example.trabajodea10.data.remoto.ClienteSupabase.sesion == null) com.example.trabajodea10.data.FeriasStore.descartarPendiente()
         val destino = when (rol) {
             Rol.ADMIN -> Ruta.AdminInicio
             Rol.EMPRENDEDORA -> Ruta.EmpInicio

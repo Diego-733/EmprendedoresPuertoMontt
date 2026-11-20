@@ -40,6 +40,15 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun procesarEnlace(intent: android.content.Intent?) {
+        // Entrega 7: al tocar un aviso se abre la feria correspondiente.
+        intent?.getStringExtra(com.example.trabajodea10.avisos.AvisosCelular.EXTRA_FERIA)?.let {
+            com.example.trabajodea10.data.FeriasStore.feriaDesdeAviso = it
+            intent.removeExtra(com.example.trabajodea10.avisos.AvisosCelular.EXTRA_FERIA)
+        }
+        intent?.getStringExtra(com.example.trabajodea10.avisos.AvisosCelular.EXTRA_AVISO)?.let {
+            com.example.trabajodea10.data.FeriasStore.confirmarRecepcion(it)
+            intent.removeExtra(com.example.trabajodea10.avisos.AvisosCelular.EXTRA_AVISO)
+        }
         val datos = intent?.data ?: return
         if (datos.scheme == "com.company.ultrapp" && datos.host == "login-callback") {
             com.example.trabajodea10.data.SesionManager.procesarRetornoOAuth(datos)

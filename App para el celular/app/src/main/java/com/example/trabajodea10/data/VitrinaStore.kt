@@ -29,7 +29,8 @@ object ReglasVitrina {
         texto: String,
         tipo: String?,
         sector: String?,
-        asociacion: String?
+        asociacion: String?,
+        pertenencias: Map<String, List<String>> = emptyMap()
     ): List<Tienda> {
         val t = texto.trim()
         return tiendas.filter { tienda ->
@@ -37,22 +38,26 @@ object ReglasVitrina {
                 .any { it.contains(t, ignoreCase = true) }
             val coincideTipo = tipo.isNullOrBlank() || tienda.rubro == tipo
             val coincideSector = sector.isNullOrBlank() || tienda.sector == sector
-            val coincideAsoc = when {
-                asociacion.isNullOrBlank() -> true
-                asociacion == SIN_ASOCIACION -> tienda.asociacionId == null
-                else -> tienda.asociacionId == asociacion
-            }
+            val coincideAsoc = asociacion.isNullOrBlank() || perteneceA(tienda, asociacion, pertenencias)
             coincideTexto && coincideTipo && coincideSector && coincideAsoc
         }
     }
 
     const val SIN_ASOCIACION = "__ninguna"
 
-    /** Fecha AAAA-MM-DD de hoy más [dias] (sin java.time: la app soporta Android 7). */
+    /** Entrega 7: una tienda puede estar en varias asociaciones; sin la tabla (servidor sin 07) se usa la única. */
+    fun perteneceA(tienda: Tienda, asociacion: String, pertenencias: Map<String, List<String>>): Boolean {
+        val lista = pertenencias[tienda.id]?.takeIf { it.isNotEmpty() } ?: listOfNotNull(tienda.asociacionId)
+        return if (asociacion == SIN_ASOCIACION) lista.isEmpty() else asociacion in lista
+    }
+
+    /** Fecha AAAA-MM-DD de hoy (en Santiago) más [dias] (sin java.time: la app soporta Android 7). */
     fun fechaIso(dias: Int = 0): String {
-        val c = Calendar.getInstance()
+        // Las reglas de calendario del proyecto usan America/Santiago (no la zona del celular).
+        val zona = java.util.TimeZone.getTimeZone("America/Santiago")
+        val c = Calendar.getInstance(zona)
         c.add(Calendar.DAY_OF_YEAR, dias)
-        return SimpleDateFormat("yyyy-MM-dd", Locale.US).format(c.time)
+        return SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = zona }.format(c.time)
     }
 
     /** "sábado 21 de noviembre" a partir de AAAA-MM-DD. */
@@ -124,6 +129,9 @@ object VitrinaStore {
     private var prefs: SharedPreferences? = null
 
     val asociaciones = mutableStateListOf<AsociacionPublica>()
+    /** tiendaId → asociaciones (Entrega 7). Vacío si el servidor aún no tiene la tabla. */
+    var pertenencias by mutableStateOf<Map<String, List<String>>>(emptyMap())
+        private set
     val ferias = mutableStateListOf<FeriaPublica>()
     var cargando by mutableStateOf(false)
         private set
@@ -163,6 +171,7 @@ object VitrinaStore {
             val f = VitrinaRepositorio.ferias()
             asociaciones.clear(); asociaciones.addAll(a)
             ferias.clear(); ferias.addAll(f)
+            pertenencias = runCatching { com.example.trabajodea10.data.remoto.FeriasRepositorio.pertenencias() }.getOrDefault(emptyMap())
             error = null
         } catch (e: Exception) {
             Log.w(TAG, "No se pudo cargar la vitrina: ${e.message}")
@@ -173,6 +182,9 @@ object VitrinaStore {
     }
 
     fun asociacion(id: String?): AsociacionPublica? = id?.let { i -> asociaciones.firstOrNull { it.id == i } }
+    fun asociacionesDe(t: Tienda): List<AsociacionPublica> =
+        (pertenencias[t.id]?.takeIf { it.isNotEmpty() } ?: listOfNotNull(t.asociacionId)).mapNotNull { asociacion(it) }
+    fun perteneceA(t: Tienda, asociacionId: String): Boolean = ReglasVitrina.perteneceA(t, asociacionId, pertenencias)
     fun feria(id: String): FeriaPublica? = ferias.firstOrNull { it.id == id }
 
     private val ASOCIACIONES_EJEMPLO = listOf(

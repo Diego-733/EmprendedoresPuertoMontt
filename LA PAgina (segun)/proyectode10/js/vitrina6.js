@@ -143,6 +143,23 @@
 
   // ================================================================ Datos
 
+  var PERTENENCIAS = null;      // tiendaId → [asociacionId]; null si el servidor aún no tiene 07
+
+  function aplicarPertenencias() {
+    if (!PERTENENCIAS) return;
+    ctx.tiendas().forEach(function (t) { t.asociaciones = PERTENENCIAS[t.id] || []; });
+  }
+
+  function cargarPertenencias() {
+    if (!real() || !ctx.servicio.listarPertenencias) return Promise.resolve();
+    return ctx.servicio.listarPertenencias().then(function (r) {
+      if (!r.ok) { PERTENENCIAS = null; return; }   // sin 07: se usa tiendas.asociacion_id
+      PERTENENCIAS = {};
+      (r.datos || []).forEach(function (p) { (PERTENENCIAS[p.tienda_id] = PERTENENCIAS[p.tienda_id] || []).push(p.asociacion_id); });
+      aplicarPertenencias();
+    });
+  }
+
   function cargarAsociaciones() {
     if (!real()) {
       ASOCIACIONES = ctx.modo === "demo" ? ASOCIACIONES_DEMO.slice() : [];
@@ -150,6 +167,7 @@
       return Promise.resolve();
     }
     estadoAsoc.cargando = true;
+    cargarPertenencias();
     return ctx.servicio.listarAsociaciones().then(function (r) {
       if (r.ok) {
         ASOCIACIONES = (r.datos || []).map(function (a) {
@@ -189,7 +207,12 @@
   }
 
   function integrantesDe(asocId) {
-    return ctx.tiendas().filter(function (t) { return t.asociacionId === asocId; });
+    return ctx.tiendas().filter(function (t) { return ctx.Cat.perteneceA(t, asocId); });
+  }
+
+  function asociacionesDe(tienda) {
+    var ids = Array.isArray(tienda.asociaciones) && tienda.asociaciones.length ? tienda.asociaciones : (tienda.asociacionId ? [tienda.asociacionId] : []);
+    return ids.map(function (id) { return ASOCIACIONES.find(function (a) { return a.id === id; }); }).filter(Boolean);
   }
 
   function nombreAsociacion(id) {
@@ -375,6 +398,7 @@
     });
     cuerpo.appendChild(lista);
     cuerpo.appendChild(h("div", { class: "e6-acciones-tienda" }, [
+      window.AlerceFerias7 ? window.AlerceFerias7.botonSeguir("ASOCIACION", a.id, a.nombre) : null,
       h("button", { type: "button", class: "btn-accion-pill", text: "🔗 Compartir asociación", onclick: function () { compartir("asociacion", a.id, a.nombre); } })
     ]));
     ctx.abrirModal("modal-asociacion");
@@ -387,13 +411,13 @@
     var c = el("modal-tienda-extras");
     if (!c) return;
     c.textContent = "";
-    var asoc = ASOCIACIONES.find(function (a) { return a.id === tienda.asociacionId; });
-    if (asoc) {
+    if (window.AlerceFerias7) c.appendChild(window.AlerceFerias7.botonSeguir("TIENDA", tienda.id, tienda.nombre));
+    asociacionesDe(tienda).forEach(function (asoc) {
       c.appendChild(h("button", {
         type: "button", class: "e6-chip-asociacion", text: "🤝 Integrante de " + asoc.nombre,
         onclick: function () { ctx.cerrarModal("modal-tienda-vitrina"); abrirAsociacion(asoc.id); }
       }));
-    }
+    });
     if (tienda.mostrarPrecios === false) {
       c.appendChild(h("p", { class: "e6-nota", text: "Esta tienda muestra «Consultar precio»: escríbele para saber el valor." }));
     }
@@ -534,6 +558,7 @@
       botonComoLlegar(f.lat, f.lng, f.nombre),
       h("button", { type: "button", class: "btn-accion-pill", text: "🔗 Compartir feria", onclick: function () { compartir("feria", f.id, f.nombre); } })
     ]));
+    if (window.AlerceFerias7) window.AlerceFerias7.pintarParticipantes(f, cuerpo);
     ctx.abrirModal("modal-feria");
     if (f.lat !== null) setTimeout(function () { crearMapa("mapa-ficha-feria", f.lat, f.lng, { etiqueta: f.nombre }); }, 60);
     return true;
@@ -653,6 +678,8 @@
     return tarjeta;
   }
 
+  var ESTADO_LEGIBLE = { BORRADOR: "Borrador (no publicada)", PROXIMA: "Publicada", EN_CURSO: "Publicada (en curso)", FINALIZADA: "Finalizada", CANCELADA: "Cancelada" };
+
   function pintarListaFeriasAdmin() {
     var lista = el("e6-admin-lista-ferias");
     if (!lista) return;
@@ -662,12 +689,14 @@
       lista.appendChild(h("div", { class: "e6-admin-item" }, [
         h("div", null, [
           h("strong", { text: f.nombre }),
-          h("small", { text: rangoFechas(f) + " · " + (f.lugar || "sin lugar") + " · " + f.estado + (f.lat === null ? " · ⚠️ sin ubicación" : " · 📍 con ubicación") })
+          h("small", { text: rangoFechas(f) + " · " + (f.lugar || "sin lugar") + " · " + (ESTADO_LEGIBLE[f.estado] || f.estado) + (f.lat === null ? " · ⚠️ sin ubicación" : " · 📍 con ubicación") })
         ]),
         h("div", { class: "e6-fila" }, [
           h("button", { type: "button", class: "btn-accion-pill", text: "✏️ Editar", onclick: function () { abrirFormFeria(f.id); } }),
           h("button", { type: "button", class: "btn-accion-pill", text: "Ver ficha", onclick: function () { abrirFeria(f.id); } })
-        ])
+        ].concat(window.AlerceFerias7 ? window.AlerceFerias7.accionesAdminFeria(f, function () {
+          cargarFerias().then(function () { pintarFerias(); pintarListaFeriasAdmin(); if (window.AlerceFerias7) window.AlerceFerias7.alCargarFerias(); });
+        }) : []))
       ]));
     });
   }
@@ -696,7 +725,8 @@
       h("option", { value: "PROXIMA", text: "Publicada (próxima)" }),
       h("option", { value: "EN_CURSO", text: "En curso" }),
       h("option", { value: "BORRADOR", text: "Borrador (no se publica)" }),
-      h("option", { value: "FINALIZADA", text: "Finalizada" })
+      h("option", { value: "FINALIZADA", text: "Finalizada" }),
+      h("option", { value: "CANCELADA", text: "Cancelada (deja de ofrecerse)" })
     ]);
     estadoSel.value = f ? f.estado : "PROXIMA";
     var imagenArchivo = h("input", { id: "e6-feria-imagen", type: "file", accept: "image/*" });
@@ -886,7 +916,8 @@
   }
 
   function recargarAsociacionesAdmin() {
-    return Promise.all([cargarAsociaciones(), ctx.recargarCatalogo()]).then(function () {
+    return Promise.all([cargarAsociaciones(), cargarPertenencias(), ctx.recargarCatalogo()]).then(function () {
+      aplicarPertenencias();
       pintarAsociacionesAdmin(); poblarFiltros(); pintarAsociaciones();
     });
   }
@@ -899,13 +930,14 @@
     ASOCIACIONES.forEach(function (a) {
       var socias = integrantesDe(a.id);
       var sel = h("select", { "aria-label": "Agregar emprendedora a " + a.nombre }, [h("option", { value: "", text: "Agregar emprendedora…" })].concat(
-        tiendas.filter(function (t) { return t.asociacionId !== a.id; }).map(function (t) {
-          return h("option", { value: t.id, text: t.nombre + (t.asociacionId ? " (en " + nombreAsociacion(t.asociacionId) + ")" : "") });
+        tiendas.filter(function (t) { return !ctx.Cat.perteneceA(t, a.id); }).map(function (t) {
+          var otras = asociacionesDe(t).map(function (x) { return x.nombre; });
+          return h("option", { value: t.id, text: t.nombre + (otras.length ? " (en " + otras.join(", ") + ")" : "") });
         })));
       sel.addEventListener("change", function () {
         if (!sel.value) return;
         sel.disabled = true;
-        ctx.servicio.asignarAsociacion(sel.value, a.id).then(function (r) {
+        (PERTENENCIAS ? ctx.servicio.agregarPertenencia(sel.value, a.id) : ctx.servicio.asignarAsociacion(sel.value, a.id)).then(function (r) {
           sel.disabled = false;
           if (!r.ok) { toast("No se asignó: " + ctx.Cat.mensajeError(r.error)); return; }
           toast("Emprendedora agregada a " + a.nombre);
@@ -921,7 +953,7 @@
               type: "button", class: "e6-chip-integrante", title: "Quitar de la asociación", text: t.nombre + " ✕",
               onclick: function () {
                 if (!window.confirm("¿Quitar a " + t.nombre + " de " + a.nombre + "?")) return;
-                ctx.servicio.asignarAsociacion(t.id, null).then(function (r) {
+                (PERTENENCIAS ? ctx.servicio.quitarPertenencia(t.id, a.id) : ctx.servicio.asignarAsociacion(t.id, null)).then(function (r) {
                   if (!r.ok) { toast("No se quitó: " + ctx.Cat.mensajeError(r.error)); return; }
                   recargarAsociacionesAdmin();
                 });
@@ -943,20 +975,24 @@
       configurarFiltros();
       var form = el("form-contacto");
       if (form) form.addEventListener("submit", enviarFormulario);
-      promesaDatos = Promise.all([cargarAsociaciones(), cargarFerias()]).then(function () {
+      promesaDatos = Promise.all([cargarAsociaciones(), cargarFerias(), cargarPertenencias()]).then(function () {
         poblarFiltros();
         pintarAsociaciones();
         pintarFerias();
+        if (window.AlerceFerias7) window.AlerceFerias7.alCargarFerias();
         if (ctx.esAdmin()) pintarAdmin();
       });
       pintarFerias();
     },
     alActualizarCatalogo: function () {
       if (!ctx) return;
+      aplicarPertenencias();
       poblarFiltros();
       pintarAsociaciones();
     },
     nombreAsociacion: nombreAsociacion,
+    ferias: function () { return FERIAS; },
+    asociaciones: function () { return ASOCIACIONES; },
     verDirectorio: verDirectorio,
     pintarAsociaciones: function () { if (ctx) pintarAsociaciones(); },
     abrirAsociacion: abrirAsociacion,

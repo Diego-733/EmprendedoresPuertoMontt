@@ -1,0 +1,8 @@
+# Copia este archivo como firebase.properties (está en .gitignore) para activar el push.
+# Son identificadores PÚBLICOS de la app Android en Firebase (Configuración del proyecto →
+# Tus apps → Android, paquete com.company.ultrapp). No incluyas aquí la cuenta de servicio:
+# esa solo la usa el servicio de envío (servicios/notificador) en un servidor.
+firebase.appId=
+firebase.apiKey=
+firebase.projectId=
+firebase.senderId=

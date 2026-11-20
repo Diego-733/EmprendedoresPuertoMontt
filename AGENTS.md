@@ -59,7 +59,7 @@ Requisitos oficiales del curso: <https://github.com/rinostrozacl/ProyectoVincula
 - **Al entrar** (`SesionManager.prepararSesion`): lee `perfiles` → si es emprendedora trae su tienda, productos e historial (sin pisar lo pendiente).
 - **Huella**: después de entrar con contraseña se ofrece activarla. La próxima vez, `SesionManager.ingresarConHuella()` renueva el refresh token guardado. La app no guarda datos biométricos.
 - **Fotos**: `FotoProductoStore.copiarDesdeUri` comprime (1280 px, JPEG 80 %) y corrige rotación. Al sincronizar se sube a Storage `productos/<uid>/<productoId>_<ts>.jpg` y se guarda la URL pública.
-- **"Modo Desarrollador"** en el login (tiendas de prueba sin servidor): solo aparece en builds debug (`BuildConfig.DEBUG`).
+- **"Modo Desarrollador"** en el login (tiendas de prueba sin servidor): solo aparece en builds debug **sin** `supabase.properties`. Una sesión de ese modo guarda todo solo en el celular.
 - **HTTP**: OkHttp directo contra la API REST de Supabase (no se usa supabase-kt). Actualizar tiendas usa `PATCH` (la emprendedora no tiene permiso de INSERT en `tiendas`, así que un *upsert* fallaría). Productos y ventas usan *upsert* (`POST … ?on_conflict=id` + `Prefer: resolution=merge-duplicates`).
 
 ### Compilar
@@ -80,8 +80,11 @@ Sin `supabase.properties` la app compila y funciona solo con datos de ejemplo.
 | `productos` | `id` (text) | lo que deja ver `estado_publico_producto` (05): todos · el resto: solo la dueña | dueña; cantidades con `guardar_producto()` |
 | `ventas` | `id` (text) | **solo la dueña** (ni el admin, RN-10) | solo `registrar_venta()` (atómica e idempotente, 05) |
 | `tipos_producto` | `id` | todos | admin |
-| `asociaciones`, `ferias` | `id` | todos | admin |
-| `participaciones` | (`feria_id`, `tienda_id`) | todos | admin; la dueña responde la suya |
+| `asociaciones` | `id` | todos | admin |
+| `ferias` | `id` | publicadas: todos · borradores: admin | admin (`publicar_feria`, `cancelar_feria`) |
+| `tienda_asociaciones` (07) | (`tienda_id`, `asociacion_id`) | todos | admin (una tienda puede estar en varias) |
+| `participaciones` | (`feria_id`, `tienda_id`) | admin y la dueña (el público usa `participantes_feria()`) | admin (`invitar_a_feria`, `registrar_asistencia`); la dueña solo con `responder_invitacion()` |
+| `seguimientos`, `preferencias_avisos`, `dispositivos`, `avisos`, `calificaciones` (07) | — | solo la propia cuenta | solo por funciones del servidor (`seguir`, `guardar_consentimiento`, `registrar_dispositivo`, `calificar`…) |
 
 - **Registro (RN-01)**: un trigger en `auth.users` crea el perfil. El alta puede solicitar cuenta `VISITANTE` o `EMPRENDEDORA`; el servidor asigna el rol y crea la tienda de quien elige emprender. `ADMIN` solo se concede desde `cuentas_autorizadas`; nunca se acepta desde metadatos enviados por el cliente. Las cuentas compradoras existentes también pueden crear su tienda desde Mi perfil.
 - Funciones de apoyo: `es_admin()`, `es_duena_de(tienda_id)`.
@@ -123,13 +126,20 @@ const aArgb = hex => 0xFF000000 + parseInt(hex.replace("#", ""), 16);
 - Android: alta guiada (`AltaProductoScreen.kt`), vista previa, historial con filtros, configuración de ventas, sincronización por cuenta (`Sincronizador.kt`).
 - Pruebas: `npm run test:sql`, `npm run test:web`, `npm run test:e2e` y `./gradlew testDebugUnitTest`. Ver `docs/desarrollo-y-pruebas.md` e informe en `docs/entrega5/README.md`.
 
+## 5c. Entrega 6 y 7
+
+- Entrega 6: `docs/entrega6/README.md` (vitrina, comprador, difusión, mapas).
+- Entrega 7 (rama `entrega7/ferias-seguidores`): `supabase/07_ferias_seguidores.sql`, `js/ferias7.js`, `data/Ferias7.kt`, `data/FeriasStore.kt`, `avisos/AvisosCelular.kt`, `servicios/notificador/`. Contrato, matrices de los 70 criterios, bloqueos y procedimiento de aplicación: `docs/entrega7/README.md`.
+- Ferias: el servidor es la única fuente. La lista local `TramaStore.ferias`/`MockData` y `FERIAS_COMUNALES` de la web ya no se muestran a la emprendedora ni al público.
+- Avisos: los crea solo el servidor; los envía `servicios/notificador` (cuenta en la tabla `notificadores`, nunca `service_role`).
+
 ## 6. Qué falta / configuración externa
 
 1. En Supabase, seguir `docs/entrega5/administrador.md`: diagnóstico de solo lectura, respaldo, 03/04 si faltan y `05_catalogo_ventas.sql`. Para una base nueva (de prueba): 01, 02, 03, 04 y 05.
 2. En Supabase Auth, desactivar la confirmación de correo si se requiere entrar inmediatamente después del registro; si permanece activa, el flujo informa que se debe confirmar el correo.
 3. Configurar los secretos `SUPABASE_URL` y `SUPABASE_ANON_KEY` en GitHub Actions y `supabase.properties` local para conectar web y Android a la instancia. Sin esa configuración solo se pueden compilar y usar pantallas sin servicios remotos.
-4. Ferias en el servidor: las tablas `ferias` y `participaciones` existen, pero la app y la web aún usan datos locales (Entrega 7).
-5. Ingreso de compradores con Google en la app (RN-07), seguidores y avisos de feria (Entrega 7).
+4. Aplicar `supabase/07_ferias_seguidores.sql` (con respaldo y ensayo; ver `docs/entrega7/README.md`).
+5. Activar Google en Supabase Auth (RN-07, E6-A08, E7-A12) y crear el proyecto Firebase y la cuenta del notificador para el push (E7-A13, E7-W18 con la página cerrada).
 6. Borrar `data/FirebaseManager.kt` (vacío), cuando se realice limpieza del código antiguo.
 
 ## 7. Conexión web a Supabase

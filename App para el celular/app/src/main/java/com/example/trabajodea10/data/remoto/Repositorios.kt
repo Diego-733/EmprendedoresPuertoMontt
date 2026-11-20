@@ -163,6 +163,7 @@ object TiendaRepositorio {
             puntoLat = o["punto_lat"]?.jsonPrimitive?.doubleOrNull,
             puntoLng = o["punto_lng"]?.jsonPrimitive?.doubleOrNull,
             puntoNombre = o.texto("punto_nombre")?.takeIf { it.isNotBlank() },
+            calificacionesActivas = o.booleano("calificaciones_activas", false),
             valoresProducto = ValoresProducto(
                 categoria = enumO(vt("categoria"), Categoria.TEXTIL),
                 modalidad = enumO(vt("modalidad"), Modalidad.REGULAR),
@@ -474,6 +475,6 @@ object TipoRepositorio {
 
 object FeriaRepositorio {
     suspend fun listar(): List<FeriaPlataforma> =
-        arreglo(ClienteSupabase.pedir("GET", "/rest/v1/ferias?select=id,nombre&order=fecha_inicio.desc.nullslast"))
+        arreglo(ClienteSupabase.pedir("GET", "/rest/v1/ferias?select=id,nombre&estado=not.in.(BORRADOR,CANCELADA)&order=fecha_inicio.desc.nullslast"))
             .map { FeriaPlataforma(it.textoO("id"), it.textoO("nombre")) }
 }

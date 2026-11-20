@@ -160,7 +160,8 @@ test.describe("Entrega 6 · vitrina pública", () => {
     await tarjeta.locator(".chip-variante", { hasText: "Blanco" }).click();
     await expect(page.locator('[data-producto-vitrina="chal"] .prod-precio')).toHaveText("$ 35.000");
     await expect(page.locator('[data-producto-vitrina="chal"] img.prod-foto')).toHaveAttribute("src", /blanco/);
-    if (LEAFLET) await expect(page.locator("#mapa-punto-tienda.leaflet-container")).toBeVisible();
+    await expect(page.locator("#mapa-punto-tienda.leaflet-container")).toBeVisible();
+    await expect(page.locator("#mapa-punto-tienda .leaflet-marker-icon")).toHaveCount(1);
     await expect(page.locator("#modal-tienda-extras a.e6-como-llegar")).toHaveAttribute("href", /destination=-41\.39,-72\.89/);
   });
 
@@ -171,10 +172,9 @@ test.describe("Entrega 6 · vitrina pública", () => {
     await expect(ferias).toHaveCount(1);
     await ferias.first().locator("button", { hasText: "Ver ficha y mapa" }).click();
     await expect(page.locator("#modal-feria")).toHaveClass(/abierto/);
-    if (LEAFLET) {
-      await expect(page.locator("#mapa-ficha-feria.leaflet-container")).toBeVisible();
-      await expect(page.locator("#mapa-ficha-feria .leaflet-marker-icon")).toHaveCount(1);
-    }
+    await expect(page.locator("#mapa-ficha-feria.leaflet-container")).toBeVisible();
+    await expect(page.locator("#mapa-ficha-feria .leaflet-marker-icon")).toHaveCount(1);
+    await expect(page.locator("#mapa-ficha-feria .leaflet-tile-loaded").first()).toBeVisible();
     await expect(page.locator("#modal-feria-cuerpo a.e6-como-llegar")).toHaveAttribute("href", "https://www.google.com/maps/dir/?api=1&destination=-41.3959,-72.8955");
   });
 
@@ -248,10 +248,9 @@ test.describe("Entrega 6 · administración", () => {
     await expect(page.locator("#e6-form-feria")).toContainText("Ubicación marcada: -41.4717, -72.9396");
     await expect(page.locator("#e6-feria-lugar")).not.toHaveValue("");
     // También se puede marcar tocando el mapa
-    if (LEAFLET) {
-      await page.locator("#mapa-form-feria").click({ position: { x: 60, y: 60 } });
-      await expect(page.locator("#e6-form-feria")).not.toContainText("-41.4717, -72.9396");
-    }
+    await expect(page.locator("#mapa-form-feria.leaflet-container")).toBeVisible();
+    await page.locator("#mapa-form-feria").click({ position: { x: 60, y: 60 } });
+    await expect(page.locator("#e6-form-feria")).not.toContainText("-41.4717, -72.9396");
     await page.locator("#e6-form-feria button", { hasText: "Guardar feria" }).click();
     await expect(page.locator("#toast-texto")).toContainText("Feria creada");
     const creada = await page.evaluate(() => window.__FALSO__.tablas.ferias.find((f) => f.nombre === "Feria Nueva"));

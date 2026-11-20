@@ -25,6 +25,8 @@
       gte: function (k, v) { q.filtros.push(function (f) { return !f[k] || f[k] >= v; }); return api; },
       in: function (k, v) { q.filtros.push(function (f) { return v.indexOf(f[k]) >= 0; }); return api; },
       order: function () { return api; },
+      limit: function () { return api; },
+      range: function () { return api; },
       maybeSingle: function () { q.unico = true; return api; },
       then: function (ok, ko) { return ejecutar(q).then(ok, ko); }
     };
@@ -64,7 +66,7 @@
   var cliente = {
     from: consulta,
     rpc: function (nombre, args) {
-      F.llamadas.push({ rpc: nombre, args: copia(args) });
+      F.llamadas.push({ rpc: nombre, args: copia(args || {}) });
       var cola = F.respuestasRpc[nombre] || [];
       var r = cola.length ? cola.shift() : { data: null, error: { message: "Sin respuesta configurada para " + nombre } };
       return new Promise(function (resolver, rechazar) {

@@ -73,3 +73,5 @@ npm run test:sql     # PostgreSQL local: incluye 06 (navegación, contactos, pun
 npm run test:e2e     # navegador: incluye tests/e2e/entrega6.spec.js (W01–W17)
 cd "App para el celular" && ./gradlew testDebugUnitTest assembleDebug
 ```
+
+> Revisión y correcciones posteriores (mapas en las pruebas, CANCELADA, fechas en Santiago, varias asociaciones): [docs/entrega7/README.md](../entrega7/README.md).

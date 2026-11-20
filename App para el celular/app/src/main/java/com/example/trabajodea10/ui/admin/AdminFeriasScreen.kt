@@ -49,66 +49,49 @@ import com.example.trabajodea10.ui.theme.NegroApple
 import com.example.trabajodea10.ui.theme.TextoSecundario
 import com.example.trabajodea10.ui.theme.VerdeOk
 
+/**
+ * Entrega 7: la gestión de ferias (publicar, cancelar, invitar, checklist, avisos y
+ * asistencia) se hace en la web del administrador. Aquí se ven las ferias reales del
+ * servidor, sin los datos de ejemplo locales que antes podían contradecirlas.
+ */
 @Composable
 fun PantallaAdminFerias(
     nav: ControladorNavegacion,
     avisar: (String) -> Unit
 ) {
-    var filtro by remember { mutableStateOf<EstadoFeria?>(null) }
-    val todas = TramaStore.ferias
-    val visibles = if (filtro == null) todas else todas.filter { it.estado == filtro }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(FondoLimpio)
-    ) {
-        BarraSuperior(
-            titulo = "Ferias",
-            subtitulo = "${todas.size} eventos creados",
-            acciones = {
-                IconButton(onClick = { nav.irA(Ruta.Ajustes) }) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Ajustes", tint = NegroApple)
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { com.example.trabajodea10.data.VitrinaStore.cargar() }
+    val ferias = com.example.trabajodea10.data.VitrinaStore.ferias.sortedBy { it.fechaInicio ?: "9999" }
+    Column(modifier = Modifier.fillMaxSize().background(FondoLimpio)) {
+        BarraSuperior(titulo = "Ferias", subtitulo = "${ferias.size} en el servidor")
+        LazyColumn(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Tarjeta {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("La gestión de ferias se hace en la web", fontWeight = FontWeight.Bold)
+                        Text("Publicar, cancelar, invitar o agregar emprendedoras y asociaciones, el checklist, los avisos y la asistencia están en el Panel Admin de la web.",
+                            style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
+                        com.example.trabajodea10.ui.componentes.BotonPrimario(texto = "Abrir la web de administración", onClick = {
+                            runCatching {
+                                contexto.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://diego-733.github.io/EmprendedoresPuertoMontt/")))
+                            }.onFailure { avisar("No hay un navegador para abrir la web.") }
+                        })
+                    }
                 }
             }
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ChipFiltro(texto = "Todas", seleccionado = filtro == null, onClick = { filtro = null })
-            EstadoFeria.entries.forEach { estado ->
-                ChipFiltro(
-                    texto = estado.etiqueta,
-                    seleccionado = filtro == estado,
-                    onClick = { filtro = estado }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (visibles.isEmpty()) {
-            Vacio(
-                titulo = "Sin ferias en esta vista",
-                mensaje = "Crea una nueva feria o cambia el filtro para ver otros eventos.",
-                icono = { Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = TextoSecundario) }
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(visibles, key = { it.id }) { feria ->
-                    Tarjeta(onClick = { nav.irA(Ruta.FeriaDetalle(feria.id)) }) {
-                        TarjetaFeria(feria)
+            if (ferias.isEmpty()) item { Vacio(titulo = "Sin ferias", mensaje = "Aún no hay ferias publicadas en el servidor.") }
+            items(ferias, key = { it.id }) { f ->
+                Tarjeta(onClick = { nav.irA(Ruta.FeriaPublica(f.id)) }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(f.nombre, fontWeight = FontWeight.SemiBold)
+                        Text(com.example.trabajodea10.data.ReglasVitrina.rangoFechas(f) + " · " + when (f.estado) {
+                            "CANCELADA" -> "Cancelada"; "FINALIZADA" -> "Finalizada"; "BORRADOR" -> "Borrador"; else -> "Publicada"
+                        }, style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
+                        if (f.lugar.isNotBlank()) Text("📍 ${f.lugar}", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
                     }
                 }
             }

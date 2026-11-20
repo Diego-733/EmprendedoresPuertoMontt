@@ -64,7 +64,6 @@ fun PantallaEmprendedoraInicio(
 ) {
     val tienda = TramaStore.tienda
     val alertas = TramaStore.alertasStock()
-    val proxima = TramaStore.proximaFeriaDeLaEmprendedora()
     val nombreCorto = TramaStore.emprendedoraActual.nombre.split(" ").first()
 
     Column(
@@ -164,58 +163,43 @@ fun PantallaEmprendedoraInicio(
                 }
             }
 
-            TituloSeccion(texto = "Próxima feria")
-            val participacion = proxima?.let { feria ->
-                feria to TramaStore.misFerias().firstOrNull { it.first.id == feria.id }?.second
+            // Entrega 7: la próxima feria viene del servidor (mis_ferias), no de datos de ejemplo.
+            TituloSeccion(texto = "Próxima feria", accion = "Mis ferias", onAccion = { nav.seleccionarTab(Ruta.EmpFerias) })
+            androidx.compose.runtime.LaunchedEffect(Unit) { com.example.trabajodea10.data.FeriasStore.cargarMisFerias() }
+            val hoy7 = com.example.trabajodea10.data.ReglasFerias.fechaSantiago()
+            val invitacionesPorResponder = com.example.trabajodea10.data.FeriasStore.misFerias.count {
+                it.estadoInvitacion == com.example.trabajodea10.data.EstadoInvitacion7.PENDIENTE &&
+                    com.example.trabajodea10.data.ReglasFerias.feriaActiva(it.estado, it.fechaInicio, it.fechaFin, hoy7)
             }
-            if (participacion == null) {
+            val proxima7 = com.example.trabajodea10.data.ReglasFerias.calendario(com.example.trabajodea10.data.FeriasStore.misFerias.toList(), hoy7)
+                .flatMap { it.second }.firstOrNull { it.estadoInvitacion.participa }
+            if (invitacionesPorResponder > 0) {
+                Tarjeta(onClick = { nav.seleccionarTab(Ruta.EmpFerias) }) {
+                    Text(
+                        text = "Tienes " + invitacionesPorResponder + (if (invitacionesPorResponder == 1) " invitación" else " invitaciones") + " por responder",
+                        modifier = Modifier.padding(16.dp), fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            if (proxima7 == null) {
                 Vacio(
-                    titulo = "No tenés ferias confirmadas",
-                    mensaje = "Cuando te confirmen una invitación vas a verla acá con la fecha y la ubicación.",
+                    titulo = "No tienes ferias confirmadas",
+                    mensaje = "Cuando confirmes una invitación, la verás aquí con la fecha y el lugar.",
                     icono = { Icon(Icons.Filled.EventAvailable, contentDescription = null, tint = TextoSecundario) }
                 )
             } else {
-                val (feria, estado) = participacion
-                Tarjeta(onClick = { nav.irA(Ruta.EmpFerias) }) {
+                Tarjeta(onClick = { nav.seleccionarTab(Ruta.EmpFerias) }) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = feria.nombre,
-                                modifier = Modifier.weight(1f),
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.titleSmall
-                            )
-                            ChipEstado(
-                                texto = estado?.invitacion?.etiqueta ?: "Confirmada",
-                                color = colorDeInvitacion(estado?.invitacion ?: EstadoInvitacion.CONFIRMADA)
-                            )
-                        }
+                        Text(text = proxima7.nombre, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = rangoDeFechas(feria.fechaInicio, feria.fechaFin),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextoSecundario
+                            text = com.example.trabajodea10.data.ReglasVitrina.fechaLegible(proxima7.fechaInicio) +
+                                (if (proxima7.horario.isNotBlank()) " · " + proxima7.horario else ""),
+                            style = MaterialTheme.typography.bodySmall, color = TextoSecundario
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Filled.Place,
-                                contentDescription = null,
-                                tint = TextoSecundario,
-                                modifier = Modifier.height(15.dp)
-                            )
-                            Text(
-                                text = "  ${feria.ubicacion}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextoSecundario
-                            )
-                        }
-                        if (estado?.asistencia != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            ChipEstado(
-                                texto = "Asistencia: ${estado.asistencia.etiqueta}",
-                                color = com.example.trabajodea10.ui.componentes.colorDeAsistencia(estado.asistencia)
-                            )
-                        }
+                        if (proxima7.ubicacion.isNotBlank()) Text(text = "📍 " + proxima7.ubicacion, style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(text = proxima7.estadoInvitacion.etiqueta, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -228,7 +212,7 @@ fun PantallaEmprendedoraInicio(
             val ultimas = TramaStore.ultimasVentas(3)
             if (ultimas.isEmpty()) {
                 Text(
-                    text = "Todavía no registraste ventas en el mes.",
+                    text = "Aún no registras ventas este mes.",
                     style = MaterialTheme.typography.bodySmall,
                     color = TextoSecundario
                 )

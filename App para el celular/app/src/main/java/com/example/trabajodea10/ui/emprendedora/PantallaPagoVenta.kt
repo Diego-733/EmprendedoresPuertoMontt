@@ -142,6 +142,8 @@ fun PantallaPagoVenta(
             }
 
             TituloSeccion(texto = "¿Dónde vendiste?")
+            // Entrega 7: sugerencia de la feria del día donde participa (por fecha y, con permiso, por ubicación).
+            SugerenciaFeriaVenta(seleccionada = lugar, onUsar = { lugar = it })
             com.example.trabajodea10.ui.componentes.ContenedorChips(modifier = Modifier.fillMaxWidth()) {
                 ChipFiltro(texto = "Sin indicar", seleccionado = lugar == null, onClick = { lugar = null })
                 TramaStore.feriasPlataforma.forEach { f ->

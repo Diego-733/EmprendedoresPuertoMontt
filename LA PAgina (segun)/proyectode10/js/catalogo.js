@@ -142,14 +142,94 @@
       lng: puntoValido(lat, lng) ? Number(lng) : null
     };
   }
+  /** Fecha AAAA-MM-DD en America/Santiago (las reglas de calendario del proyecto usan esa zona). */
+  function fechaSantiago(instante) {
+    var d = instante instanceof Date ? instante : new Date(instante === undefined ? Date.now() : instante);
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    } catch (e) {
+      return d.toISOString().slice(0, 10);
+    }
+  }
+  /** Activa = publicada (PROXIMA/EN_CURSO) y su último día es hoy o después (Santiago). */
+  function feriaActiva(f, hoyIso) {
+    if (!f || ["PROXIMA", "EN_CURSO"].indexOf(f.estado) < 0) return false;
+    var hoy = hoyIso || fechaSantiago();
+    var fin = String(f.fechaFin || f.fechaInicio || hoy).slice(0, 10);
+    return fin >= hoy;
+  }
   /** Próximas: no borrador/cancelada/finalizada y que no hayan terminado. Ordenadas por fecha. */
   function feriasProximas(ferias, hoyIso) {
-    var hoy = hoyIso || new Date().toISOString().slice(0, 10);
+    var hoy = hoyIso || fechaSantiago();
     return (ferias || []).filter(function (f) {
       if (["BORRADOR", "CANCELADA", "FINALIZADA"].indexOf(f.estado) >= 0) return false;
       return !f.fechaFin || String(f.fechaFin).slice(0, 10) >= hoy;
     }).sort(function (a, b) { return String(a.fechaInicio || "9999").localeCompare(String(b.fechaInicio || "9999")); });
   }
+  var MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  /** Calendario de próximas ferias agrupado por mes (RF-CMP-04). */
+  function calendarioFerias(ferias, hoyIso) {
+    var grupos = [];
+    feriasProximas(ferias, hoyIso).forEach(function (f) {
+      var mes = f.fechaInicio ? String(f.fechaInicio).slice(0, 7) : "sin-fecha";
+      var g = grupos.find(function (x) { return x.mes === mes; });
+      if (!g) {
+        var p = mes.split("-");
+        g = { mes: mes, etiqueta: mes === "sin-fecha" ? "Fecha por confirmar" : MESES[Number(p[1]) - 1] + " de " + p[0], ferias: [] };
+        grupos.push(g);
+      }
+      g.ferias.push(f);
+    });
+    return grupos;
+  }
+
+  var ETIQUETA_INVITACION = { PENDIENTE: "Invitada", CONFIRMADA: "Confirmada", RECHAZADA: "Rechazada", AGREGADA: "Agregada por administración" };
+  var ETIQUETA_ASISTENCIA = { PENDIENTE: "Sin registrar", ASISTIO: "Asistió", NO_ASISTIO: "No asistió" };
+  function etiquetaInvitacion(e) { return ETIQUETA_INVITACION[e] || String(e || ""); }
+
+  /** Checklist del administrador: búsqueda y filtros por estado, tipo de emprendimiento y asociación (RF-FER-05). */
+  function filtrarChecklist(filas, filtro) {
+    filtro = filtro || {};
+    var texto = String(filtro.texto || "").trim().toLowerCase();
+    return (filas || []).filter(function (f) {
+      if (filtro.estado && f.invitacion !== filtro.estado) return false;
+      if (filtro.tipo && f.rubro !== filtro.tipo) return false;
+      if (filtro.asociacion) {
+        var asocs = f.asociaciones || [];
+        if (filtro.asociacion === "__ninguna" ? asocs.length > 0 : asocs.indexOf(filtro.asociacion) < 0) return false;
+      }
+      if (texto && [f.nombre, f.rubro, f.sector].join(" ").toLowerCase().indexOf(texto) < 0) return false;
+      return true;
+    });
+  }
+
+  /** Muestra del catálogo público de una tienda: nunca productos ocultos, privados o no disponibles. */
+  function muestraCatalogo(productos, tiendaId, cantidad) {
+    return (productos || []).filter(function (p) {
+      return p.tiendaId === tiendaId && estadoPublico(p) !== "OCULTO";
+    }).slice(0, cantidad || 3);
+  }
+
+  /** ¿La tienda pertenece a la asociación? Usa la lista de pertenencias (07) o la asociación única (06). */
+  function perteneceA(tienda, asociacionId) {
+    if (!tienda) return false;
+    var lista = Array.isArray(tienda.asociaciones) && tienda.asociaciones.length ? tienda.asociaciones : (tienda.asociacionId ? [tienda.asociacionId] : []);
+    if (asociacionId === "__ninguna") return lista.length === 0;
+    return lista.indexOf(asociacionId) >= 0;
+  }
+
+  /** Acción que un visitante intentó antes de iniciar sesión (RF-ACC-08). Vence a los 15 minutos. */
+  var VIGENCIA_PENDIENTE_MS = 15 * 60 * 1000;
+  function crearAccionPendiente(accion, tipo, id, nombre, ahora) {
+    return { accion: accion, tipo: tipo, id: String(id), nombre: String(nombre || ""), creada: ahora === undefined ? Date.now() : ahora };
+  }
+  function accionPendienteVigente(p, ahora) {
+    if (!p || typeof p !== "object" || !p.accion || !p.tipo || !p.id) return false;
+    if (["seguir"].indexOf(p.accion) < 0 || ["TIENDA", "ASOCIACION"].indexOf(p.tipo) < 0) return false;
+    var t = ahora === undefined ? Date.now() : ahora;
+    return typeof p.creada === "number" && t - p.creada >= 0 && t - p.creada <= VIGENCIA_PENDIENTE_MS;
+  }
+
   /** Enlace "Cómo llegar": en el celular abre la aplicación de mapas en ese punto. */
   function urlComoLlegar(lat, lng) {
     if (!puntoValido(lat, lng)) return "";
@@ -359,6 +439,22 @@
     CONFLICTO_STOCK: "Mientras editabas se vendieron unidades. Revisa la cantidad actual y vuelve a guardar.",
     FOTO_OPCION_INVALIDA: "La foto de una opción no es válida.",
     FERIA_NO_ENCONTRADA: "Esa feria no existe en la plataforma.",
+    SOLO_ADMIN: "Solo la administración puede hacer esto.",
+    FERIA_NO_EXISTE: "Esa feria ya no existe.",
+    FERIA_NO_ACTIVA: "La feria no está activa (puede estar cancelada, terminada o sin publicar).",
+    FERIA_INCOMPLETA: "Para publicarla, la feria necesita nombre y fecha.",
+    FERIA_PASADA: "No se puede publicar una feria que ya terminó.",
+    SIN_INVITACION: "No tienes una invitación para esta feria.",
+    AGREGADA_POR_ADMINISTRACION: "La administración te agregó a esta feria; para cambiarlo, comunícate con ella.",
+    AUN_NO_ES_EL_DIA: "La asistencia se registra desde el día de la feria.",
+    PLAZO_VENCIDO: "Ya pasó el plazo para registrar la asistencia (3 días después de la feria).",
+    NO_PARTICIPA: "Solo se registra la asistencia de quienes confirmaron o fueron agregadas.",
+    SIN_SESION: "Inicia sesión para continuar.",
+    CALIFICACIONES_DESACTIVADAS: "Esta tienda no recibe calificaciones.",
+    PROPIA_TIENDA: "No puedes calificar tu propia tienda.",
+    TIENDA_NO_EXISTE: "Una de las tiendas ya no existe.",
+    ASOCIACION_NO_EXISTE: "Una de las asociaciones ya no existe.",
+    FALTA_MENSAJE: "Escribe el mensaje del aviso.",
     MODALIDAD_INVALIDA: "Elige la modalidad.",
     AL_AGOTARSE_INVALIDO: "Elige qué pasa al agotarse."
   };
@@ -378,6 +474,7 @@
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(texto)) return "No hay conexión con el servidor. Revisa tu internet y vuelve a intentarlo.";
     if (/jwt expired|invalid jwt|refresh token/i.test(texto)) return "Tu sesión venció. Vuelve a iniciar sesión.";
     if (/permission denied|row-level security|42501/i.test(texto)) return "No tienes permiso para hacer esto con esta cuenta.";
+    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07).";
     return "El servidor respondió con un error: " + (texto || "sin detalle") + ".";
   }
 
@@ -392,6 +489,10 @@
     aplicarRespuesta: aplicarRespuesta, productoParaGuardar: productoParaGuardar,
     ventaParaRegistrar: ventaParaRegistrar, mensajeError: mensajeError, nuevoId: nuevoId, fechaLocal: fechaLocal,
     MODOS_CONTACTO: MODOS_CONTACTO, modoContacto: modoContacto, puntoValido: puntoValido, viasContacto: viasContacto,
-    textoPrecio: textoPrecio, normalizarFeria: normalizarFeria, feriasProximas: feriasProximas, urlComoLlegar: urlComoLlegar
+    textoPrecio: textoPrecio, normalizarFeria: normalizarFeria, feriasProximas: feriasProximas, urlComoLlegar: urlComoLlegar,
+    fechaSantiago: fechaSantiago, feriaActiva: feriaActiva, calendarioFerias: calendarioFerias,
+    ETIQUETA_INVITACION: ETIQUETA_INVITACION, ETIQUETA_ASISTENCIA: ETIQUETA_ASISTENCIA, etiquetaInvitacion: etiquetaInvitacion,
+    filtrarChecklist: filtrarChecklist, muestraCatalogo: muestraCatalogo, perteneceA: perteneceA,
+    crearAccionPendiente: crearAccionPendiente, accionPendienteVigente: accionPendienteVigente, VIGENCIA_PENDIENTE_MS: VIGENCIA_PENDIENTE_MS
   };
 });

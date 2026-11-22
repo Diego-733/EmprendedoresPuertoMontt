@@ -70,6 +70,24 @@ fun TramaApp() {
         }
     }
 
+    // Entrega 7: al volver de iniciar sesión, se abre lo que se quería seguir (ya seguido).
+    val completada = com.example.trabajodea10.data.FeriasStore.accionRecienCompletada
+    androidx.compose.runtime.LaunchedEffect(completada) {
+        if (completada != null) {
+            nav.irA(com.example.trabajodea10.ui.navegacion.rutaDeFicha(completada))   // irA no duplica si ya está ahí
+            avisar("Ahora sigues a ${completada.nombre}.")
+            com.example.trabajodea10.data.FeriasStore.accionRecienCompletada = null
+        }
+    }
+    // Al tocar un aviso: la emprendedora va a sus ferias; quien compra, a la ficha de la feria.
+    val feriaAviso = com.example.trabajodea10.data.FeriasStore.feriaDesdeAviso
+    androidx.compose.runtime.LaunchedEffect(feriaAviso, rol) {
+        if (feriaAviso != null && rol != null) {
+            if (rol == com.example.trabajodea10.data.Rol.EMPRENDEDORA) nav.seleccionarTab(Ruta.EmpFerias) else nav.irA(Ruta.FeriaPublica(feriaAviso))
+            com.example.trabajodea10.data.FeriasStore.feriaDesdeAviso = null
+        }
+    }
+
     BackHandler(enabled = nav.pila.size > 1) {
         nav.volver()
     }
@@ -107,14 +125,8 @@ private fun FabSegunRuta(
     nav: ControladorNavegacion
 ) {
     when (ruta) {
-        Ruta.AdminFerias -> Fab(
-            descripcion = "Nueva feria",
-            icono = { Icon(Icons.Filled.Add, contentDescription = "Nueva feria") },
-            onClick = {
-                val id = TramaStore.crearFeriaBorrador()
-                nav.irA(Ruta.FeriaDetalle(id))
-            }
-        )
+        // Entrega 7: las ferias se crean en la web (datos del servidor), no en el celular.
+        Ruta.AdminFerias -> Unit
 
         Ruta.EmpInicio -> Fab(
             descripcion = "Registrar venta",
@@ -192,7 +204,7 @@ private fun ContenidoSegunRuta(
         Ruta.VisMarketplaceClasico -> PantallaMarketplace(nav = nav, avisar = avisar)
         is Ruta.TiendaPublica -> com.example.trabajodea10.ui.comprador.PantallaTiendaPublica(ruta.tiendaId, nav, avisar)
         is Ruta.ProductoPublico -> com.example.trabajodea10.ui.comprador.PantallaProductoPublico(ruta.productoId, nav, avisar)
-        is Ruta.AsociacionPublica -> com.example.trabajodea10.ui.comprador.PantallaAsociacionPublica(ruta.asociacionId, nav)
+        is Ruta.AsociacionPublica -> com.example.trabajodea10.ui.comprador.PantallaAsociacionPublica(ruta.asociacionId, nav, avisar)
         is Ruta.FeriaPublica -> com.example.trabajodea10.ui.comprador.PantallaFeriaPublica(ruta.feriaId, nav)
         Ruta.ConfigVitrina -> com.example.trabajodea10.ui.emprendedora.PantallaConfigVitrina(nav, avisar)
         Ruta.BandejaContactos -> com.example.trabajodea10.ui.emprendedora.PantallaBandejaContactos(nav, avisar)

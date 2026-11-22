@@ -258,6 +258,12 @@ object ClienteSupabase {
         return nueva
     }
 
+    /** ¿El servidor tiene activo el ingreso con Google? (lectura pública de /auth/v1/settings). */
+    suspend fun googleHabilitado(): Boolean {
+        val o = json.parseToJsonElement(pedir("GET", "/auth/v1/settings", conToken = false)).jsonObject
+        return o["external"]?.jsonObject?.get("google")?.jsonPrimitive?.contentOrNull == "true"
+    }
+
     /**
      * Ingreso con Google (RF-ACC-06): Supabase devuelve los tokens en el enlace de
      * regreso a la app. Se valida el token pidiendo el usuario al servidor.

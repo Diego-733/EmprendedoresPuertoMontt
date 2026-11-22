@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import com.example.trabajodea10.data.NavegacionAnonima
 import com.example.trabajodea10.data.Rol
 import com.example.trabajodea10.data.SesionManager
@@ -110,18 +111,13 @@ private fun Invitacion(nav: ControladorNavegacion, obligar: Boolean) {
             style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(20.dp))
+        val ambitoGoogle = androidx.compose.runtime.rememberCoroutineScope()
         BotonPrimario(
             texto = "Continuar con Google",
             icono = { Icon(Icons.Filled.Login, contentDescription = null) },
             onClick = {
-                if (!ConfigSupabase.configurado) {
-                    Toast.makeText(contexto, "La app no tiene configurada la conexión con el servidor.", Toast.LENGTH_LONG).show()
-                } else {
-                    SesionManager.errorOAuth = null
-                    val intento = Intent(Intent.ACTION_VIEW, Uri.parse(SesionManager.urlIngresoGoogle()))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    runCatching { contexto.startActivity(intento) }
-                        .onFailure { Toast.makeText(contexto, "No hay un navegador para ingresar.", Toast.LENGTH_LONG).show() }
+                ambitoGoogle.launch {
+                    abrirIngresoGoogle(contexto)?.let { Toast.makeText(contexto, it, Toast.LENGTH_LONG).show() }
                 }
             }
         )

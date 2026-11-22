@@ -19,7 +19,8 @@
   <!-- Mapas (Entrega 6, RF-MAP): Leaflet + OpenStreetMap, sin clave de API -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/vitrina6.css?v=20261118_e6">
+  <link rel="stylesheet" href="css/vitrina6.css?v=20261119_e7">
+  <link rel="stylesheet" href="css/ferias7.css?v=20261119_e7">
 </head>
 <body>
 
@@ -84,6 +85,11 @@
         <button type="button" class="btn-accion-pill" id="btn-header-admin-panel" onclick="TramaWeb.abrirModalAdmin()" style="display: none; background: #1e1e24; color: #fff; border-color: #27272a; font-weight: 700; height: 36px; gap: 5px;" title="Panel de Administración de Plataforma (Canal Web Exclusivo)">
           <span>👑</span>
           <span>Panel Admin</span>
+        </button>
+
+        <!-- Entrega 7: avisos de la cuenta (visible con sesión) -->
+        <button type="button" class="btn-accion-pill e7-boton-avisos" id="e7-boton-avisos" style="display: none; height: 36px;" aria-label="Mis avisos" title="Mis avisos: consentimiento, lo que sigues y últimos avisos">
+          <span aria-hidden="true">🔔</span><span>Avisos</span><span id="e7-insignia-avisos" class="e7-insignia" style="display:none;"></span>
         </button>
 
         <button type="button" class="btn-accion-pill" id="btn-header-acceso-emp" onclick="TramaWeb.abrirModalRegistroEmprendedor()" style="padding: 0 11px; font-weight: 700; height: 36px; gap: 5px; border-color: var(--gris-borde);" title="Acceso para Emprendedores/as de Alerce">
@@ -347,6 +353,7 @@
       </h2>
       <p class="subtitulo-seccion">Encuentros presenciales en Puerto Montt y alrededores. Revisa lugares, mapas y participantes.</p>
       <div id="e6-ferias-estado" class="estado-datos" role="status" style="display:none;"></div>
+      <div id="e7-calendario" class="e7-calendario"></div>
       <div class="grilla-tarjetas" id="grilla-ferias-container" aria-live="polite">
         <p class="subtitulo-seccion">Cargando ferias…</p>
       </div>
@@ -1559,8 +1566,8 @@
         <div style="display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 22px;">📅</span>
           <div>
-            <h2 id="modal-mis-ferias-titulo" style="font-size: 17px; font-weight: 900; margin: 0;">Mis Ferias Comunales</h2>
-            <p id="subtitulo-mis-ferias" style="font-size: 11.5px; color: var(--gris-texto); margin: 2px 0 0 0;">Inscripción oficial en ferias comunales de Alerce y Puerto Montt</p>
+            <h2 id="modal-mis-ferias-titulo" style="font-size: 17px; font-weight: 900; margin: 0;">Mis ferias</h2>
+            <p id="subtitulo-mis-ferias" style="font-size: 11.5px; color: var(--gris-texto); margin: 2px 0 0 0;">Tus invitaciones: responde «Participo» o «No participo»</p>
           </div>
         </div>
         <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-mis-ferias')" aria-label="Cerrar">✕</button>
@@ -2013,10 +2020,11 @@
 
   <!-- Scripts -->
   <script src="js/qrcode.min.js"></script>
-  <script src="js/catalogo.js?v=20261118_e6"></script>
-  <script src="js/servicio.js?v=20261118_e6"></script>
+  <script src="js/catalogo.js?v=20261119_e7"></script>
+  <script src="js/servicio.js?v=20261119_e7"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="js/vitrina6.js?v=20261118_e6"></script>
-  <script src="js/main.js?v=20261118_e6"></script>
+  <script src="js/vitrina6.js?v=20261119_e7"></script>
+  <script src="js/ferias7.js?v=20261119_e7"></script>
+  <script src="js/main.js?v=20261119_e7"></script>
 </body>
 </html>

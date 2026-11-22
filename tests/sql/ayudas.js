@@ -65,7 +65,10 @@ class Registro {
     this.casos.push({ nombre: `${this.prefijo} · ${nombre}`, ok: !!condicion, detalle: condicion ? "" : (detalle === undefined ? "" : JSON.stringify(detalle)) });
   }
   igual(nombre, real, esperado) {
-    const ok = JSON.stringify(real) === JSON.stringify(esperado);
+    // jsonb no conserva el orden de las claves: se comparan con las claves ordenadas.
+    const canon = (v) => JSON.stringify(v, (k, x) => (x && typeof x === "object" && !Array.isArray(x))
+      ? Object.keys(x).sort().reduce((o, c) => { o[c] = x[c]; return o; }, {}) : x);
+    const ok = canon(real) === canon(esperado);
     this.ok(nombre, ok, { real, esperado });
   }
   falla(nombre, mensaje, contiene) {

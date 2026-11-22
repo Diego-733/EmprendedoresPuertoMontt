@@ -120,7 +120,7 @@ fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
 
     val tiendas = SesionManager.tiendas.toList()
     val asociaciones = VitrinaStore.asociaciones.filter { it.activa }
-    val filtradas = ReglasVitrina.filtrarTiendas(tiendas, busqueda, tipo, sector, asociacion)
+    val filtradas = ReglasVitrina.filtrarTiendas(tiendas, busqueda, tipo, sector, asociacion, VitrinaStore.pertenencias)
     val tipos = tiendas.map { it.rubro }.filter { it.isNotBlank() }.distinct().sorted()
     val sectores = tiendas.map { it.sector }.filter { it.isNotBlank() }.distinct().sorted()
     val asocFiltradas = asociaciones.filter { a ->
@@ -289,7 +289,7 @@ fun PantallaTiendaPublica(tiendaId: String, nav: ControladorNavegacion, avisar: 
             return@Column
         }
         val productos = TramaStore.productosDeTienda(tienda.id)
-        val asociacion = VitrinaStore.asociacion(tienda.asociacionId)
+        val asociacion = VitrinaStore.asociacionesDe(tienda).firstOrNull()
         LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -322,6 +322,9 @@ fun PantallaTiendaPublica(tiendaId: String, nav: ControladorNavegacion, avisar: 
                 }
             }
             item { BotonesContacto(tienda, null, "") { prod, ref -> contacto = prod to ref } }
+            // Entrega 7: seguir la tienda y calificarla (si la emprendedora lo permite)
+            item { BotonSeguir("TIENDA", tienda.id, tienda.nombre, nav, avisar) }
+            item { SeccionCalificaciones(tienda, null, nav, avisar) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BotonSecundario(
@@ -526,6 +529,7 @@ fun PantallaProductoPublico(productoId: String, nav: ControladorNavegacion, avis
             if (p.descripcion.isNotBlank()) item { Text(p.descripcion, style = MaterialTheme.typography.bodyMedium) }
             if (tienda != null) {
                 item { BotonesContacto(tienda, p.id, referencia) { prod, ref -> contacto = prod to ref } }
+                item { SeccionCalificaciones(tienda, p.id, nav, avisar) }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         BotonSecundario(
@@ -550,7 +554,7 @@ fun PantallaProductoPublico(productoId: String, nav: ControladorNavegacion, avis
 // ============================================================ Asociación (A05, A09, A10)
 
 @Composable
-fun PantallaAsociacionPublica(asociacionId: String, nav: ControladorNavegacion) {
+fun PantallaAsociacionPublica(asociacionId: String, nav: ControladorNavegacion, avisar: (String) -> Unit = {}) {
     val contexto = LocalContext.current
     var mostrarQR by remember { mutableStateOf(false) }
     LaunchedEffect(asociacionId) {
@@ -564,7 +568,7 @@ fun PantallaAsociacionPublica(asociacionId: String, nav: ControladorNavegacion) 
             Vacio(titulo = if (VitrinaStore.cargando) "Cargando…" else "Asociación no encontrada", mensaje = "Revisa tu conexión e intenta de nuevo.")
             return@Column
         }
-        val socias = SesionManager.tiendas.filter { it.asociacionId == a.id }
+        val socias = SesionManager.tiendas.filter { VitrinaStore.perteneceA(it, a.id) }
         LazyColumn(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -573,6 +577,7 @@ fun PantallaAsociacionPublica(asociacionId: String, nav: ControladorNavegacion) 
                 Text(listOf(a.sector, a.localidad).filter { it.isNotBlank() }.joinToString(" · "), color = TextoSecundario)
                 if (a.descripcion.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(a.descripcion) }
             }
+            item { BotonSeguir("ASOCIACION", a.id, a.nombre, nav, avisar) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BotonSecundario(
@@ -623,6 +628,9 @@ fun PantallaFeriaPublica(feriaId: String, nav: ControladorNavegacion) {
                     )
                 }
             }
+            if (f.estado == "CANCELADA") {
+                item { Text("Esta feria fue cancelada. No se realizará.", color = RojoAlerce, fontWeight = FontWeight.Bold) }
+            }
             item { DatosFeria(f) }
             if (f.tieneUbicacion) {
                 item {
@@ -642,6 +650,8 @@ fun PantallaFeriaPublica(feriaId: String, nav: ControladorNavegacion) {
             } else {
                 item { Text("Esta feria aún no tiene su ubicación marcada en el mapa.", color = TextoSecundario) }
             }
+            // Entrega 7: participantes confirmadas con una muestra de su catálogo público (RF-FER-10)
+            item { SeccionParticipantes(f.id, nav) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     BotonSecundario(

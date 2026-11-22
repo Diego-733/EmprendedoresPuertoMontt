@@ -943,8 +943,8 @@
         (t.bio || "").toLowerCase().indexOf(texto) !== -1;
       var coincideTipo = !estado.filtroTipo || t.rubro === estado.filtroTipo;
       var coincideSector = !estado.filtroSector || t.sector === estado.filtroSector;
-      var coincideAsoc = !estado.filtroAsociacion ||
-        (estado.filtroAsociacion === "__ninguna" ? !t.asociacionId : t.asociacionId === estado.filtroAsociacion);
+      // Entrega 7: una tienda puede pertenecer a varias asociaciones (RN-05).
+      var coincideAsoc = !estado.filtroAsociacion || Cat.perteneceA(t, estado.filtroAsociacion);
       return coincideCategoria && coincideTexto && coincideTipo && coincideSector && coincideAsoc;
     });
 
@@ -2798,6 +2798,30 @@
       });
     }
 
+    // Entrega 7: calendario, participantes, seguidores, avisos y gestión de ferias.
+    if (window.AlerceFerias7) {
+      window.AlerceFerias7.iniciar({
+        modo: MODO, servicio: servicio, Cat: Cat, h: h, imagenSegura: imagenSegura,
+        formatearMoneda: formatearMoneda,
+        abrirModal: abrirModal, cerrarModal: cerrarModal, mostrarToast: mostrarToast,
+        tiendas: function () { return TIENDAS; },
+        productos: function () { return PRODUCTOS; },
+        usuario: function () { return estado.usuario; },
+        abrirVitrinaTienda: abrirVitrinaTienda,
+        abrirLogin: function (mensaje) {
+          abrirModalAuthNormal();
+          mostrarAviso("auth-aviso-error", "");
+          mostrarAviso("auth-aviso-exito", mensaje || "");
+        },
+        sesionActual: function () {
+          if (!supabaseClient || !supabaseClient.auth) return Promise.resolve(null);
+          return supabaseClient.auth.getSession().then(function (r) {
+            return r && r.data && r.data.session && r.data.session.user ? r.data.session.user.id : null;
+          }, function () { return null; });
+        }
+      });
+    }
+
     // Render inicial
     actualizarBadgesCarrito();
     renderizarTiendasMarketplace();
@@ -2805,7 +2829,6 @@
     configurarDomEntrega5();
     cargarCatalogoPublico();
     configurarObservadorAuthSupabase();
-    cargarFeriasDesdeSupabase();
     actualizarUIControlesSegunRol();
   }
 
@@ -3209,7 +3232,11 @@
     return cargarCatalogoPublico();
   }
 
+  // Reemplazada por js/vitrina6.js (ferias del servidor) y js/ferias7.js. Se conserva vacía
+  // para no mezclar la lista local antigua con los datos reales.
   function cargarFeriasDesdeSupabase() {
+    return;
+    /* eslint-disable no-unreachable */
     if (!supabaseClient) return;
     supabaseClient.from("ferias").select("*").then(function (res) {
       if (res.error || !res.data || !res.data.length) return;
@@ -3312,6 +3339,7 @@
 
       var rolEtiqueta = (rol === "ADMIN") ? "Administrador" : (rol === "EMPRENDEDORA" ? "Emprendedor/a" : "Comprador");
       aplicarUsuarioLocal(nombre, rolEtiqueta, fotoUrl);
+      if (window.AlerceFerias7) window.AlerceFerias7.alCambiarSesion(estado.usuario);
       return promesaCatalogo.then(function () {
         if (tiendaId && !TIENDAS.some(function (t) { return t.id === tiendaId; })) return cargarCatalogoPublico();
       }).then(function () {
@@ -3326,6 +3354,7 @@
       estadoPOS.tiendaId = null;
       aplicarUsuarioLocal(nombreFallback, "Comprador", null);
       actualizarUIControlesSegunRol();
+      if (window.AlerceFerias7) window.AlerceFerias7.alCambiarSesion(estado.usuario);
       mostrarToast("No pudimos leer tu perfil: " + Cat.mensajeError(err));
     });
   }
@@ -3884,6 +3913,7 @@
     estado.tiendaEmprendedoraId = null;
     estadoPOS.tiendaId = null;
     estado.usuario = { nombre: "Visitante", rol: "Visitante", fotoUrl: "" };
+    if (window.AlerceFerias7) window.AlerceFerias7.alCambiarSesion(null);
     aplicarUsuarioLocal("Visitante", "Visitante", "");
     actualizarUIControlesSegunRol();
     // La lista pública se vuelve a pedir sin sesión: lo que solo veía la dueña desaparece.
@@ -3891,7 +3921,11 @@
   }
 
   function cerrarSesionWeb() {
-    var salida = (supabaseClient && supabaseClient.auth) ? supabaseClient.auth.signOut() : Promise.resolve({});
+    // Primero este navegador deja de recibir avisos de la cuenta (necesita la sesión activa).
+    var previo = window.AlerceFerias7 ? window.AlerceFerias7.antesDeCerrarSesion() : Promise.resolve();
+    var salida = Promise.resolve(previo).then(function () {}, function () {}).then(function () {
+      return (supabaseClient && supabaseClient.auth) ? supabaseClient.auth.signOut() : {};
+    });
     Promise.resolve(salida).then(function (res) {
       if (res && res.error) mostrarToast("La sesión se cerró en este navegador, pero el servidor respondió: " + Cat.mensajeError(res.error));
       else mostrarToast("Sesión cerrada");
@@ -4246,6 +4280,7 @@
   function renderizarMisFerias() {
     var cont = document.getElementById("lista-ferias-gestion-cuerpo");
     if (!cont) return;
+    if (window.AlerceFerias7) { window.AlerceFerias7.pintarMisFerias(cont); return; }
 
     var tiendaId = estado.tiendaEmprendedoraId || "t_minimarket_rosa";
     var html = "";
@@ -4284,6 +4319,10 @@
   }
 
   function toggleInscripcionFeria(feriaId) {
+    // RN-03: la participación es solo por invitación de la administración.
+    mostrarToast("Las ferias son por invitación: responde las tuyas en «Mis ferias».");
+    return;
+    /* eslint-disable no-unreachable */
     var feria = FERIAS_COMUNALES.find(function (f) { return f.id === feriaId; });
     if (!feria) return;
     var tiendaId = estado.tiendaEmprendedoraId || "t_minimarket_rosa";

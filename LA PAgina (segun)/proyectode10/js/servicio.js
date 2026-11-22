@@ -149,6 +149,71 @@
       /** Borra una imagen subida que finalmente no se usó (fallo parcial). */
       borrarImagen: function (bucket, ruta) {
         return envolver(cliente.storage.from(bucket).remove([ruta]));
+      },
+
+      // ---------- Entrega 7 (supabase/07_ferias_seguidores.sql) ----------
+      /** Pertenencias tienda ↔ asociación (una tienda puede estar en varias). */
+      listarPertenencias: function () {
+        return envolver(cliente.from("tienda_asociaciones").select("tienda_id,asociacion_id"));
+      },
+      agregarPertenencia: function (tiendaId, asociacionId) {
+        return envolver(cliente.from("tienda_asociaciones").upsert({ tienda_id: tiendaId, asociacion_id: asociacionId }, { onConflict: "tienda_id,asociacion_id" }).select("tienda_id")).then(function (r) {
+          if (r.ok && (!r.datos || !r.datos.length)) return { ok: false, error: { message: "permission denied: no se agregó a la asociación" } };
+          return r;
+        });
+      },
+      quitarPertenencia: function (tiendaId, asociacionId) {
+        return envolver(cliente.from("tienda_asociaciones").delete().eq("tienda_id", tiendaId).eq("asociacion_id", asociacionId).select("tienda_id"));
+      },
+      publicarFeria: function (id) { return envolver(cliente.rpc("publicar_feria", { p_feria: id })); },
+      cancelarFeria: function (id, motivo) { return envolver(cliente.rpc("cancelar_feria", { p_feria: id, p_motivo: motivo || "" })); },
+      /** Invitar (directo = false) o agregar directamente (true) tiendas y asociaciones. */
+      invitarAFeria: function (feriaId, tiendas, asociaciones, directo) {
+        return envolver(cliente.rpc("invitar_a_feria", { p_feria: feriaId, p_tiendas: tiendas || [], p_asociaciones: asociaciones || [], p_directo: !!directo }));
+      },
+      checklistFeria: function (feriaId) { return envolver(cliente.rpc("checklist_feria", { p_feria: feriaId })); },
+      /** Recordatorio (RECORDATORIO) o aviso a confirmadas (AVISO_FERIA). La solicitud evita duplicar por doble clic. */
+      enviarAvisoFeria: function (feriaId, tipo, mensaje, solicitud) {
+        return envolver(cliente.rpc("enviar_aviso_feria", { p_feria: feriaId, p_tipo: tipo, p_mensaje: mensaje || "", p_solicitud: solicitud }));
+      },
+      registrarAsistencia: function (feriaId, tiendaId, asistencia) {
+        return envolver(cliente.rpc("registrar_asistencia", { p_feria: feriaId, p_tienda: tiendaId, p_asistencia: asistencia }));
+      },
+      /** Ficha pública: solo confirmadas y agregadas (nunca rechazadas ni pendientes). */
+      participantesFeria: function (feriaId) { return envolver(cliente.rpc("participantes_feria", { p_feria: feriaId })); },
+      misFerias: function () { return envolver(cliente.rpc("mis_ferias")); },
+      responderInvitacion: function (feriaId, participo) {
+        return envolver(cliente.rpc("responder_invitacion", { p_feria: feriaId, p_participo: !!participo }));
+      },
+      misSeguimientos: function () { return envolver(cliente.from("seguimientos").select("tipo,objetivo_id").limit(500)); },
+      seguir: function (tipo, id) { return envolver(cliente.rpc("seguir", { p_tipo: tipo, p_id: id })); },
+      dejarDeSeguir: function (tipo, id) { return envolver(cliente.rpc("dejar_de_seguir", { p_tipo: tipo, p_id: id })); },
+      miConsentimiento: function () {
+        return envolver(cliente.from("preferencias_avisos").select("avisos_ferias,consentido_en,retirado_en").maybeSingle());
+      },
+      guardarConsentimiento: function (avisos) { return envolver(cliente.rpc("guardar_consentimiento", { p_avisos: !!avisos })); },
+      registrarDispositivo: function (token, plataforma) {
+        return envolver(cliente.rpc("registrar_dispositivo", { p_token: token, p_plataforma: plataforma }));
+      },
+      quitarDispositivo: function (token) { return envolver(cliente.rpc("quitar_dispositivo", { p_token: token })); },
+      /** Bandeja de avisos de la cuenta (la RLS solo entrega los propios). */
+      /** Bandeja paginada (máximo 50 por página). */
+      misAvisos: function (limite, desde) {
+        var n = Math.min(Math.max(1, limite || 20), 50), d = Math.max(0, desde || 0);
+        return envolver(cliente.from("avisos").select("id,tipo,titulo,cuerpo,feria_id,enlace,estado,creado_en,recibido_en,leido_en")
+          .order("creado_en", { ascending: false }).range(d, d + n - 1));
+      },
+      /** Avisos que ESTE destino puede mostrar ahora (misma regla que el push; máximo 20). */
+      avisosParaMostrar: function (destino, limite) {
+        return envolver(cliente.rpc("avisos_para_mostrar", { p_destino: destino, p_limite: Math.min(Math.max(1, limite || 10), 20) }));
+      },
+      /** Único evento de confirmación: este destino MOSTRÓ el aviso o la persona lo ABRIÓ. */
+      confirmarAviso: function (id, destino, evento) {
+        return envolver(cliente.rpc("confirmar_aviso", { p_id: id, p_destino: destino, p_evento: evento }));
+      },
+      /** Leído en la bandeja (no es una notificación mostrada). */
+      marcarLeido: function (id) {
+        return envolver(cliente.rpc("marcar_leido", { p_id: id }));
       }
     };
   }

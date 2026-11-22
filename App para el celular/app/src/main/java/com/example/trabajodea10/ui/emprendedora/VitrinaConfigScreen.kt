@@ -160,6 +160,8 @@ fun PantallaConfigVitrina(nav: ControladorNavegacion, avisar: (String) -> Unit) 
                     }
                 }
             }
+            // Entrega 7: avisos de mensajes con horario y calificaciones (se guardan en el servidor al cambiarlos)
+            com.example.trabajodea10.ui.comprador.SeccionAvisosYCalificacionesTienda(avisar)
             BotonSecundario(
                 texto = "Ver mi tienda como visitante",
                 icono = { Icon(Icons.Filled.Visibility, contentDescription = null) },

@@ -19,6 +19,8 @@ class AplicacionTrama : Application() {
         // Entrega 6: vitrina (navegación anónima guardada) y mapas OpenStreetMap.
         com.example.trabajodea10.data.VitrinaStore.inicializar(this)
         com.example.trabajodea10.ui.comprador.configurarMapas(this)
+        // Entrega 7: ferias de la emprendedora, seguidores y avisos (canal, Firebase si está configurado).
+        com.example.trabajodea10.data.FeriasStore.inicializar(this)
         // Si quedaron cambios sin subir (por ejemplo, sin señal en la feria), se intentan ahora.
         Sincronizador.subirEnSegundoPlano()
     }

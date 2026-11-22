@@ -291,6 +291,8 @@ object SesionManager {
         runCatching { FeriaRepositorio.listar() }.onSuccess { TramaStore.reemplazarFeriasPlataforma(it) }
         TramaStore.iniciarSesion(perfil.rol)
         Sincronizador.subirEnSegundoPlano()
+        // Entrega 7: seguimientos, consentimiento, mis ferias, avisos y la acción pendiente.
+        FeriasStore.alIniciarSesion(perfil.rol)
         return perfil.rol
     }
 
@@ -319,6 +321,8 @@ object SesionManager {
      * para volver a entrar solo con la huella; si no, se cierra también en el servidor.
      */
     suspend fun cerrarSesionCompleta() {
+        // Entrega 7: este celular deja de recibir los avisos de la cuenta (necesita la sesión activa).
+        FeriasStore.alCerrarSesion()
         if (!huellaActivada()) {
             // Lo que no alcanzó a subirse queda guardado en la cola de esta cuenta
             // (no se descarta) y se sube la próxima vez que entre con ella.

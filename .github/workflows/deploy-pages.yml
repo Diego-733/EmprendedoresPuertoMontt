@@ -40,6 +40,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          # Entrega 7 (opcional): identificadores PÚBLICOS de la app web en Firebase para el push del
+          # navegador, como variable del repositorio (JSON con apiKey, projectId, messagingSenderId, appId, vapidKey).
+          FIREBASE_WEB_CONFIG: ${{ vars.FIREBASE_WEB_CONFIG }}
         run: |
           CONFIG_FILE="./LA PAgina (segun)/proyectode10/js/config.js"
           node - "$CONFIG_FILE" <<'NODE'
@@ -66,6 +69,19 @@ jobs:
             if (rol && rol !== "anon") fallar("SUPABASE_ANON_KEY no es la clave anon (rol distinto). Nunca uses service_role en la web.");
           }
           const cfg = { supabase: { url, anonKey: clave } };
+          const fbTexto = (process.env.FIREBASE_WEB_CONFIG || "").trim();
+          if (fbTexto) {
+            let fb = null;
+            try { fb = JSON.parse(fbTexto); } catch (e) { fallar("FIREBASE_WEB_CONFIG no es JSON válido."); }
+            if (/private_key|client_email/.test(fbTexto)) fallar("FIREBASE_WEB_CONFIG contiene una cuenta de servicio. Solo van los identificadores públicos de la app web.");
+            const campos = ["apiKey", "projectId", "messagingSenderId", "appId", "vapidKey"];
+            const faltanFb = campos.filter(k => !fb[k]);
+            if (faltanFb.length) fallar("A FIREBASE_WEB_CONFIG le falta: " + faltanFb.join(", "));
+            cfg.firebase = {}; campos.forEach(k => { cfg.firebase[k] = String(fb[k]); });
+            console.log("Push del navegador: configurado para el proyecto Firebase " + fb.projectId);
+          } else {
+            console.log("Push del navegador: sin configurar (los avisos se ven mientras la página está abierta).");
+          }
           fs.writeFileSync(process.argv[2], "window.__CONFIG__ = " + JSON.stringify(cfg) + ";\n");
           console.log("config.js generado para el proyecto en " + host.replace(/^([^.]{3})[^.]*/, "$1***"));
           NODE

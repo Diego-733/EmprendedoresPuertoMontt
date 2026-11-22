@@ -99,6 +99,12 @@ fun itemsSegunRol(rol: Rol): List<ItemNavegacion> = when (rol) {
     )
 }
 
+/** Ficha de la tienda o asociación de una acción pendiente. */
+fun rutaDeFicha(p: com.example.trabajodea10.data.AccionPendiente): Ruta {
+    val (tipo, id) = com.example.trabajodea10.data.ReglasSeguir.fichaDe(p)
+    return if (tipo == "TIENDA") Ruta.TiendaPublica(id) else Ruta.AsociacionPublica(id)
+}
+
 class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
 
     val pila = mutableStateListOf<Ruta>(rutaInicial)
@@ -134,8 +140,9 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
 
     fun iniciarSesion(rol: Rol) {
         TramaStore.iniciarSesion(rol)
-        // RF-ACC-08: si entra a la vitrina sin iniciar sesión, la acción pendiente se cancela.
-        if (com.example.trabajodea10.data.remoto.ClienteSupabase.sesion == null) com.example.trabajodea10.data.FeriasStore.descartarPendiente()
+        // RF-ACC-08: la acción pendiente NO se descarta aquí. Si Android recrea la pantalla al
+        // volver del navegador, la vitrina anónima se abre antes de que termine el ingreso con
+        // Google; la acción se cancela con «Ahora no», al vencer (15 min) o al cerrar sesión.
         val destino = when (rol) {
             Rol.ADMIN -> Ruta.AdminInicio
             Rol.EMPRENDEDORA -> Ruta.EmpInicio
@@ -148,6 +155,10 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
             }
         } else {
             pila.add(destino)
+        }
+        // Con sesión, se vuelve a la ficha que se quería seguir (tienda o asociación).
+        if (com.example.trabajodea10.data.remoto.ClienteSupabase.sesion != null) {
+            com.example.trabajodea10.data.FeriasStore.fichaPendiente()?.let { irA(rutaDeFicha(it)) }
         }
     }
 

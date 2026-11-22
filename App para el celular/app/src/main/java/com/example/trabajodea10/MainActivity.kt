@@ -46,7 +46,8 @@ class MainActivity : FragmentActivity() {
             intent.removeExtra(com.example.trabajodea10.avisos.AvisosCelular.EXTRA_FERIA)
         }
         intent?.getStringExtra(com.example.trabajodea10.avisos.AvisosCelular.EXTRA_AVISO)?.let {
-            com.example.trabajodea10.data.FeriasStore.confirmarRecepcion(it)
+            // La persona tocó la notificación en este celular.
+            com.example.trabajodea10.data.FeriasStore.confirmarAviso(it, "ABIERTO")
             intent.removeExtra(com.example.trabajodea10.avisos.AvisosCelular.EXTRA_AVISO)
         }
         val datos = intent?.data ?: return

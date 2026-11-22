@@ -168,12 +168,13 @@ class RevisarAvisosWorker(context: Context, params: WorkerParameters) : Coroutin
         return runCatching {
             val limite = System.currentTimeMillis() - 2 * 24 * 3600 * 1000L
             // El servidor aplica la misma regla que al enviar push (consentimiento, seguir, horario, feria).
-            FeriasRepositorio.avisosParaMostrar(10)
+            val destino = FeriasStore.destino()
+            FeriasRepositorio.avisosParaMostrar(destino, 10)
                 .filter { FeriasStore.instanteIso(it.creadoEn) >= limite }
                 .forEach { a ->
-                    // «Recibido» solo si el sistema aceptó mostrarla (permiso y canal activos).
+                    // «Mostrado» solo si el sistema aceptó mostrarla (permiso y canal activos).
                     if (AvisosCelular.mostrar(applicationContext, a.id, a.titulo, a.cuerpo, a.feriaId)) {
-                        runCatching { FeriasRepositorio.marcarAviso(a.id, leido = false, recibido = true) }
+                        runCatching { FeriasRepositorio.confirmarAviso(a.id, destino, "MOSTRADO") }
                     }
                 }
             Result.success()
@@ -193,7 +194,7 @@ class ServicioMensajes : FirebaseMessagingService() {
         val titulo = mensaje.notification?.title ?: datos["titulo"] ?: "Aviso de Alerce"
         val cuerpo = mensaje.notification?.body ?: datos["cuerpo"] ?: ""
         if (AvisosCelular.mostrar(applicationContext, avisoId, titulo, cuerpo, datos["feria_id"]?.ifBlank { null })) {
-            FeriasStore.confirmarRecepcion(avisoId)
+            FeriasStore.confirmarAviso(avisoId, "MOSTRADO")   // primer plano: la app la mostró
         }
     }
 }

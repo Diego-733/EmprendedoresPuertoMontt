@@ -55,8 +55,8 @@ begin
     select p.oid::regprocedure as firma from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname = 'public' and p.proname in ('publicar_feria', 'cancelar_feria', 'invitar_a_feria', 'responder_invitacion',
        'registrar_asistencia', 'enviar_aviso_feria', 'participantes_feria', 'checklist_feria', 'mis_ferias', 'seguir',
-       'dejar_de_seguir', 'guardar_consentimiento', 'registrar_dispositivo', 'quitar_dispositivo', 'marcar_aviso',
-       'guardar_avisos_contacto', 'calificar', 'resumen_calificaciones', 'avisos_para_mostrar', 'avisos_por_enviar', 'resultado_envio', 'es_notificador')
+       'dejar_de_seguir', 'guardar_consentimiento', 'registrar_dispositivo', 'quitar_dispositivo',
+       'guardar_avisos_contacto', 'calificar', 'resumen_calificaciones', 'avisos_para_mostrar', 'confirmar_aviso', 'marcar_leido', 'avisos_por_enviar', 'resultado_envio', 'es_notificador')
   loop
     execute format('revoke execute on function %s from anon, authenticated', f.firma);
   end loop;

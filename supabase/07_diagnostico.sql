@@ -40,7 +40,7 @@ select jsonb_pretty(jsonb_build_object(
                  'texto_fecha_feria', 'avisar_participacion', 'validar_participacion', 'avisar_contacto', 'registrar_bitacora', 'publicar_feria',
                  'cancelar_feria', 'invitar_a_feria', 'responder_invitacion', 'registrar_asistencia', 'enviar_aviso_feria', 'participantes_feria',
                  'checklist_feria', 'mis_ferias', 'seguir', 'dejar_de_seguir', 'guardar_consentimiento', 'registrar_dispositivo', 'quitar_dispositivo',
-                 'marcar_aviso', 'guardar_avisos_contacto', 'calificar', 'resumen_calificaciones', 'revalidar_avisos', 'motivo_no_notificar', 'avisos_para_mostrar', 'avisos_por_enviar', 'resultado_envio')),
+                 'marcar_leido', 'confirmar_aviso', 'guardar_avisos_contacto', 'calificar', 'resumen_calificaciones', 'revalidar_avisos', 'motivo_no_notificar', 'avisos_para_mostrar', 'avisos_por_enviar', 'resultado_envio')),
   'tablas_07_existentes', (select coalesce(jsonb_agg(tablename order by tablename), '[]') from pg_tables where schemaname = 'public'
                and tablename in ('tienda_asociaciones', 'feria_asociaciones', 'preferencias_tienda', 'seguimientos', 'preferencias_avisos',
                  'dispositivos', 'notificadores', 'avisos', 'entregas_aviso', 'bitacora_admin', 'calificaciones')),

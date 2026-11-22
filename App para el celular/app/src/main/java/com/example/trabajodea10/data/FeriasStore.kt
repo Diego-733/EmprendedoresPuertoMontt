@@ -52,6 +52,8 @@ object FeriasStore {
         private set
     /** Acción pendiente que se acaba de completar al iniciar sesión (la pantalla la abre). */
     var accionRecienCompletada by mutableStateOf<AccionPendiente?>(null)
+    /** Tras seguir al volver del ingreso, la ficha pregunta por los avisos (RNF-PRI-02). */
+    var ofrecerConsentimientoTrasIngreso by mutableStateOf(false)
     /** Feria del aviso que se tocó (la pantalla la abre). */
     var feriaDesdeAviso by mutableStateOf<String?>(null)
 
@@ -110,10 +112,23 @@ object FeriasStore {
     /** Tras conceder el permiso de notificaciones (o quitarlo), se ajusta el respaldo periódico. */
     fun permisoCambiado() { contexto?.let { if (ClienteSupabase.sesion != null) AvisosCelular.actualizarRespaldo(it) } }
 
-    /** La app mostró la notificación (o la persona la tocó): evidencia de que se vio. */
-    fun confirmarRecepcion(avisoId: String) {
+    /**
+     * Destino de ESTE celular: su token FCM si existe; si no, un identificador de instalación.
+     * La web y el celular confirman cada uno lo suyo, sin pisarse.
+     */
+    fun destino(): String {
+        prefs?.getString(CLAVE_TOKEN, null)?.let { return it }
+        val p = prefs ?: return "android:sin-preferencias"
+        return p.getString("destino_instalacion", null) ?: ("android:" + java.util.UUID.randomUUID()).also {
+            p.edit().putString("destino_instalacion", it).apply()
+        }
+    }
+
+    /** Este celular mostró el aviso (MOSTRADO) o la persona lo tocó (ABIERTO). Un evento por destino. */
+    fun confirmarAviso(avisoId: String, evento: String) {
         if (ClienteSupabase.sesion == null) return
-        ambito.launch { runCatching { FeriasRepositorio.marcarAviso(avisoId, leido = false, recibido = true) } }
+        val d = destino()
+        ambito.launch { runCatching { FeriasRepositorio.confirmarAviso(avisoId, d, evento) } }
     }
 
     // ================================================================ Mis ferias (emprendedora)
@@ -247,6 +262,11 @@ object FeriasStore {
 
     fun hayPendiente(): Boolean = prefs?.contains(CLAVE_PENDIENTE) == true
 
+    /** Acción por completar (o recién completada) para volver a su ficha al iniciar sesión. */
+    fun fichaPendiente(): AccionPendiente? = accionRecienCompletada ?: prefs?.getString(CLAVE_PENDIENTE, null)?.let {
+        runCatching { ClienteSupabase.json.decodeFromString(AccionPendiente.serializer(), it) }.getOrNull()
+    }?.takeIf { ReglasFerias.accionPendienteVigente(it, System.currentTimeMillis()) || it === accionRecienCompletada }
+
     /** Se cancela si la persona vuelve a la vitrina sin iniciar sesión. */
     fun descartarPendiente() { prefs?.edit()?.remove(CLAVE_PENDIENTE)?.apply() }
 
@@ -256,7 +276,10 @@ object FeriasStore {
         descartarPendiente()
         val p = runCatching { ClienteSupabase.json.decodeFromString(AccionPendiente.serializer(), texto) }.getOrNull() ?: return
         if (!ReglasFerias.accionPendienteVigente(p, System.currentTimeMillis())) return
-        if (seguir(p.tipo, p.id) == null) accionRecienCompletada = p
+        if (seguir(p.tipo, p.id) == null) {
+            accionRecienCompletada = p
+            if (consentimiento != true) ofrecerConsentimientoTrasIngreso = true
+        }
     }
 
     /** "2026-11-19T15:04:05.123+00:00" → milisegundos (0 si no se entiende). */

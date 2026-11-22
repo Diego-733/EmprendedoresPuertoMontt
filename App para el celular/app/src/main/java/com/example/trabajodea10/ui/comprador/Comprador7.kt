@@ -48,7 +48,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trabajodea10.avisos.AvisosCelular
+import com.example.trabajodea10.data.AccionSeguir
 import com.example.trabajodea10.data.FeriasStore
+import com.example.trabajodea10.data.MetodoIngreso
+import com.example.trabajodea10.data.ReglasSeguir
 import com.example.trabajodea10.data.ParticipantePublico
 import com.example.trabajodea10.data.ReglasVitrina
 import com.example.trabajodea10.data.SesionManager
@@ -75,7 +78,12 @@ import kotlinx.coroutines.launch
 
 /** «Seguir» / «Siguiendo» de una tienda o asociación (RF-CMP-06, RF-ACC-08). */
 @Composable
-fun BotonSeguir(tipo: String, id: String, nombre: String, nav: ControladorNavegacion, avisar: (String) -> Unit) {
+fun BotonSeguir(
+    tipo: String, id: String, nombre: String, nav: ControladorNavegacion, avisar: (String) -> Unit,
+    // Se puede reemplazar en las pruebas de interfaz; en la app abre el ingreso con Google existente.
+    iniciarGoogle: (suspend (android.content.Context) -> String?)? = null
+) {
+    val contexto = LocalContext.current
     val ambito = rememberCoroutineScope()
     var pedirSesion by remember { mutableStateOf(false) }
     var ofrecerAvisos by remember { mutableStateOf(false) }
@@ -85,7 +93,9 @@ fun BotonSeguir(tipo: String, id: String, nombre: String, nav: ControladorNavega
     val contenido = if (siguiendo) "Dejar de seguir a $nombre" else "Seguir a $nombre"
     OutlinedButton(
         onClick = {
-            if (ClienteSupabase.sesion == null) { pedirSesion = true; return@OutlinedButton }
+            if (ReglasSeguir.alTocar(ClienteSupabase.sesion != null, siguiendo) == AccionSeguir.PEDIR_INGRESO) {
+                pedirSesion = true; return@OutlinedButton
+            }
             ocupado = true
             ambito.launch {
                 val error = if (siguiendo) FeriasStore.dejarDeSeguir(tipo, id) else FeriasStore.seguir(tipo, id)
@@ -110,19 +120,34 @@ fun BotonSeguir(tipo: String, id: String, nombre: String, nav: ControladorNavega
     if (pedirSesion) {
         AlertDialog(
             onDismissRequest = { pedirSesion = false },
-            title = { Text("Inicia sesión para seguir") },
+            title = { Text("Ingresa con Google para seguir") },
             text = { Text("Para seguir a $nombre necesitas una cuenta. Al volver quedarás siguiéndola, sin tener que tocar de nuevo.") },
             confirmButton = {
                 TextButton(onClick = {
                     pedirSesion = false
                     FeriasStore.guardarPendiente(tipo, id, nombre)
-                    nav.irAIngreso()
-                }) { Text("Iniciar sesión") }
+                    when (ReglasSeguir.metodoParaSeguir()) {
+                        MetodoIngreso.GOOGLE -> ambito.launch {
+                            val error = (iniciarGoogle ?: { c -> com.example.trabajodea10.ui.auth.abrirIngresoGoogle(c) })(contexto)
+                            if (error != null) { FeriasStore.descartarPendiente(); avisar(error) }
+                        }
+                        MetodoIngreso.CORREO -> nav.irAIngreso()
+                    }
+                }) { Text("Continuar con Google") }
             },
-            dismissButton = { TextButton(onClick = { pedirSesion = false }) { Text("Ahora no") } }
+            dismissButton = { TextButton(onClick = { pedirSesion = false; FeriasStore.descartarPendiente() }) { Text("Ahora no") } }
         )
     }
+    // Si se canceló o falló el ingreso, se puede volver a intentar desde el mismo botón.
+    if (ClienteSupabase.sesion == null && SesionManager.errorOAuth != null && FeriasStore.hayPendiente()) {
+        Text("No se completó el ingreso con Google. Puedes intentarlo otra vez.", color = TextoSecundario,
+            style = MaterialTheme.typography.bodySmall)
+    }
     if (ofrecerAvisos) DialogoConsentimiento(nombre, onCerrar = { ofrecerAvisos = false }, avisar = avisar)
+    // Volvió del ingreso con Google y quedó siguiendo esta ficha: se pregunta por los avisos una vez.
+    if (FeriasStore.ofrecerConsentimientoTrasIngreso && siguiendo && FeriasStore.consentimiento != true) {
+        DialogoConsentimiento(nombre, onCerrar = { FeriasStore.ofrecerConsentimientoTrasIngreso = false }, avisar = avisar)
+    }
 }
 
 /** Consentimiento explícito (RNF-PRI-02) y, en Android 13+, el permiso del sistema. */
@@ -305,7 +330,7 @@ fun SeccionAvisosCuenta(nav: ControladorNavegacion, avisar: (String) -> Unit) {
     if (visibles.isEmpty()) Text("No tienes avisos.", color = TextoSecundario)
     visibles.take(10).forEach { a ->
         Tarjeta(onClick = {
-            ambito.launch { runCatching { FeriasRepositorio.marcarAviso(a.id, leido = true, recibido = false) } }   // leído en la bandeja
+            ambito.launch { runCatching { FeriasRepositorio.marcarLeido(a.id) } }   // leído en la bandeja
             a.feriaId?.let { nav.irA(Ruta.FeriaPublica(it)) }
         }) {
             Column(Modifier.padding(12.dp)) {

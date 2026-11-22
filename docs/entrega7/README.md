@@ -4,18 +4,19 @@ Rama `entrega7/ferias-seguidores`, creada desde `main` en `f519e60` (entrega 6 i
 
 Pautas: `checklist-revision-entrega-6.md` y `checklist-revision-entrega-7.md` (35 criterios cada una, identificados aquí como **E6-…** y **E7-…**). Requisitos: `requerimientos-base.md` y `planificacion.md` del repositorio oficial del curso.
 
-## 1. Estado (19-nov-2026, revisión de cierre)
+## 1. Estado (22-nov-2026)
 
 | Tipo de resultado | Qué incluye | Resultado |
 |---|---|---|
-| **Local, con motores reales** | SQL en PostgreSQL 15 y 17 (RLS, funciones, triggers, migración, reversión, transacción) · reglas web y Android · compilación | 732/732 SQL · 35/35 web unitarias · 58/58 Android · APK compilado |
-| **Simulado** | Recorridos web con un Supabase sustituto (no prueba RLS) · servicio de envío con un fetch sustituto (no toca Supabase ni Firebase) | Recorridos (Edge): 14/14 de la entrega 7 en esta revisión + 29/29 anteriores en la ejecución previa · 10/10 envío |
-| **Contra servicios reales** | Web publicada (`main`), sin sesión y solo lectura: criterios públicos de la entrega 6 · emprendedora: la app abre en el emulador y el permiso de avisos se pide al tocar | Ver la matriz de la entrega 6. **Ningún criterio E7** está probado contra el servidor: la migración 07 no está aplicada |
+| **Probado localmente, con motores reales** | SQL en PostgreSQL 15 y 17 (permisos, funciones, migración con datos de la entrega 6, respaldo, reversión, transacción) · reglas web y Android · compilación | 758/758 SQL · 35/35 web unitarias · 61/61 Android · APK `1.5-entrega7` provisional |
+| **Probado en el emulador** | Botón «Seguir» sin sesión → «Continuar con Google» (sustituido) en tienda y asociación; error de Google y reintento | 3/3 pruebas de interfaz (Pixel 7) |
+| **Simulado** | Recorridos web con un Supabase sustituto (no prueba RLS) · envío con un fetch sustituto | 43/43 recorridos (Edge) · 10/10 envío |
+| **Verificado en el entorno real** | Solo la parte pública de la entrega 6 en la web publicada | Ningún criterio E7: la migración 07 no está aplicada |
 
-**Siguen bloqueados**:
-- Todos los E7 en el entorno real, hasta aplicar 07.
-- **E7-A12** y **E6-A08** (INVITAR/OBLIGAR): Google desactivado.
-- **E7-A13** (push) y **E7-W18** con la página cerrada: falta Firebase y el notificador.
+**Bloqueos para presentar la entrega 7** (detalle en 3b):
+- Aplicar la migración 07: sin ella no funciona ningún criterio E7 en el servidor.
+- Firebase (app Android y web) y la cuenta del notificador: sin ellos no hay push (E7-A01, A13, W18 con la página cerrada).
+- Google activo en el servidor: sin él, E7-A12 no se puede completar. Hoy `/auth/v1/settings` lo muestra desactivado.
 
 ## 2. Qué se agregó, corrigió o cambió
 
@@ -27,7 +28,7 @@ Pautas: `checklist-revision-entrega-6.md` y `checklist-revision-entrega-7.md` (3
 - `checklist_feria` (solo administración), `participantes_feria` (pública: solo confirmadas o agregadas) y `mis_ferias` (de la emprendedora).
 - Varias asociaciones por tienda: tabla `tienda_asociaciones`. Las asignaciones existentes se migran sin cambiar las tiendas, y `tiendas.asociacion_id` queda como «principal» para los clientes anteriores.
 - Seguidores (`seguir` y `dejar_de_seguir`, sin duplicar), consentimiento (`guardar_consentimiento`; al retirarlo se omite lo pendiente), dispositivos por cuenta (`registrar_dispositivo`/`quitar_dispositivo`; si otra cuenta entra en el mismo celular, el token pasa a ella).
-- Bandeja y cola de **avisos**: estados `PENDIENTE` → `ENVIANDO` → `ENVIADO` (FCM aceptó), `SIN_DISPOSITIVO`, `OMITIDO` o `FALLIDO`, con reintentos limitados. `recibido_en` aparte: cuando el celular o el navegador confirma que lo mostró.
+- Bandeja y cola de **avisos**: estados `PENDIENTE` → `ENVIANDO` → `ENVIADO` (FCM aceptó), `SIN_DISPOSITIVO`, `OMITIDO` o `FALLIDO`, con reintentos limitados. Por destino (`entregas_aviso`): aceptado por Firebase, mostrado o abierto en cada navegador o celular, con un solo evento de confirmación (`confirmar_aviso`).
 - Los avisos los crean solo triggers y funciones del servidor:
   - invitación o incorporación;
   - confirmación de participación, solo a seguidores con consentimiento y una vez por feria (editar la feria no avisa);
@@ -71,36 +72,42 @@ Pautas: `checklist-revision-entrega-6.md` y `checklist-revision-entrega-7.md` (3
 - Varias asociaciones por tienda en los filtros y fichas (web y app).
 - Se quitó el voseo de «Mis ferias».
 
-## 3. Avisos: una sola regla y qué demuestra cada mecanismo
+## 3. Avisos: una regla por persona y un registro por destino
 
-**Una sola regla.** La función `motivo_no_notificar()` decide si corresponde avisar **ahora**. Revisa:
+**¿Debe recibirlo la persona?** Una sola función, `motivo_no_notificar()`, lo decide **ahora**. Revisa:
 - consentimiento;
 - que siga a la tienda o asociación;
 - horario y activación de los avisos de contacto;
 - que la feria siga activa;
 - que la invitación no se haya respondido;
-- que no tenga más de 3 días de atraso;
-- que no se haya mostrado ya.
+- que no tenga más de 3 días de atraso.
 
-La usan los dos caminos:
-- **Push:** `avisos_por_enviar`, para el notificador.
-- **Alternativos:** `avisos_para_mostrar`, para la revisión periódica del celular y la web abierta.
+La usan el push (`avisos_por_enviar`) y los mecanismos alternativos (`avisos_para_mostrar`: web abierta y revisión periódica del celular).
 
-Los alternativos solo reciben avisos que el push no entregó (pendientes, sin dispositivo o fallidos), así que no duplican. Leer la bandeja (`avisos`) solo **lista** avisos: no genera notificaciones ni se salta la regla.
+**¿Ya lo recibió ESE destino?** Se lleva por destino en `entregas_aviso`. Un destino es el token FCM de un celular o navegador, o el identificador de una página web abierta sin push:
 
-| Indicador | Significa | No significa |
+| Estado del destino | Lo registra | Significa |
 |---|---|---|
-| `ENVIADO` | FCM aceptó el mensaje para al menos un dispositivo | Que se haya visto |
-| `recibido_en` | Web: `new Notification()` funcionó. Android: la app la mostró con el permiso y el canal activos (primer plano o revisión periódica), o la persona tocó la notificación | Android con la app en segundo plano: Android muestra el push por su cuenta y la app no se entera; solo hay evidencia si la persona la toca |
-| Leído (`leido_en`) | Se abrió en la bandeja | Que haya llegado como notificación |
-| WorkManager (Android) | Respaldo periódico, **solo sin Firebase** y con permiso de notificar. Intervalo mínimo de 15 min que Android puede postergar | Push, o un plazo garantizado |
+| `ACEPTADO` | Notificador | Firebase aceptó el mensaje para ese destino; no prueba que se haya visto |
+| `FALLA_TEMPORAL` | Notificador | Se reintenta solo en ese destino |
+| `INVALIDO` / `RECHAZADO` | Notificador | Token dado de baja (se desactiva) / contenido rechazado (el dispositivo sigue activo) |
+| `MOSTRADO` | Cliente, con `confirmar_aviso` | Ese navegador o celular mostró la notificación |
+| `ABIERTO` | Cliente, con `confirmar_aviso` | La persona la tocó en ese destino |
+
+Reglas por destino:
+- Que la web la muestre no impide el push al celular, y al revés.
+- No se repite el push en un destino que ya la aceptó, mostró o abrió. Tampoco se repite el evento: «abierto» no vuelve a «mostrado».
+- Leer en la bandeja (`marcar_leido`) no cuenta como notificación mostrada.
+- `avisos.recibido_en` solo resume la primera vez que se mostró en algún destino.
+
+Lo que **no** queda registrado: con la app Android en segundo plano, Android muestra el push por su cuenta y la app no se entera. Solo queda `ABIERTO` si la persona la toca. En la web con la página cerrada pasa lo mismo.
 
 **Errores de FCM:**
-- `UNREGISTERED`, `SENDER_ID_MISMATCH` o un `INVALID_ARGUMENT` que señala el campo `token`: token inválido, el dispositivo se desactiva.
-- `INVALID_ARGUMENT` por contenido, tamaño o formato: mensaje rechazado. El dispositivo sigue activo y no se reintenta.
-- 429, 5xx o autenticación: falla temporal, se reintenta.
+- `UNREGISTERED`, `SENDER_ID_MISMATCH` o un `INVALID_ARGUMENT` que señala el campo `token`: token inválido.
+- Otro `INVALID_ARGUMENT` (contenido, tamaño o formato): mensaje rechazado.
+- 429, 5xx o autenticación: falla temporal.
 
-**Varios dispositivos y atrasos:** el resultado se guarda por dispositivo; el reintento va solo al que falló temporalmente. Todo está probado en SQL.
+WorkManager (Android) es un respaldo periódico **solo sin Firebase** y con permiso de notificar. Corre cada 15 min como mínimo y Android puede postergarlo: no es push.
 
 ## 3a. Consultas automáticas (inventario)
 
@@ -246,64 +253,74 @@ Leyenda: **Verificado** = usado en un entorno real · **Implementado sin verific
 
 Reglas de la entrega 5 (opciones, cantidades, pieza única, disponibilidad, venta atómica, reintentos y sincronización por cuenta): siguen pasando en la batería SQL completa.
 
-## 6. Matriz de la entrega 7 (35)
+## 6. Pauta de prueba de la entrega 7 (35 criterios)
 
-Ninguno está verificado en el entorno real: falta aplicar 07. En «Prueba» se indica lo que sí se probó.
+**Preparación (una vez, antes de la demo):**
+- Migración 07 aplicada (sección 4), Firebase y notificador configurados, Google activo (sección 3b).
+- APK final instalado en un **celular físico**.
+- Cuentas identificables:
+  - administrador;
+  - emprendedora «PRUEBA E7 Uno», integrante de la asociación «PRUEBA E7 Asociación»;
+  - emprendedora «PRUEBA E7 Dos», para el rechazo y el recordatorio;
+  - comprador «PRUEBA E7 Comprador», que entra con Google.
+- Feria «PRUEBA E7 Feria» en borrador, con fecha del día de la demo, ubicación y un horario que incluya la hora de la demo.
+- Cada «procesar un lote» significa ejecutar `npm run notificar` **una vez**. Nunca modo continuo ni cron.
 
-| ID | Requisito | Implementación | Prueba | Estado |
-|---|---|---|---|---|
-| E7-W01 | Publicar y verla sin sesión | `publicar_feria`; política `ferias_ver` | SQL real: el borrador oculto pasa a visible sin sesión; e2e del botón | Implementado sin verificar |
-| E7-W02 | Cancelar: deja de ser activa | `cancelar_feria`; `feria_activa` | SQL real (avisos, no repite, no se puede responder); e2e (motivo, fuera del calendario, ficha «cancelada») | Implementado sin verificar |
-| E7-W03 | Invitar a una emprendedora | `invitar_a_feria` | SQL + e2e | Implementado sin verificar |
-| E7-W04 | Invitar a una asociación | Integrantes con origen ASOCIACION, sin duplicar | SQL + e2e | Implementado sin verificar |
-| E7-W05 | Agregar directamente | `p_directo` → AGREGADA | SQL + e2e | Implementado sin verificar |
-| E7-W06 | Estados en el checklist | `checklist_feria`; etiquetas | SQL + e2e (4 estados) | Implementado sin verificar |
-| E7-W07 | «Participo» en la app → Confirmada | `responder_invitacion`; checklist con actualización cada 15 s | SQL real; e2e simulado | Implementado sin verificar |
-| E7-W08 | Búsqueda y filtros por estado, tipo y asociación | `filtrarChecklist` | Unitarias + e2e | Implementado sin verificar |
-| E7-W09 | Recordatorio solo a pendientes | `enviar_aviso_feria('RECORDATORIO')` | SQL (solo pendientes, doble clic sin duplicar) + e2e | Implementado sin verificar (envío real: falta el notificador) |
-| E7-W10 | Aviso a confirmadas | `'AVISO_FERIA'` | SQL + e2e | Igual que W09 |
-| E7-W11 | Asistencia el día de la feria | `registrar_asistencia` | SQL (antes del día, no participa, no admin) + e2e | Implementado sin verificar |
-| E7-W12 | Confirmadas, sin rechazadas | `participantes_feria` | SQL + e2e | Implementado sin verificar |
-| E7-W13 | Muestra de catálogo público | `muestraCatalogo` | Unitarias + e2e (excluye no disponibles) | Implementado sin verificar |
-| E7-W14 | Calendario → ficha | `calendarioFerias` | Unitarias + e2e | Implementado sin verificar |
-| E7-W15 | Seguir con sesión | `seguir` | SQL + e2e | Implementado sin verificar |
-| E7-W16 | Seguir sin sesión → se completa al volver | Acción pendiente en `localStorage` (15 min, una vez, se descarta al cancelar) | e2e (login, ejecución única, cancelación) | Implementado sin verificar (con Google: bloqueado hasta activarlo) |
-| E7-W17 | Dejar de seguir | `dejar_de_seguir` | SQL + e2e | Implementado sin verificar |
-| E7-W18 | Aviso en el navegador al confirmarse | Trigger + bandeja; notificación con la página abierta; push FCM opcional | SQL + e2e (notificación y recepción confirmada) | Implementado sin verificar · con la página cerrada: **Bloqueado** (Firebase) |
-| E7-A01 | Invitación como notificación sin abrir la app | Aviso del servidor + push FCM; respaldo periódico con WorkManager (sin plazo garantizado) | SQL (crea el aviso); emulador: permiso pedido y rechazo sin error | Implementado sin verificar (sin Firebase solo hay revisión periódica: no es push ni tiene plazo garantizado) |
-| E7-A02 | «Participo» con un toque | Mis ferias + `responder_invitacion` | SQL; unitarias del estado sin conexión; pantalla en emulador | Implementado sin verificar |
-| E7-A03 | «No participo» → Rechazada en la web | Igual | SQL | Implementado sin verificar |
-| E7-A04 | Calendario de mis ferias | `ReglasFerias.calendario` | Unitarias; pantalla en emulador (vacía, sin cuenta) | Implementado sin verificar |
-| E7-A05 | Sugerencia por fecha | `sugerirFeria` | Unitarias (solo confirmadas, varios días, canceladas) | Implementado sin verificar |
-| E7-A06 | Sugerencia por ubicación | Cercanía de 500 m + precisión (máx. 1 km), ubicación de menos de 15 min, en horario | Unitarias (lejos, imprecisa, antigua, fuera de horario) | Implementado sin verificar (necesita prueba con ubicación) |
-| E7-A07 | Ficha con confirmadas y muestra | `SeccionParticipantes` | Código; RPC probada en SQL | Implementado sin verificar |
-| E7-A08 | Compartir feria o QR → ficha web | Entrega 6 (enlace `?feria=`); la web abre la ficha | e2e del enlace web | Implementado sin verificar |
-| E7-A09 | Seguir una tienda | `BotonSeguir` | SQL | Implementado sin verificar |
-| E7-A10 | Seguir una asociación | Igual | SQL | Implementado sin verificar |
-| E7-A11 | Dejar de seguir | Botón y Mi perfil → Avisos | SQL | Implementado sin verificar |
-| E7-A12 | Seguir sin sesión → Google → queda siguiendo | Acción pendiente en el celular, ejecutada una vez tras iniciar sesión, descartada al volver sin sesión | Unitarias de vigencia | **Bloqueado** (Google desactivado) |
-| E7-A13 | Push con el nombre de la feria | Trigger con el nombre de la feria + notificador FCM + `ServicioMensajes` | SQL (título con la feria); pruebas del notificador | **Bloqueado** (Firebase y notificador) |
-| E7-A14 | Consentimiento explícito y baja | `DialogoConsentimiento`, Mi perfil → Avisos; el servidor omite sin consentimiento | SQL (sin consentimiento no hay aviso; al retirarlo se omite lo pendiente) | Implementado sin verificar |
-| E7-A15 | Avisos de contacto con horario | `guardar_avisos_contacto`; trigger | SQL (dentro, fuera y apagado; el mensaje siempre se guarda) | Implementado sin verificar |
-| E7-A16 | Activar o desactivar calificaciones | Interruptor + PATCH protegido | SQL (otra emprendedora no puede) | Implementado sin verificar |
-| E7-A17 | Calificar si están activas; bloqueado si no | `calificar` | SQL (el servidor lo exige; la propia tienda no; producto no público no) | Implementado sin verificar |
+Estados: **probado localmente** (SQL real local, pruebas unitarias o emulador con sustitutos) · **simulado** (recorrido web con un Supabase sustituto) · **pendiente de prueba física** · **bloqueado por configuración**.
 
-## 7. Pruebas ejecutadas (19-nov-2026, cierre)
+Una prueba local o simulada **no** equivale a ver la notificación en el celular: cada fila dice qué evidencia hay.
+
+Ningún criterio está «verificado en el entorno real» todavía.
+
+| Orden | ID | Quién | Pasos | Resultado que debemos ver | Evidencia disponible | Estado |
+|---|---|---|---|---|---|---|
+| 1 | W01 | Admin (web) | Panel Admin → Ferias → «📣 Publicar» en «PRUEBA E7 Feria»; abrir la web en ventana privada | La feria aparece en el calendario y en «Próximas ferias» sin sesión | SQL (borrador oculto → visible) + recorrido | Bloqueado por configuración (07) |
+| 2 | W14 | Visitante (web) | En la ventana privada: «Calendario de próximas ferias» → tocar la feria | Se abre su ficha con fecha, lugar y mapa | Recorrido + unitarias | Bloqueado por configuración (07) |
+| 3 | W16 | Comprador (web) | Sin sesión: abrir la tienda «PRUEBA E7 Uno» → «＋ Seguir» → iniciar sesión | Al volver dice «✓ Siguiendo» sin volver a tocar | Recorrido (con correo y cancelación) | Bloqueado por configuración (07; con Google, además Google) |
+| 4 | A12 | Comprador (celular) | Sin sesión: abrir la tienda «PRUEBA E7 Uno» → «Seguir» → «Continuar con Google» → elegir la cuenta | Vuelve a la ficha de la tienda con «Siguiendo». Repetir con la asociación | Emulador: el botón abre Google y no el correo (tienda y asociación); unitarias de la ficha de vuelta | Bloqueado por configuración (Google y 07) |
+| 5 | A14 | Comprador (celular) | Al volver de A12 aparece «¿Quieres recibir avisos?» → «Sí, avisarme» → permitir notificaciones | Mi perfil → Avisos muestra «Recibir avisos» activo | SQL (sin consentimiento no hay aviso) | Pendiente de prueba física |
+| 6 | W15 | Comprador (web) | Con sesión: abrir la asociación «PRUEBA E7 Asociación» → «＋ Seguir» → «Sí, avisarme» | «✓ Siguiendo» y consentimiento guardado | SQL + recorrido | Bloqueado por configuración (07) |
+| 7 | A10 | Comprador (celular) | Abrir la asociación → «Seguir» | «Siguiendo» | SQL | Pendiente de prueba física |
+| 8 | A09 | Comprador (celular) | Si se siguió por la web, comprobar «Siguiendo» en la tienda; si no, seguirla | «Siguiendo» | SQL | Pendiente de prueba física |
+| 9 | W03 | Admin (web) | «📋 Invitaciones y checklist» → marcar «PRUEBA E7 Uno» → «Invitar seleccionadas» | Fila «Invitada» | SQL + recorrido | Bloqueado por configuración (07) |
+| 10 | A01 | Emprendedora (celular) | Con sesión y «Activar avisos» tocado, enviar la app a segundo plano (sin detenerla). Procesar un lote | Llega «Te invitaron a PRUEBA E7 Feria» con la app en segundo plano | SQL (crea el aviso) + envío simulado; emulador: el permiso se pide al tocar | Bloqueado por configuración (Firebase, notificador, 07) |
+| 11 | A04 | Emprendedora (celular) | Tocar la notificación → «Mis ferias» | La feria aparece en «Invitaciones» y en el calendario del mes | Unitarias del calendario | Pendiente de prueba física |
+| 12 | A02 | Emprendedora (celular) | Tocar «Participo» | «Confirmaste tu participación…» (si dice «pendiente de conexión», falta señal) | SQL + unitarias | Pendiente de prueba física |
+| 13 | W07 | Admin (web) | Mirar el checklist abierto (se actualiza cada 20 s) o tocar «Actualizar» | «PRUEBA E7 Uno» pasa a «Confirmada» | SQL real; recorrido simulado | Bloqueado por configuración (07) |
+| 14 | A13 | Comprador (celular) | Procesar un lote con la app del comprador en segundo plano | Push «PRUEBA E7 Uno estará en PRUEBA E7 Feria» | SQL (destinos y título) + envío simulado | Bloqueado por configuración (Firebase, notificador) |
+| 15 | W18 | Comprador (web) | Con la web abierta y el permiso del navegador concedido (o cerrada, si hay Firebase web) | Notificación del navegador con el nombre de la feria. La web y el celular la reciben cada uno | SQL (web primero/celular primero) + recorrido | Bloqueado por configuración (07; con la página cerrada, además Firebase web) |
+| 16 | W04 | Admin (web) | Invitar «PRUEBA E7 Asociación» | Sus integrantes aparecen; quien ya estaba no se duplica | SQL + recorrido | Bloqueado por configuración (07) |
+| 17 | W05 | Admin (web) | Marcar «PRUEBA E7 Dos» → «Agregar directamente» | Fila «Agregada por administración» | SQL + recorrido | Bloqueado por configuración (07) |
+| 18 | W06 | Admin (web) | Revisar el checklist | Se ven «Invitada», «Confirmada», «Rechazada» y «Agregada por administración» (la rechazada aparece en la fila 21) | SQL + recorrido | Bloqueado por configuración (07) |
+| 19 | W08 | Admin (web) | Usar la búsqueda y los filtros de estado, tipo y asociación | La lista se reduce según cada filtro | Unitarias + recorrido | Bloqueado por configuración (07) |
+| 20 | W09 | Admin (web) | Invitar a otra participante de prueba sin responder → «⏰ Recordar…» → procesar un lote | Solo la pendiente recibe el recordatorio; el contador coincide | SQL (solo pendientes, sin duplicar) + recorrido | Bloqueado por configuración (07, Firebase) |
+| 21 | A03 | Otra emprendedora (celular) | Esa participante toca «No participo» | En la web, su fila pasa a «Rechazada» | SQL | Pendiente de prueba física |
+| 22 | W10 | Admin (web) | Escribir un mensaje → «📢 Enviar aviso a las confirmadas» → procesar un lote | Llega a confirmadas y agregadas, no a las rechazadas | SQL + recorrido | Bloqueado por configuración (07, Firebase) |
+| 23 | W12 | Visitante (web) | Abrir la ficha de la feria | Lista «PRUEBA E7 Uno» y las agregadas; no la rechazada | SQL + recorrido | Bloqueado por configuración (07) |
+| 24 | W13 | Visitante (web) | En la ficha, revisar la muestra de productos | Solo productos públicos (un producto «Solo yo lo veo» o no disponible no aparece) | Unitarias + recorrido | Bloqueado por configuración (07) |
+| 25 | A07 | Comprador (celular) | Abrir la ficha de la feria en la app | «Participan» con la muestra de productos públicos | SQL de la consulta pública | Pendiente de prueba física |
+| 26 | A08 | Comprador (celular) | «Compartir» y «Código QR» → abrir el enlace o QR en un navegador sin sesión | Se abre la ficha web de la feria | Recorrido del enlace `?feria=` | Pendiente de prueba física |
+| 27 | A05 | Emprendedora (celular) | Venta → «¿Dónde vendiste?» | «Hoy participas en PRUEBA E7 Feria» → «Usar esta feria» | Unitarias (solo confirmadas, varios días, canceladas) | Pendiente de prueba física |
+| 28 | A06 | Emprendedora (celular) | En el punto de la feria, con la ubicación activada: «Confirmar con mi ubicación» | «Estás en PRUEBA E7 Feria (a N m)» | Unitarias (lejos, imprecisa, antigua, fuera de horario) | Pendiente de prueba física |
+| 29 | W11 | Admin (web) | En el checklist, marcar «Asistió» para «PRUEBA E7 Uno» | Se guarda; para la rechazada el control está desactivado | SQL + recorrido | Bloqueado por configuración (07) |
+| 30 | W17 | Comprador (web) | «✓ Siguiendo» → dejar de seguir | Vuelve a «＋ Seguir» | SQL + recorrido | Bloqueado por configuración (07) |
+| 31 | A11 | Comprador (celular) | Mi perfil → Avisos → «Dejar de seguir». Luego la emprendedora dice «Ya no puedo participar», el admin la agrega de nuevo y se procesa un lote | No llega aviso nuevo; en la base queda omitido por «ya no sigue» | SQL (omitido y no enviado) | Pendiente de prueba física |
+| 32 | A15 | Emprendedora (celular) | Tienda → «Precios, contacto…» → Avisos de mensajes: activar con un horario que excluya la hora actual. Enviar un mensaje desde la web. Luego incluir la hora actual y enviar otro | El primero llega a «Mensajes recibidos» sin notificación; el segundo notifica (tras procesar un lote) | SQL (dentro, fuera, apagado; también al enviar) | Pendiente de prueba física |
+| 33 | A16 | Emprendedora (celular) | Mismo lugar → «Permitir que me califiquen» | Interruptor activo (y luego apagado) | SQL (otra emprendedora no puede cambiarlo) | Pendiente de prueba física |
+| 34 | A17 | Comprador (celular) | Con calificaciones activas: calificar la tienda y un producto. Apagarlas y volver a abrir la tienda | Activas: se guarda y se ve el promedio. Apagadas: desaparece el control y el servidor rechaza | SQL (lo exige el servidor) | Pendiente de prueba física |
+| 35 | W02 | Admin (web) | Al final: «Cancelar feria» con motivo | Sale del calendario; su ficha dice «cancelada»; las participantes reciben el aviso (procesar un lote) | SQL + recorrido | Bloqueado por configuración (07) |
+
+## 7. Pruebas ejecutadas (22-nov-2026)
 
 | Batería | Resultado | Tipo |
 |---|---|---|
-| `npm run test:sql` | 732 de 732 en PostgreSQL 15 y 17. Incluye permisos por perfil, cola por dispositivo, mensaje rechazado sin desactivar el dispositivo, regla única para push y alternativos, avisos atrasados y el procedimiento de migración completo | Local, PostgreSQL real |
-| `npm run test:web` | 35 de 35 (incluye 10 del envío: `INVALID_ARGUMENT` por token o por contenido) | Local / simulado |
-| `entrega7.spec.js` | 14 de 14 en Edge. Incluye: la web no marca «recibido» si la notificación falla, y sin permiso no consulta periódicamente | Simulado |
-| Resto de recorridos | 29 de 29 en la ejecución anterior (la entrega 6 no cambió) | Simulado |
-| `./gradlew testDebugUnitTest assembleDebug` | 58 de 58 y APK `1.5-entrega7` recompilado | Local |
-| Emulador y web publicada | Como en la revisión anterior (sin cambios) | Real, sin cuenta del servidor / solo lectura |
+| `npm run test:sql` | 758 de 758 en PostgreSQL 15 y 17. Incluye la entrega por destino (web primero, celular primero, reintento al destino pendiente, dejar de seguir, retirar consentimiento, cierre de sesión en celular compartido, navegador sin confirmar) y la migración con datos de la entrega 6 | Probado localmente |
+| `npm run test:web` | 35 de 35 | Probado localmente / simulado |
+| `npm run test:e2e` | 43 de 43 en Edge (incluye: la web confirma «mostrado» con su propio destino y no lo hace si la notificación falla) | Simulado |
+| `./gradlew testDebugUnitTest assembleDebug` | 61 de 61 (incluye la regla del botón «Seguir» y la ficha de vuelta) | Probado localmente |
+| Emulador (`BotonSeguirTest`) | 3 de 3: tienda y asociación abren Google y no el correo; un error se informa y se puede reintentar | Probado en el emulador (Google sustituido) |
 
-Limitaciones:
-- No hubo celular físico ni push real.
-- No hubo cuentas de prueba en la instancia.
-- La recepción en segundo plano de Android solo se evidencia si la persona toca la notificación.
-- El inicio del administrador en la app conserva métricas de ejemplo.
+No se hicieron pruebas contra la instancia del curso, salvo una lectura de `/auth/v1/settings` para ver si Google está activo.
 
 ## 7b. Archivos privados publicados por error
 
@@ -329,7 +346,7 @@ Necesitas:
    - la emprendedora inició sesión antes y tocó «Activar avisos»;
    - con la app en segundo plano (sin detenerla a la fuerza) llega «Te invitaron a PRUEBA E7 Feria»;
    - el notificador muestra «aceptados por FCM 1»: eso es la aceptación del proveedor;
-   - la evidencia de recepción es ver la notificación en el celular. Al tocarla, el aviso queda con `recibido_en`.
+   - la evidencia de recepción es ver la notificación en el celular. Al tocarla, ese celular queda `ABIERTO` en `entregas_aviso`.
 3. **Aceptar:** la notificación abre «Mis ferias» → «Participo». La app confirma «Confirmaste tu participación…»; si dice «pendiente de conexión», falta señal.
 4. **Ver la confirmación (web):** con el checklist abierto, en hasta 20 s (o con «Actualizar») la fila pasa a «Confirmada».
 
@@ -340,7 +357,19 @@ Si el paso 2 no llega:
 
 Al terminar, borrar la cuenta y la feria de prueba. El resto de los criterios (seguir, dejar de seguir, horario de contactos, calificaciones, sugerencia de venta) se prueba después con el mismo esquema.
 
-## 9. APK y archivos
+## 9. APK
 
-- APK: `App para el celular/app/build/outputs/apk/debug/app-debug.apk`, versión `1.5-entrega7` (versionCode 6), con la configuración local de Supabase. No reemplaza el APK publicado.
-- Configuración que **no** se sube: `supabase.properties`, `firebase.properties`, `js/config.js`, credenciales del notificador y la cuenta de servicio de Firebase.
+| Archivo | Versión | Uso |
+|---|---|---|
+| `app-debug.apk` (raíz, enlace del README) y `LA PAgina (segun)/proyectode10/app-debug.apk` (botón de la web) | `1.4-entrega6` (versionCode 5). Ambos tienen el mismo hash | Descargas publicadas hoy: **no se reemplazaron** |
+| `App para el celular/app/build/outputs/apk/debug/app-debug.apk` | `1.5-entrega7` (versionCode 6) | **Provisional**: compilado sin `firebase.properties` (sin push). No se publica |
+
+Para el APK final:
+1. Crear `firebase.properties` y compilar.
+2. Comprobar la versión con `aapt dump badging`.
+3. Probarlo en el celular físico.
+4. Copiar **ese mismo archivo** a las dos rutas de descarga.
+5. Actualizar la etiqueta del README y del botón de la web («v1.5 · Entrega 7»).
+6. Comprobar con `sha256sum` que las tres copias son idénticas.
+
+No se suben `supabase.properties`, `firebase.properties`, `js/config.js`, credenciales del notificador ni la cuenta de servicio de Firebase.

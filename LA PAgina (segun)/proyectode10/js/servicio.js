@@ -203,12 +203,17 @@
         return envolver(cliente.from("avisos").select("id,tipo,titulo,cuerpo,feria_id,enlace,estado,creado_en,recibido_en,leido_en")
           .order("creado_en", { ascending: false }).range(d, d + n - 1));
       },
-      /** Avisos que corresponde mostrar AHORA (misma regla que el push; máximo 20). */
-      avisosParaMostrar: function (limite) {
-        return envolver(cliente.rpc("avisos_para_mostrar", { p_limite: Math.min(Math.max(1, limite || 10), 20) }));
+      /** Avisos que ESTE destino puede mostrar ahora (misma regla que el push; máximo 20). */
+      avisosParaMostrar: function (destino, limite) {
+        return envolver(cliente.rpc("avisos_para_mostrar", { p_destino: destino, p_limite: Math.min(Math.max(1, limite || 10), 20) }));
       },
-      marcarAviso: function (id, leido, recibido) {
-        return envolver(cliente.rpc("marcar_aviso", { p_id: id, p_leido: !!leido, p_recibido: !!recibido }));
+      /** Único evento de confirmación: este destino MOSTRÓ el aviso o la persona lo ABRIÓ. */
+      confirmarAviso: function (id, destino, evento) {
+        return envolver(cliente.rpc("confirmar_aviso", { p_id: id, p_destino: destino, p_evento: evento }));
+      },
+      /** Leído en la bandeja (no es una notificación mostrada). */
+      marcarLeido: function (id) {
+        return envolver(cliente.rpc("marcar_leido", { p_id: id }));
       }
     };
   }

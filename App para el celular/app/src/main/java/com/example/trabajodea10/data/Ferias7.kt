@@ -71,6 +71,26 @@ data class SugerenciaFeria(val feria: MiFeria, val motivo: MotivoSugerencia, val
 @Serializable
 data class AccionPendiente(val accion: String, val tipo: String, val id: String, val nombre: String, val creada: Long)
 
+/** Qué hace el botón «Seguir» al tocarlo (RF-CMP-06, RF-ACC-08). */
+enum class AccionSeguir { SEGUIR, DEJAR_DE_SEGUIR, PEDIR_INGRESO }
+
+/** Cómo se pide la sesión. En la app, quien compra entra con Google (RN-07). */
+enum class MetodoIngreso { GOOGLE, CORREO }
+
+object ReglasSeguir {
+    fun alTocar(haySesion: Boolean, siguiendo: Boolean): AccionSeguir = when {
+        !haySesion -> AccionSeguir.PEDIR_INGRESO
+        siguiendo -> AccionSeguir.DEJAR_DE_SEGUIR
+        else -> AccionSeguir.SEGUIR
+    }
+
+    /** Seguir sin sesión lleva al ingreso con Google, no al formulario de correo (ese es para emprendedoras y administración). */
+    fun metodoParaSeguir(): MetodoIngreso = MetodoIngreso.GOOGLE
+
+    /** Ficha a la que se vuelve después de completar la acción: la misma tienda o asociación. */
+    fun fichaDe(p: AccionPendiente): Pair<String, String> = p.tipo to p.id
+}
+
 object ReglasFerias {
 
     const val ZONA = "America/Santiago"

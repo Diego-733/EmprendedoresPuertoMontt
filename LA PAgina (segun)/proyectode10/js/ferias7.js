@@ -297,11 +297,25 @@
   /**
    * Con la página abierta y visible: pide al servidor los avisos que CORRESPONDE mostrar
    * ahora (misma regla que el push: consentimiento, seguir, horario, feria activa) y los
-   * muestra. Solo si mostrarlos funcionó se informa «recibido».
+   * muestra. Solo si mostrarlos funcionó, este destino confirma «mostrado» (y «abierto» al tocarla).
    */
+  /**
+   * Destino de ESTE navegador: su token de push si se registró; si no, un identificador
+   * propio guardado en el navegador. Así la web y el celular confirman cada uno lo suyo.
+   */
+  var CLAVE_DESTINO_WEB = "alerce_destino_web";
+  function destinoWeb() {
+    var t = leerJson(CLAVE_TOKEN_WEB);
+    if (t && t.token && t.uid === usuarioId) return t.token;
+    var d = leerJson(CLAVE_DESTINO_WEB);
+    if (!d || typeof d !== "string") { d = "web:" + nuevaSolicitud(); escribirJson(CLAVE_DESTINO_WEB, d); }
+    return d;
+  }
+
   function revisarAvisos() {
     if (!usuarioId || !real() || !permisoNotificaciones() || document.visibilityState === "hidden") return;
-    ctx.servicio.avisosParaMostrar(10).then(function (r) {
+    var destino = destinoWeb();
+    ctx.servicio.avisosParaMostrar(destino, 10).then(function (r) {
       if (!r.ok) return;
       (r.datos || []).forEach(function (a) {
         if (avisosMostrados[a.id]) return;
@@ -309,11 +323,14 @@
         var mostrada = false;
         try {
           var n = new Notification(a.titulo, { body: a.cuerpo || "", tag: a.id });
-          n.onclick = function () { window.focus(); if (a.feria_id) window.AlerceVitrina6.abrirFeria(a.feria_id); };
+          n.onclick = function () {
+            ctx.servicio.confirmarAviso(a.id, destino, "ABIERTO");
+            window.focus(); if (a.feria_id) window.AlerceVitrina6.abrirFeria(a.feria_id);
+          };
           mostrada = true;
         } catch (e) { /* algunos navegadores solo permiten notificaciones desde el service worker: queda en la bandeja */ }
         if (mostrada) {
-          ctx.servicio.marcarAviso(a.id, false, true);
+          ctx.servicio.confirmarAviso(a.id, destino, "MOSTRADO");
           nuevosDesdeQueAbrio++;
         }
       });
@@ -405,7 +422,7 @@
         lista.appendChild(h("button", {
           type: "button", class: "e7-aviso-item" + (a.leido_en ? "" : " nuevo"),
           onclick: function () {
-            ctx.servicio.marcarAviso(a.id, true, false);   // leído en la bandeja (no es «notificación recibida»)
+            ctx.servicio.marcarLeido(a.id);   // leído en la bandeja (no es una notificación mostrada)
             if (a.feria_id) { ctx.cerrarModal("modal-avisos"); window.AlerceVitrina6.abrirFeria(a.feria_id); }
           }
         }, [

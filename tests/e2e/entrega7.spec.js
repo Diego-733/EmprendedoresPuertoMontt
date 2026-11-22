@@ -204,7 +204,7 @@ test.describe("Entrega 7 · seguir", () => {
     e.tablas.avisos = [{ id: "av1", tipo: "PARTICIPACION_SEGUIDA", titulo: "Tejidos Austral estará en Feria de Alerce", cuerpo: "Feria del " + hoy(3) + ".",
       feria_id: "f1", enlace: "?feria=f1", estado: "PENDIENTE", creado_en: new Date().toISOString(), recibido_en: null, leido_en: null }];
     e.sesion = { user: { id: "u-comp", email: "compradora@correo.cl", user_metadata: {} }, access_token: "falso" };
-    e.respuestasRpc.marcar_aviso = [{ data: { actualizado: true } }];
+    e.respuestasRpc.confirmar_aviso = [{ data: { registrado: true } }];
     // El servidor decide qué corresponde mostrar (misma regla que el push).
     e.respuestasRpc.avisos_para_mostrar = [{ data: e.tablas.avisos.map(a => ({ id: a.id, tipo: a.tipo, titulo: a.titulo, cuerpo: a.cuerpo, feria_id: a.feria_id, enlace: a.enlace, creado_en: a.creado_en })) }];
     await page.addInitScript(() => {
@@ -217,9 +217,12 @@ test.describe("Entrega 7 · seguir", () => {
     await preparar(page, e);
     await page.goto(ORIGEN + "/");
     await expect.poll(() => page.evaluate(() => window.__NOTIFICACIONES__)).toEqual([{ titulo: "Tejidos Austral estará en Feria de Alerce", cuerpo: "Feria del " + hoy(3) + ".", tag: "av1" }]);
-    await expect.poll(() => llamadasRpc(page, "marcar_aviso")).toEqual([{ p_id: "av1", p_leido: false, p_recibido: true }]);
+    // Un solo evento por destino: este navegador confirma «MOSTRADO» con su propio identificador.
+    const consulta = (await llamadasRpc(page, "avisos_para_mostrar"))[0];
+    expect(consulta.p_limite).toBe(10);
+    expect(consulta.p_destino).toMatch(/^web:[0-9a-f-]{36}$/);
+    await expect.poll(() => llamadasRpc(page, "confirmar_aviso")).toEqual([{ p_id: "av1", p_destino: consulta.p_destino, p_evento: "MOSTRADO" }]);
     await expect(page.locator("#e7-insignia-avisos")).toHaveText("1");
-    expect((await llamadasRpc(page, "avisos_para_mostrar"))[0]).toEqual({ p_limite: 10 });
   });
 
   test("W18: si el navegador no logra mostrar la notificación, NO se informa como recibida", async ({ page }) => {
@@ -237,7 +240,7 @@ test.describe("Entrega 7 · seguir", () => {
     await page.goto(ORIGEN + "/");
     await expect.poll(() => llamadasRpc(page, "avisos_para_mostrar").then(x => x.length)).toBe(1);
     await page.waitForTimeout(400);
-    expect(await llamadasRpc(page, "marcar_aviso")).toEqual([]);
+    expect(await llamadasRpc(page, "confirmar_aviso")).toEqual([]);
   });
 
   test("Consultas: sin permiso de notificaciones la página no consulta avisos periódicamente", async ({ page }) => {

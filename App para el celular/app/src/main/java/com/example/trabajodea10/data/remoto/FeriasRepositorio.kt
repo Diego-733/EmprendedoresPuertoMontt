@@ -128,15 +128,19 @@ object FeriasRepositorio {
             )
         }
 
-    /** Avisos que corresponde mostrar AHORA en este celular (misma regla que el push; máximo 20). */
-    suspend fun avisosParaMostrar(limite: Int = 10): List<AvisoCuenta> =
-        lista(rpc("avisos_para_mostrar", buildJsonObject { put("p_limite", limite.coerceIn(1, 20)) })).map { o ->
+    /** Avisos que ESTE celular (destino) puede mostrar ahora: misma regla que el push; máximo 20. */
+    suspend fun avisosParaMostrar(destino: String, limite: Int = 10): List<AvisoCuenta> =
+        lista(rpc("avisos_para_mostrar", buildJsonObject { put("p_destino", destino); put("p_limite", limite.coerceIn(1, 20)) })).map { o ->
             AvisoCuenta(id = o.txt("id").orEmpty(), tipo = o.txt("tipo").orEmpty(), titulo = o.txt("titulo").orEmpty(),
                 cuerpo = o.txt("cuerpo").orEmpty(), feriaId = o.txt("feria_id"), estado = "", creadoEn = o.txt("creado_en").orEmpty(),
                 recibido = false, leido = false)
         }
 
-    suspend fun marcarAviso(id: String, leido: Boolean, recibido: Boolean) {
-        rpc("marcar_aviso", buildJsonObject { put("p_id", id); put("p_leido", leido); put("p_recibido", recibido) })
+    /** Único evento de confirmación: este destino MOSTRÓ el aviso o la persona lo ABRIÓ. */
+    suspend fun confirmarAviso(id: String, destino: String, evento: String) {
+        rpc("confirmar_aviso", buildJsonObject { put("p_id", id); put("p_destino", destino); put("p_evento", evento) })
     }
+
+    /** Leído en la bandeja (no es una notificación mostrada). */
+    suspend fun marcarLeido(id: String) { rpc("marcar_leido", buildJsonObject { put("p_id", id) }) }
 }

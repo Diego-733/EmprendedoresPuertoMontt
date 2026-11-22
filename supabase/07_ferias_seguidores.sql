@@ -799,17 +799,15 @@ begin
 end;
 $$;
 
--- Bandeja: marcar leído y confirmar recepción (solo los propios).
-create or replace function public.marcar_aviso(p_id uuid, p_leido boolean default true, p_recibido boolean default false)
+-- Bandeja: marcar leído (solo los propios). Que una notificación se haya MOSTRADO o ABIERTO
+-- en un navegador o celular se informa por destino con confirmar_aviso() (sección 9).
+drop function if exists public.marcar_leido(uuid), public.confirmar_aviso(uuid, text, text);
+create or replace function public.marcar_leido(p_id uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare v_n int;
 begin
   if auth.uid() is null then raise exception 'SIN_SESION' using errcode = '42501'; end if;
-  update public.avisos set
-    leido_en = case when p_leido then coalesce(leido_en, now()) else leido_en end,
-    -- recibido_en = la app o la web MOSTRÓ la notificación (o la persona la tocó). Leer en la bandeja no lo marca.
-    recibido_en = case when p_recibido then coalesce(recibido_en, now()) else recibido_en end
-   where id = p_id and usuario_id = auth.uid();
+  update public.avisos set leido_en = coalesce(leido_en, now()) where id = p_id and usuario_id = auth.uid();
   get diagnostics v_n = row_count;
   return jsonb_build_object('actualizado', v_n = 1);
 end;
@@ -881,6 +879,11 @@ $$;
 --  FALLA_TEMPORAL se reintenta
 --  INVALIDO       token dado de baja: el dispositivo se desactiva
 --  RECHAZADO      FCM rechazó el CONTENIDO del mensaje: el dispositivo sigue activo y no se reintenta
+--  MOSTRADO       el navegador o la app de ESE destino mostró la notificación (lo informa el cliente)
+--  ABIERTO        la persona la tocó en ese destino
+-- El "destino" es el token FCM del celular o navegador, o el identificador de una página
+-- web abierta sin push. La decisión de si la PERSONA debe recibir el aviso es una sola
+-- (motivo_no_notificar); si cada destino ya lo recibió se decide aquí, destino por destino.
 create table if not exists public.entregas_aviso (
   aviso_id       uuid not null references public.avisos (id) on delete cascade,
   token          text not null,
@@ -892,7 +895,7 @@ create table if not exists public.entregas_aviso (
 alter table public.entregas_aviso drop constraint if exists entregas_aviso_estado_check;
 alter table public.entregas_aviso drop constraint if exists entregas_aviso_estado_ck;
 alter table public.entregas_aviso add constraint entregas_aviso_estado_ck
-  check (estado in ('ACEPTADO', 'FALLA_TEMPORAL', 'INVALIDO', 'RECHAZADO'));
+  check (estado in ('ACEPTADO', 'FALLA_TEMPORAL', 'INVALIDO', 'RECHAZADO', 'MOSTRADO', 'ABIERTO'));
 alter table public.entregas_aviso enable row level security;   -- sin políticas: solo funciones del servidor
 revoke all on public.entregas_aviso from anon, authenticated;
 
@@ -903,7 +906,6 @@ create or replace function public.motivo_no_notificar(a public.avisos)
 returns text language plpgsql stable security definer set search_path = public as $$
 declare f record; t record;
 begin
-  if a.recibido_en is not null then return 'YA_RECIBIDO'; end if;
   if a.creado_en < now() - interval '3 days' then return 'VENCIDO'; end if;
   if a.tipo = 'PARTICIPACION_SEGUIDA' then
     if not exists (select 1 from public.preferencias_avisos pa where pa.usuario_id = a.usuario_id and pa.avisos_ferias) then
@@ -977,29 +979,60 @@ begin
                      from public.dispositivos d
                     where d.usuario_id = m.usuario_id and d.activo
                       and not exists (select 1 from public.entregas_aviso e
-                                       where e.aviso_id = m.id and e.token = d.token and e.estado in ('ACEPTADO', 'INVALIDO', 'RECHAZADO'))),
+                                       where e.aviso_id = m.id and e.token = d.token and e.estado in ('ACEPTADO', 'INVALIDO', 'RECHAZADO', 'MOSTRADO', 'ABIERTO'))),
                   '[]'::jsonb)
     from marcados m;
 end;
 $$;
 
--- Mecanismo alternativo (sin push): la propia cuenta pide qué avisos puede MOSTRAR ahora.
--- Aplica la misma regla que el push y no devuelve lo que el proveedor ya aceptó (ENVIADO),
--- para no duplicarlo. Máximo 20 por consulta.
-create or replace function public.avisos_para_mostrar(p_limite int default 10)
+-- Mecanismo alternativo (sin push): un destino de la propia cuenta (página web abierta o
+-- revisión periódica del celular) pide qué avisos puede MOSTRAR ahora. Misma regla que el
+-- push para la persona; y para el destino, solo lo que ESE destino aún no aceptó, mostró ni
+-- abrió. Que otro destino ya lo haya mostrado no impide mostrarlo aquí. Máximo 20.
+drop function if exists public.avisos_para_mostrar(int);
+create or replace function public.avisos_para_mostrar(p_destino text, p_limite int default 10)
 returns table (id uuid, tipo text, titulo text, cuerpo text, feria_id text, enlace text, creado_en timestamptz)
 language plpgsql security definer set search_path = public as $$
 #variable_conflict use_column
 begin
   if auth.uid() is null then raise exception 'SIN_SESION' using errcode = '42501'; end if;
+  if p_destino is null or char_length(p_destino) not between 8 and 4096 then raise exception 'DESTINO_INVALIDO'; end if;
   perform public.revalidar_avisos(auth.uid());
   return query
   select a.id, a.tipo, a.titulo, a.cuerpo, a.feria_id, a.enlace, a.creado_en
     from public.avisos a
-   where a.usuario_id = auth.uid() and a.estado in ('PENDIENTE', 'SIN_DISPOSITIVO', 'FALLIDO')
+   where a.usuario_id = auth.uid() and a.estado not in ('OMITIDO', 'ENVIANDO')
      and public.motivo_no_notificar(a) is null
+     and not exists (select 1 from public.entregas_aviso e where e.aviso_id = a.id and e.token = p_destino
+                      and e.estado in ('ACEPTADO', 'MOSTRADO', 'ABIERTO'))
    order by a.creado_en desc
    limit greatest(1, least(coalesce(p_limite, 10), 20));
+end;
+$$;
+
+-- Único evento de confirmación del cliente: este destino MOSTRÓ o la persona ABRIÓ el aviso.
+-- Idempotente: repetirlo en el mismo destino no crea otro evento; ABIERTO no vuelve a MOSTRADO.
+create or replace function public.confirmar_aviso(p_id uuid, p_destino text, p_evento text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_previo text;
+begin
+  if auth.uid() is null then raise exception 'SIN_SESION' using errcode = '42501'; end if;
+  if p_evento not in ('MOSTRADO', 'ABIERTO') then raise exception 'EVENTO_INVALIDO'; end if;
+  if p_destino is null or char_length(p_destino) not between 8 and 4096 then raise exception 'DESTINO_INVALIDO'; end if;
+  if not exists (select 1 from public.avisos where id = p_id and usuario_id = auth.uid()) then
+    return jsonb_build_object('registrado', false);
+  end if;
+  select estado into v_previo from public.entregas_aviso where aviso_id = p_id and token = p_destino for update;
+  if v_previo = p_evento or (v_previo = 'ABIERTO' and p_evento = 'MOSTRADO') then
+    return jsonb_build_object('registrado', false, 'estado', v_previo);
+  end if;
+  insert into public.entregas_aviso (aviso_id, token, estado) values (p_id, p_destino, p_evento)
+  on conflict (aviso_id, token) do update set estado = excluded.estado, actualizado_en = now();
+  -- Resumen de la cuenta: primera vez que se vio en algún destino / primera vez que se abrió.
+  update public.avisos set recibido_en = coalesce(recibido_en, now()),
+         leido_en = case when p_evento = 'ABIERTO' then coalesce(leido_en, now()) else leido_en end
+   where id = p_id;
+  return jsonb_build_object('registrado', true, 'estado', p_evento);
 end;
 $$;
 
@@ -1023,24 +1056,28 @@ begin
   if not found then return jsonb_build_object('actualizado', false); end if;
   foreach t in array coalesce(p_aceptados, '{}') loop
     insert into public.entregas_aviso (aviso_id, token, estado) values (p_id, t, 'ACEPTADO')
-    on conflict (aviso_id, token) do update set estado = 'ACEPTADO', intentos = entregas_aviso.intentos + 1, actualizado_en = now();
+    on conflict (aviso_id, token) do update set estado = 'ACEPTADO', intentos = entregas_aviso.intentos + 1, actualizado_en = now()
+      where entregas_aviso.estado not in ('MOSTRADO', 'ABIERTO');
   end loop;
   foreach t in array coalesce(p_temporales, '{}') loop
     insert into public.entregas_aviso (aviso_id, token, estado) values (p_id, t, 'FALLA_TEMPORAL')
     on conflict (aviso_id, token) do update set estado = 'FALLA_TEMPORAL', intentos = entregas_aviso.intentos + 1, actualizado_en = now()
-      where entregas_aviso.estado <> 'ACEPTADO';
+      where entregas_aviso.estado not in ('ACEPTADO', 'MOSTRADO', 'ABIERTO');
   end loop;
   foreach t in array coalesce(p_rechazados, '{}') loop
     insert into public.entregas_aviso (aviso_id, token, estado) values (p_id, t, 'RECHAZADO')
     on conflict (aviso_id, token) do update set estado = 'RECHAZADO', actualizado_en = now()
-      where entregas_aviso.estado <> 'ACEPTADO';
+      where entregas_aviso.estado not in ('ACEPTADO', 'MOSTRADO', 'ABIERTO');
   end loop;
   foreach t in array coalesce(p_invalidos, '{}') loop
     insert into public.entregas_aviso (aviso_id, token, estado) values (p_id, t, 'INVALIDO')
     on conflict (aviso_id, token) do update set estado = 'INVALIDO', actualizado_en = now();
   end loop;
   update public.dispositivos set activo = false, actualizado_en = now() where token = any(coalesce(p_invalidos, '{}'));
-  select count(*) into v_aceptados from public.entregas_aviso where aviso_id = p_id and estado = 'ACEPTADO';
+  -- "Aceptado" cuenta solo destinos FCM (un celular que ya lo mostró también lo recibió por FCM o por la revisión).
+  select count(*) into v_aceptados from public.entregas_aviso e
+   where e.aviso_id = p_id and (e.estado = 'ACEPTADO'
+         or (e.estado in ('MOSTRADO', 'ABIERTO') and exists (select 1 from public.dispositivos d where d.token = e.token)));
   v_estado := case
     when v_temporales > 0 and v_intentos < 5 then 'PENDIENTE'
     when v_aceptados > 0 then 'ENVIADO'
@@ -1065,10 +1102,10 @@ revoke all on function
   public.registrar_asistencia(text, text, text), public.enviar_aviso_feria(text, text, text, uuid),
   public.participantes_feria(text), public.checklist_feria(text), public.mis_ferias(),
   public.seguir(text, text), public.dejar_de_seguir(text, text), public.guardar_consentimiento(boolean),
-  public.registrar_dispositivo(text, text), public.quitar_dispositivo(text), public.marcar_aviso(uuid, boolean, boolean),
+  public.registrar_dispositivo(text, text), public.quitar_dispositivo(text), public.marcar_leido(uuid), public.confirmar_aviso(uuid, text, text),
   public.calificar(text, text, int, text), public.resumen_calificaciones(text), public.guardar_avisos_contacto(boolean, time, time),
   public.avisos_por_enviar(int), public.resultado_envio(uuid, text[], text[], text[], text, text[]), public.es_notificador(),
-  public.avisos_para_mostrar(int)
+  public.avisos_para_mostrar(text, int)
 from public, anon;
 
 grant execute on function public.participantes_feria(text), public.resumen_calificaciones(text) to anon, authenticated;
@@ -1078,10 +1115,10 @@ grant execute on function
   public.registrar_asistencia(text, text, text), public.enviar_aviso_feria(text, text, text, uuid),
   public.checklist_feria(text), public.mis_ferias(),
   public.seguir(text, text), public.dejar_de_seguir(text, text), public.guardar_consentimiento(boolean),
-  public.registrar_dispositivo(text, text), public.quitar_dispositivo(text), public.marcar_aviso(uuid, boolean, boolean),
+  public.registrar_dispositivo(text, text), public.quitar_dispositivo(text), public.marcar_leido(uuid), public.confirmar_aviso(uuid, text, text),
   public.calificar(text, text, int, text), public.guardar_avisos_contacto(boolean, time, time),
   public.avisos_por_enviar(int), public.resultado_envio(uuid, text[], text[], text[], text, text[]), public.es_notificador(),
-  public.avisos_para_mostrar(int)
+  public.avisos_para_mostrar(text, int)
 to authenticated;
 
 -- Tablas nuevas: lectura según RLS; ninguna escritura directa de clientes (todo por funciones).

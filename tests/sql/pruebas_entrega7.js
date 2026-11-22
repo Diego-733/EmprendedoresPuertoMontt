@@ -255,11 +255,11 @@ module.exports = async function pruebasEntrega7(c, r) {
     (await c.query("select estado, enviado_en is not null e, recibido_en is null r from avisos where id = $1", [id1])).rows[0], { estado: "ENVIADO", e: true, r: true });
   r.ok("E7 · Nadie fuera del servidor lee el detalle por dispositivo",
     !!(await error(como(c, N, "select * from entregas_aviso"))) && !!(await error(como(c, C2, "select * from entregas_aviso"))));
-  await como(c, C2, "select public.marcar_aviso($1, false, true)", [id1]);
-  r.ok("E7 · El dispositivo confirma la recepción por separado",
+  await como(c, C2, "select public.confirmar_aviso($1, $2, 'MOSTRADO')", [id1, tokenWeb]);
+  r.ok("E7 · El destino confirma por separado que lo mostró",
     (await c.query("select recibido_en is not null r from avisos where id = $1", [id1])).rows[0].r);
-  const marcarAjeno = await rpc(c, V, "select public.marcar_aviso($1, true, true)", [id1]);
-  r.igual("E7 · Nadie marca avisos ajenos", marcarAjeno, { actualizado: false });
+  const marcarAjeno = await rpc(c, V, "select public.confirmar_aviso($1, 'web:pagina-ajena', 'MOSTRADO')", [id1]);
+  r.igual("E7 · Nadie confirma avisos ajenos", marcarAjeno, { registrado: false });
 
   // ---------- Contactos con horario (A15) ----------
   await como(c, M, "select public.guardar_avisos_contacto(true, '00:00', '00:00')");
@@ -322,20 +322,20 @@ module.exports = async function pruebasEntrega7(c, r) {
     await estadoAviso("select estado, motivo from avisos where usuario_id = $1 and feria_id = 'e7_quinta'", [C2]), ["OMITIDO:VENCIDO"]);
 
   // ---------- Una sola regla para push y para los mecanismos alternativos ----------
-  const paraMostrar = async (uid) => (await como(c, uid, "select id, feria_id, tipo from public.avisos_para_mostrar(20)")).rows;
+  const paraMostrar = async (uid, destino = "web:pagina-" + uid.slice(-4)) =>
+    (await como(c, uid, "select id, feria_id, tipo from public.avisos_para_mostrar($1, 20)", [destino])).rows;
   await como(c, A, "insert into ferias (id, nombre, fecha_inicio, estado) values ('e7_octava', 'Octava feria', public.fecha_santiago() + 8, 'PROXIMA'), ('e7_novena', 'Novena feria', public.fecha_santiago() + 9, 'PROXIMA'), ('e7_decima', 'Décima feria', public.fecha_santiago() + 10, 'PROXIMA')");
   await como(c, A, "select public.invitar_a_feria('e7_octava', array['t_minimarket_rosa'], null, true)");
   const visibleC2 = (await paraMostrar(C2)).filter(a => a.feria_id === "e7_octava");
   r.igual("E7 · Sin push, la cuenta puede mostrar su aviso pendiente (misma regla que el push)", visibleC2.map(a => a.tipo), ["PARTICIPACION_SEGUIDA"]);
   r.igual("E7 · Otra cuenta no ve ni muestra avisos ajenos", (await paraMostrar(V)).filter(a => a.feria_id === "e7_octava").length, 0);
-  await como(c, C2, "select public.marcar_aviso($1, true, false)", [visibleC2[0].id]);
-  r.igual("E7 · Leerlo en la bandeja no cuenta como notificación recibida",
+  await como(c, C2, "select public.marcar_leido($1)", [visibleC2[0].id]);
+  r.igual("E7 · Leerlo en la bandeja no cuenta como notificación mostrada",
     (await c.query("select recibido_en is null r from avisos where id = $1", [visibleC2[0].id])).rows[0].r, true);
-  await como(c, C2, "select public.marcar_aviso($1, false, true)", [visibleC2[0].id]);
-  r.igual("E7 · Una vez mostrado, no se vuelve a mostrar", (await paraMostrar(C2)).filter(a => a.feria_id === "e7_octava").length, 0);
-  await como(c, N, "select count(*) from public.avisos_por_enviar(200)");
-  r.igual("E7 · …y el push no lo duplica",
-    await estadoAviso("select estado, motivo from avisos where id = $1", [visibleC2[0].id]), ["OMITIDO:YA_RECIBIDO"]);
+  const destinoC2 = "web:pagina-" + C2.slice(-4);
+  await como(c, C2, "select public.confirmar_aviso($1, $2, 'MOSTRADO')", [visibleC2[0].id, destinoC2]);
+  r.igual("E7 · Una vez mostrado en un destino, ese destino no lo vuelve a mostrar", (await paraMostrar(C2)).filter(a => a.feria_id === "e7_octava").length, 0);
+  r.igual("E7 · …pero otro destino de la misma cuenta sí puede mostrarlo", (await paraMostrar(C2, "web:otra-pestana-c2")).filter(a => a.feria_id === "e7_octava").length, 1);
   await como(c, A, "select public.invitar_a_feria('e7_novena', array['t_minimarket_rosa'], null, true)");
   await como(c, C2, "select public.dejar_de_seguir('TIENDA', 't_minimarket_rosa')");
   r.igual("E7 · Mecanismo alternativo: tras dejar de seguir, no se muestra", (await paraMostrar(C2)).filter(a => a.feria_id === "e7_novena").length, 0);
@@ -356,6 +356,74 @@ module.exports = async function pruebasEntrega7(c, r) {
   r.igual("E7 · Mensaje rechazado por contenido: FALLIDO sin reintentos inútiles", [rech.estado, rech.rechazados], ["FALLIDO", 1]);
   r.igual("E7 · …y el dispositivo sigue activo (no era un token inválido)",
     (await c.query("select activo from dispositivos where token = $1", [token2])).rows[0].activo, true);
+
+  // ---------- Entrega por destino: web, celular, reintentos y cambios de la persona ----------
+  const C3 = "00000000-0000-0000-0000-000000000010";
+  await c.query("insert into auth.users (id, email, raw_user_meta_data) values ($1, 'compradora3@correo.cl', '{}') on conflict (id) do nothing", [C3]);
+  const celular = "fcm-celular-c3-" + "a".repeat(40), navegador = "fcm-navegador-c3-" + "b".repeat(40), pagina = "web:pagina-c3-1234";
+  await como(c, C3, "select public.seguir('TIENDA', 't_minimarket_rosa'), public.guardar_consentimiento(true)");
+  await como(c, C3, "select public.registrar_dispositivo($1, 'ANDROID')", [celular]);
+  const nuevaFeria = async (id, nombre, dias) => {
+    await como(c, A, "insert into ferias (id, nombre, fecha_inicio, estado) values ($1, $2, public.fecha_santiago() + $3::int, 'PROXIMA')", [id, nombre, dias]);
+    await como(c, A, "select public.invitar_a_feria($1, array['t_minimarket_rosa'], null, true)", [id]);
+    return (await c.query("select id, titulo from avisos where usuario_id = $1 and feria_id = $2", [C3, id])).rows[0];
+  };
+  const entrega = async (avisoId) => Object.fromEntries((await c.query("select token, estado from entregas_aviso where aviso_id = $1", [avisoId])).rows.map(x => [x.token, x.estado]));
+  const tomar = async (avisoId) => (await como(c, N, "select * from public.avisos_por_enviar(200)")).rows.find(a => a.id === avisoId);
+
+  // 1) La web lo muestra primero; el celular igual recibe su push con el nombre de la feria.
+  const a1 = await nuevaFeria("e7_d1", "Feria Destinos Uno", 11);
+  r.igual("E7 · La web abierta puede mostrar el aviso", (await paraMostrar(C3, pagina)).map(x => x.id).includes(a1.id), true);
+  await como(c, C3, "select public.confirmar_aviso($1, $2, 'MOSTRADO')", [a1.id, pagina]);
+  const t1 = await tomar(a1.id);
+  r.igual("E7 · Web primero: el push igual sale al celular", t1 && t1.tokens.map(x => x.token), [celular]);
+  r.ok("E7 · …con el nombre de la feria", t1 && t1.titulo.includes("Feria Destinos Uno"), t1);
+  await como(c, N, "select public.resultado_envio($1, array[$2], '{}', '{}', null)", [a1.id, celular]);
+  r.igual("E7 · Cada destino conserva lo suyo: la web MOSTRADO y el celular ACEPTADO por Firebase", await entrega(a1.id), { [pagina]: "MOSTRADO", [celular]: "ACEPTADO" });
+  r.igual("E7 · La revisión del celular no repite lo que su push ya trajo", (await paraMostrar(C3, celular)).map(x => x.id).includes(a1.id), false);
+  await como(c, C3, "select public.confirmar_aviso($1, $2, 'ABIERTO')", [a1.id, celular]);
+  const repetido = await rpc(c, C3, "select public.confirmar_aviso($1, $2, 'MOSTRADO')", [a1.id, celular]);
+  r.igual("E7 · «Abierto» no vuelve a «mostrado» ni se repite el evento en el mismo destino", [repetido.registrado, (await entrega(a1.id))[celular]], [false, "ABIERTO"]);
+
+  // 2) El celular lo recibe primero; la web igual puede mostrar el suyo.
+  const a2 = await nuevaFeria("e7_d2", "Feria Destinos Dos", 12);
+  await tomar(a2.id);
+  await como(c, N, "select public.resultado_envio($1, array[$2], '{}', '{}', null)", [a2.id, celular]);
+  r.igual("E7 · Celular primero: la web abierta todavía puede mostrar el aviso", (await paraMostrar(C3, pagina)).map(x => x.id).includes(a2.id), true);
+
+  // 3) Falla temporal en un destino: el reintento va solo al pendiente.
+  await como(c, C3, "select public.registrar_dispositivo($1, 'WEB')", [navegador]);
+  const a3 = await nuevaFeria("e7_d3", "Feria Destinos Tres", 13);
+  await tomar(a3.id);
+  await como(c, N, "select public.resultado_envio($1, array[$2], array[$3], '{}', null)", [a3.id, celular, navegador]);
+  await c.query("update avisos set proximo_intento = now() where id = $1", [a3.id]);
+  r.igual("E7 · Reintento solo al destino que falló", (await tomar(a3.id)).tokens.map(x => x.token), [navegador]);
+  await como(c, N, "select public.resultado_envio($1, array[$2], '{}', '{}', null)", [a3.id, navegador]);
+  r.igual("E7 · Tras el reintento, ambos destinos aceptados y el aviso ENVIADO",
+    [await entrega(a3.id), (await c.query("select estado from avisos where id = $1", [a3.id])).rows[0].estado],
+    [{ [celular]: "ACEPTADO", [navegador]: "ACEPTADO" }, "ENVIADO"]);
+
+  // 4) La web falla al mostrar: no confirma nada; se distinguen aceptado, mostrado y abierto.
+  const a4 = await nuevaFeria("e7_d4", "Feria Destinos Cuatro", 14);
+  await tomar(a4.id);
+  await como(c, N, "select public.resultado_envio($1, array[$2], '{}', '{}', null)", [a4.id, navegador]);
+  r.igual("E7 · Sin confirmación del navegador queda solo «aceptado por Firebase», sin «mostrado»",
+    [(await entrega(a4.id))[navegador], (await c.query("select recibido_en is null r from avisos where id = $1", [a4.id])).rows[0].r], ["ACEPTADO", true]);
+
+  // 5) Cambios de la persona: dejar de seguir, retirar consentimiento, cerrar sesión en un celular compartido.
+  const a5 = await nuevaFeria("e7_d5", "Feria Destinos Cinco", 15);
+  await como(c, C3, "select public.dejar_de_seguir('TIENDA', 't_minimarket_rosa')");
+  r.igual("E7 · Tras dejar de seguir: ni push ni web", [!!(await tomar(a5.id)), (await paraMostrar(C3, pagina)).map(x => x.id).includes(a5.id)], [false, false]);
+  await como(c, C3, "select public.seguir('TIENDA', 't_minimarket_rosa')");
+  await como(c, C3, "select public.guardar_consentimiento(false)");
+  const a6 = await nuevaFeria("e7_d6", "Feria Destinos Seis", 16);
+  r.igual("E7 · Sin consentimiento no se crean avisos nuevos", a6, undefined);
+  await como(c, C3, "select public.guardar_consentimiento(true)");
+  await como(c, C3, "select public.quitar_dispositivo($1)", [celular]);   // cierra sesión en el celular compartido
+  await como(c, V, "select public.registrar_dispositivo($1, 'ANDROID')", [celular]); // otra persona entra en ese celular
+  const a7 = await nuevaFeria("e7_d7", "Feria Destinos Siete", 17);
+  const t7 = await tomar(a7.id);
+  r.igual("E7 · Después de cerrar sesión, el celular compartido no recibe avisos de la cuenta anterior", t7 && t7.tokens.map(x => x.token), [navegador]);
 
   r.igual("E7 · El horario no es público",
     await como(c, null, "select count(*)::int n from preferencias_tienda").then(x => x.rows[0].n, () => 0), 0);
@@ -404,7 +472,7 @@ module.exports = async function pruebasEntrega7(c, r) {
 
   // ---------- Mis ferias (A04) ----------
   const mias = (await como(c, M, "select feria_id, invitacion from public.mis_ferias() order by feria_id")).rows;
-  r.igual("E7 · La emprendedora ve sus ferias invitadas y confirmadas", mias.map(x => x.feria_id + ":" + x.invitacion),
+  r.igual("E7 · La emprendedora ve sus ferias invitadas y confirmadas", mias.filter(x => !x.feria_id.startsWith("e7_d") || x.feria_id === "e7_decima").map(x => x.feria_id + ":" + x.invitacion),
     ["e7_cuarta:CONFIRMADA", "e7_decima:AGREGADA", "e7_futura:CONFIRMADA", "e7_hoy:CONFIRMADA", "e7_novena:AGREGADA", "e7_octava:AGREGADA", "e7_otra:CONFIRMADA", "e7_quinta:AGREGADA", "e7_septima:PENDIENTE", "e7_sexta:AGREGADA"]);
   r.igual("E7 · Y no las de otras tiendas",
     (await como(c, V, "select count(*)::int n from public.mis_ferias()")).rows[0].n, 0);

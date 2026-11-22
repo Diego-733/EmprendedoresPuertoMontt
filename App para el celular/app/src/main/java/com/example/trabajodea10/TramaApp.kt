@@ -74,7 +74,7 @@ fun TramaApp() {
     val completada = com.example.trabajodea10.data.FeriasStore.accionRecienCompletada
     androidx.compose.runtime.LaunchedEffect(completada) {
         if (completada != null) {
-            nav.irA(if (completada.tipo == "TIENDA") Ruta.TiendaPublica(completada.id) else Ruta.AsociacionPublica(completada.id))
+            nav.irA(com.example.trabajodea10.ui.navegacion.rutaDeFicha(completada))   // irA no duplica si ya está ahí
             avisar("Ahora sigues a ${completada.nombre}.")
             com.example.trabajodea10.data.FeriasStore.accionRecienCompletada = null
         }

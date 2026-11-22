@@ -22,10 +22,14 @@ async function instalacionLimpia(pg, r) {
   try {
     for (const f of ["supabase/stub_local.sql", "supabase/01_esquema.sql", "supabase/02_datos_prueba.sql",
                      "supabase/03_migracion_fotos.sql", "supabase/04_registro_vendedores.sql", "supabase/05_catalogo_ventas.sql",
-                     "supabase/06_vitrina_mapas.sql", "supabase/06_vitrina_mapas.sql", "supabase/06_datos_demo.sql",
-                     "supabase/07_ferias_seguidores.sql", "supabase/07_ferias_seguidores.sql"]) {
+                     "supabase/06_vitrina_mapas.sql", "supabase/06_vitrina_mapas.sql", "supabase/06_datos_demo.sql"]) {
       await ejecutarArchivo(c, f);
     }
+    // Como en la instancia del curso: Supabase concede por defecto todo a anon/authenticated en
+    // tablas nuevas, y contactos tenía además lectura, edición y borrado para anon (respaldo 22-nov).
+    await c.query("alter default privileges in schema public grant all on tables to anon, authenticated");
+    await c.query("grant select, update, delete on public.contactos to anon");
+    for (const f of ["supabase/07_ferias_seguidores.sql", "supabase/07_ferias_seguidores.sql"]) await ejecutarArchivo(c, f);
     // Supabase del curso concede estos privilegios por defecto; RLS no protege TRUNCATE.
     await c.query("grant truncate, references, trigger on all tables in schema public to anon, authenticated");
     await ejecutarArchivo(c, "supabase/05_catalogo_ventas.sql");

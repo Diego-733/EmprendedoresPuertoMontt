@@ -185,6 +185,7 @@ Archivos: `07_diagnostico.sql` (solo lectura) · `07_respaldo.sql` (solo lectura
   - el público ya no lee participaciones ni borradores;
   - la emprendedora responde solo con `responder_invitacion`;
   - las tablas nuevas no admiten escritura directa.
+  - permisos: el visitante (`anon`) queda sin privilegios en las tablas privadas nuevas (Supabase se los concede por defecto) y en `contactos` solo puede enviar. El respaldo del 22-nov mostró que además podía leer, editar y borrar ahí; RLS ya le devolvía 0 filas. `07_revertir.sql` no devuelve esos permisos de más.
 
 **Pasos** (los ejecuta el administrador; lo que dice «solo lectura» no cambia nada):
 1. **Diagnóstico** (solo lectura): ejecutar `07_diagnostico.sql` y guardar el JSON.

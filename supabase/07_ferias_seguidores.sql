@@ -1129,6 +1129,14 @@ revoke insert, update, delete on public.preferencias_tienda, public.seguimientos
                 public.avisos, public.calificaciones, public.bitacora_admin, public.notificadores from anon, authenticated;
 grant insert, update, delete on public.tienda_asociaciones, public.feria_asociaciones, public.participaciones to authenticated;
 revoke insert, update, delete on public.tienda_asociaciones, public.feria_asociaciones, public.participaciones from anon;
+-- Supabase concede por defecto TODOS los privilegios a anon y authenticated en las tablas
+-- nuevas. El visitante sin sesión no necesita ninguno sobre estas tablas privadas: se quitan
+-- (RLS ya devolvía 0 filas, pero así no queda ningún permiso de más).
+revoke all on public.preferencias_tienda, public.seguimientos, public.preferencias_avisos, public.dispositivos,
+              public.avisos, public.entregas_aviso, public.calificaciones, public.feria_asociaciones,
+              public.bitacora_admin, public.notificadores from anon;
+-- contactos (06): el visitante solo ENVÍA mensajes. La instancia le concedía además leer, editar y borrar.
+revoke select, update, delete on public.contactos from anon;
 revoke truncate, references, trigger on all tables in schema public from anon, authenticated;
 
 insert into public.migraciones_aplicadas (nombre) values ('07_ferias_seguidores')

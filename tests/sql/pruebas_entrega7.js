@@ -482,6 +482,14 @@ module.exports = async function pruebasEntrega7(c, r) {
      where t.schemaname = 'public' and (has_table_privilege(r.rol, format('%I.%I', t.schemaname, t.tablename), 'TRUNCATE')
        or has_table_privilege(r.rol, format('%I.%I', t.schemaname, t.tablename), 'TRIGGER'))`)).rows[0].n;
   r.igual("E7 · Tras 07, ningún cliente puede vaciar tablas (TRUNCATE) ni crear triggers", amplios, 0);
+  const deMasAnon = (await c.query(`select coalesce(array_agg(t || ':' || p order by t, p), '{}') a from (
+      select t.tablename t, pr.p from pg_tables t cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) pr(p)
+       where t.schemaname = 'public' and t.tablename in ('preferencias_tienda', 'seguimientos', 'preferencias_avisos', 'dispositivos',
+             'avisos', 'entregas_aviso', 'calificaciones', 'feria_asociaciones', 'bitacora_admin', 'notificadores', 'participaciones')
+         and has_table_privilege('anon', format('public.%I', t.tablename), pr.p)) x`)).rows[0].a;
+  r.igual("E7 · Aun con los permisos por defecto de Supabase, el visitante no tiene privilegios en tablas privadas", deMasAnon, []);
+  const anonContactos = (await c.query("select array_agg(p order by p) a from (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) v(p) where has_table_privilege('anon', 'public.contactos', p)")).rows[0].a;
+  r.igual("E7 · En contactos el visitante solo puede enviar (INSERT)", anonContactos, ["INSERT"]);
   r.ok("E7 · Ningún cliente crea avisos por su cuenta",
     !!(await error(como(c, A, `insert into avisos (usuario_id, tipo, titulo, clave) values ('${V}', 'AVISO_FERIA', 'falso', 'falso')`))));
 };

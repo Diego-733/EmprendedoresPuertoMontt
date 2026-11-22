@@ -270,6 +270,429 @@ test.describe("Entrega 6 · administración", () => {
     expect(total).toBe(1);
   });
 
+  // ---- Avance de «Nueva feria» guardado en el navegador (por cuenta, sin Supabase)
+  const CLAVE_AVANCE = "alerce_borrador_feria_v1:";
+  function conDosAdmins(idSesion) {
+    const e = conAdmin();
+    e.tablas.perfiles.push({ id: "u-admin2", nombre: "Admin Dos", rol: "ADMIN", tienda_id: null });
+    if (idSesion === "u-admin2") e.sesion = { user: { id: "u-admin2", email: "admin2@alerce.app", user_metadata: {} }, access_token: "falso" };
+    return e;
+  }
+  async function abrirNuevaFeria(page) {
+    await page.locator("#admin-e6 button", { hasText: "Nueva feria" }).click();
+    await expect(page.locator("#e6-form-feria")).toBeVisible();
+  }
+  const avance = (page, cuenta) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "null"), CLAVE_AVANCE + cuenta);
+  const imagenGuardada = (page, cuenta) => page.evaluate((c) => new Promise((ok) => {
+    const r = indexedDB.open("alerce_borradores", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("imagenes_feria");
+    r.onsuccess = () => { const g = r.result.transaction("imagenes_feria").objectStore("imagenes_feria").get(c); g.onsuccess = () => { ok(g.result ? (g.result.blob || g.result).size : 0); r.result.close(); }; };
+  }), cuenta);
+  // Solicitudes a Supabase: las del sustituto (window.__FALSO__.llamadas) y cualquier petición de red a *.supabase.co
+  // salvo las imágenes servidas por las rutas de prueba.
+  function vigilarRed(page, registro) {
+    page.on("request", (r) => { if (/supabase\.co\/(rest|auth|storage)\/v1\/(?!object\/public)/.test(r.url()) && !/auth\/v1\/settings/.test(r.url())) registro.push(r.method() + " " + r.url()); });
+  }
+  const llamadas = (page) => page.evaluate(() => window.__FALSO__.llamadas.length);
+  const escrituras = (page) => page.evaluate(() => window.__FALSO__.llamadas.filter((l) => l.subida || l.borrado || (l.tabla && l.op !== "select")));
+  async function esperarCargaEstable(page) {
+    await expect(page.locator("#admin-e6 button", { hasText: "Nueva feria" })).toBeVisible();
+    let antes = -1;
+    await expect.poll(async () => { const n = await llamadas(page); const quieto = n === antes; antes = n; return quieto; }, { intervals: [400, 400, 400, 400] }).toBe(true);
+  }
+  async function comprobarRecuperada(page, lat) {
+    await expect(page.locator("#e6-feria-recuperada")).toHaveText("Recuperamos la feria que estabas preparando.");
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria en preparación");
+    await expect(page.locator("#e6-feria-descripcion")).toHaveValue("Una feria a medio escribir");
+    await expect(page.locator("#e6-feria-inicio")).toHaveValue(hoy(6));
+    await expect(page.locator("#e6-feria-fin")).toHaveValue(hoy(7));
+    await expect(page.locator("#e6-feria-estado")).toHaveValue("BORRADOR");
+    await expect(page.locator("#e6-form-feria .e6-imagen-previa img")).toHaveAttribute("src", /^blob:/);
+    await expect(page.locator("#e6-form-feria")).toContainText("Ubicación marcada: " + lat.lat + ", " + lat.lng);
+    await expect(page.locator("#e6-feria-aviso-imagen")).toHaveText("");
+  }
+
+  test("Nueva feria: el avance vuelve al salir, al recargar y al cerrar la pestaña, sin solicitudes a Supabase", async ({ page, context }) => {
+    test.skip(!LEAFLET, "Requiere Leaflet local para marcar el mapa");
+    const red = [];
+    vigilarRed(page, red);
+    await preparar(page, conAdmin());
+    await page.goto(ORIGEN + "/");
+    await esperarCargaEstable(page);
+    const base = await llamadas(page);
+    const redBase = red.length;
+
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-recuperada")).toHaveText("");
+    await page.locator("#e6-feria-nombre").fill("Feria en preparación");
+    await page.locator("#e6-feria-descripcion").fill("Una feria a medio escribir");
+    await page.locator("#e6-feria-inicio").fill(hoy(6));
+    await page.locator("#e6-feria-fin").fill(hoy(7));
+    await page.locator("#e6-feria-estado").selectOption("BORRADOR");
+    await page.locator("#e6-feria-imagen").setInputFiles({ name: "feria.png", mimeType: "image/png", buffer: PNG });
+    await expect(page.locator("#mapa-form-feria.leaflet-container")).toBeVisible();
+    await page.locator("#mapa-form-feria").click({ position: { x: 80, y: 80 } });
+    await expect(page.locator("#e6-form-feria")).toContainText("Ubicación marcada");
+    await expect.poll(async () => (await avance(page, "u-admin") || {}).imagen).toBe("guardada");
+    expect(await imagenGuardada(page, "u-admin")).toBeGreaterThan(0);
+    const guardado = await avance(page, "u-admin");
+    expect(guardado).toMatchObject({ nombre: "Feria en preparación", inicio: hoy(6), fin: hoy(7), estado: "BORRADOR" });
+    expect(typeof guardado.lat).toBe("number");
+    const punto = { lat: guardado.lat, lng: guardado.lng };
+
+    // 1) Salir con el botón y volver a abrir.
+    await page.locator("#e6-feria-salir").click();
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    await expect(page.locator("#e6-btn-nueva-feria")).toContainText("continuar la que preparabas");
+    await abrirNuevaFeria(page);
+    await comprobarRecuperada(page, punto);
+    await expect(page.locator("#toast-texto")).toContainText("Recuperamos la feria");
+
+    expect(await llamadas(page)).toBe(base);
+    expect(red.length).toBe(redBase);
+
+    // 2) Cambiar de sección: el panel se vuelve a dibujar (eso relee la configuración del panel,
+    //    no el avance) y el formulario desaparece.
+    await page.evaluate(() => window.AlerceVitrina6.pintarAdmin());
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    await esperarCargaEstable(page);
+    const trasPanel = await llamadas(page);
+    await abrirNuevaFeria(page);
+    await comprobarRecuperada(page, punto);
+    expect(await llamadas(page)).toBe(trasPanel);
+    expect(red.length).toBe(redBase);
+
+    // 3) Recargar la página.
+    await page.reload();
+    await esperarCargaEstable(page);
+    const trasRecarga = await llamadas(page);
+    const redRecarga = red.length;
+    await abrirNuevaFeria(page);
+    await comprobarRecuperada(page, punto);
+    await page.waitForTimeout(500);
+    expect(await llamadas(page)).toBe(trasRecarga);
+    expect(red.length).toBe(redRecarga);
+    expect(await escrituras(page)).toEqual([]);
+
+    // 4) Cerrar la pestaña y abrir otra en el mismo navegador.
+    const otra = await context.newPage();
+    vigilarRed(otra, red);
+    await preparar(otra, conAdmin());
+    await page.close();
+    await otra.goto(ORIGEN + "/");
+    await esperarCargaEstable(otra);
+    const enOtra = await llamadas(otra);
+    const redOtra = red.length;
+    await abrirNuevaFeria(otra);
+    await comprobarRecuperada(otra, punto);
+    await otra.waitForTimeout(500);
+    expect(await llamadas(otra)).toBe(enOtra);
+    expect(red.length).toBe(redOtra);
+    expect(await escrituras(otra)).toEqual([]);
+    expect(red).toEqual([]);
+  });
+
+  test("Nueva feria: otra cuenta no ve el avance; si guardar falla se conserva; guardar y descartar lo limpian; editar no cambia", async ({ page }) => {
+    test.skip(!LEAFLET, "Requiere Leaflet local para marcar el mapa");
+    const dialogos = [];
+    let respuesta = true;
+    page.on("dialog", (d) => { dialogos.push(d.message()); return respuesta ? d.accept() : d.dismiss(); });
+    await preparar(page, conDosAdmins("u-admin"));
+    await page.goto(ORIGEN + "/");
+    await abrirNuevaFeria(page);
+    await page.locator("#e6-feria-nombre").fill("Feria en preparación");
+    await page.locator("#e6-feria-imagen").setInputFiles({ name: "feria.png", mimeType: "image/png", buffer: PNG });
+    await expect(page.locator("#mapa-form-feria.leaflet-container")).toBeVisible();
+    await page.locator("#mapa-form-feria").click({ position: { x: 90, y: 70 } });
+    await expect.poll(async () => (await avance(page, "u-admin") || {}).imagen).toBe("guardada");
+
+    // Otra cuenta administradora en el mismo navegador: formulario vacío.
+    await page.addInitScript((estado) => { window.__FALSO__ = estado; }, conDosAdmins("u-admin2"));
+    await page.reload();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("");
+    await expect(page.locator("#e6-feria-recuperada")).toHaveText("");
+    await expect(page.locator("#e6-form-feria .e6-imagen-previa img")).toHaveCount(0);
+    await expect(page.locator("#e6-form-feria")).toContainText("Toca el mapa");
+    await expect(page.locator("#e6-btn-nueva-feria")).toHaveText("➕ Nueva feria");
+    expect(await avance(page, "u-admin2")).toBeNull();
+    // Descartar sin cambios no pregunta.
+    await page.locator("#e6-feria-descartar").click();
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    expect(dialogos).toEqual([]);
+
+    // De vuelta en la primera cuenta, su avance sigue ahí.
+    await page.addInitScript((estado) => { window.__FALSO__ = estado; }, conDosAdmins("u-admin"));
+    await page.reload();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria en preparación");
+    await expect(page.locator("#e6-form-feria .e6-imagen-previa img")).toHaveAttribute("src", /^blob:/);
+
+    // Completa y falla al guardar: se conserva lo ingresado (también al recargar).
+    await page.locator("#e6-feria-descripcion").fill("Descripción");
+    await page.locator("#e6-feria-lugar").fill("Plaza de Alerce");
+    await page.locator("#e6-feria-inicio").fill(hoy(8));
+    await page.locator("#e6-feria-horario").fill("10:00 a 18:00");
+    await page.locator("#e6-feria-organizador").fill("Municipalidad");
+    await page.evaluate(() => { window.__FALSO__.fallar["ferias:upsert"] = { message: "falla simulada del servidor" }; });
+    await page.locator("#e6-form-feria button", { hasText: "Guardar feria" }).click();
+    await expect(page.locator("#e6-form-feria")).toContainText("No se guardó");
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria en preparación");
+    expect(await avance(page, "u-admin")).toMatchObject({ lugar: "Plaza de Alerce", horario: "10:00 a 18:00" });
+    await page.reload();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-lugar")).toHaveValue("Plaza de Alerce");
+    await expect(page.locator("#e6-form-feria .e6-imagen-previa img")).toHaveAttribute("src", /^blob:/);
+
+    // Guardar bien: llega al servidor (con la imagen recuperada) y el avance se borra.
+    await page.locator("#e6-form-feria button", { hasText: "Guardar feria" }).click();
+    await expect(page.locator("#toast-texto")).toContainText("Feria creada");
+    const creada = await page.evaluate(() => window.__FALSO__.tablas.ferias.find((f) => f.nombre === "Feria en preparación"));
+    expect(creada).toMatchObject({ ubicacion: "Plaza de Alerce", estado: "PROXIMA" });
+    expect(creada.imagen_url).toMatch(/^https:\/\/falso\.supabase\.co\/storage\/.*feria_/);
+    expect(typeof creada.latitud).toBe("number");
+    expect(await avance(page, "u-admin")).toBeNull();
+    await expect.poll(() => imagenGuardada(page, "u-admin")).toBe(0);
+    await expect(page.locator("#e6-btn-nueva-feria")).toHaveText("➕ Nueva feria");
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("");
+    await expect(page.locator("#e6-feria-recuperada")).toHaveText("");
+    await expect(page.locator("#e6-form-feria .e6-imagen-previa img")).toHaveCount(0);
+
+    // Descartar con cambios pide confirmación: «Cancelar» conserva, «Aceptar» borra.
+    await page.locator("#e6-feria-nombre").fill("Feria que no va");
+    respuesta = false;
+    await page.locator("#e6-feria-descartar").click();
+    expect(dialogos.length).toBe(1);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria que no va");
+    respuesta = true;
+    await page.locator("#e6-feria-descartar").click();
+    expect(dialogos.length).toBe(2);
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    expect(await avance(page, "u-admin")).toBeNull();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("");
+
+    // Editar una feria existente: igual que antes (Cancelar, sin avance guardado).
+    await page.locator("#e6-admin-lista-ferias .e6-admin-item", { hasText: "Feria de Alerce" }).locator("button", { hasText: "Editar" }).click();
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria de Alerce");
+    await expect(page.locator("#e6-feria-descartar")).toHaveCount(0);
+    await page.locator("#e6-feria-nombre").fill("Cambio sin guardar");
+    await page.locator("#e6-form-feria button", { hasText: "Cancelar" }).click();
+    expect(await avance(page, "u-admin")).toBeNull();
+    await page.locator("#e6-admin-lista-ferias .e6-admin-item", { hasText: "Feria de Alerce" }).locator("button", { hasText: "Editar" }).click();
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria de Alerce");
+    expect(await page.evaluate(() => window.__FALSO__.tablas.ferias.find((f) => f.id === "f1").nombre)).toBe("Feria de Alerce");
+  });
+
+  test("Nueva feria: si el navegador no conserva la imagen, se mantienen los demás campos y se pide elegirla de nuevo", async ({ page }) => {
+    await preparar(page, conAdmin());
+    // Simula un navegador sin IndexedDB (modo privado restrictivo): los textos sí se guardan.
+    await page.addInitScript(() => { Object.defineProperty(window, "indexedDB", { value: undefined, configurable: true }); });
+    await page.goto(ORIGEN + "/");
+    await abrirNuevaFeria(page);
+    await page.locator("#e6-feria-nombre").fill("Feria sin imagen guardada");
+    await page.locator("#e6-feria-imagen").setInputFiles({ name: "feria.png", mimeType: "image/png", buffer: PNG });
+    await expect(page.locator("#e6-feria-aviso-imagen")).toContainText("tendrás que elegirla de nuevo");
+    await page.reload();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-recuperada")).toHaveText("Recuperamos la feria que estabas preparando.");
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria sin imagen guardada");
+    await expect(page.locator("#e6-feria-aviso-imagen")).toContainText("No pudimos conservar la imagen en este navegador: elígela de nuevo.");
+    await expect(page.locator("#e6-form-feria .e6-imagen-previa img")).toHaveCount(0);
+    await page.locator("#e6-form-feria button", { hasText: "Guardar feria" }).click();
+    await expect(page.locator("#e6-form-feria")).toContainText("imagen");
+  });
+
+  // ---- Orden de finalización y fallos del guardado local
+  // Retiene canvas.toBlob (el último paso de la compresión) para decidir desde la prueba
+  // en qué orden terminan las fotos. Cada foto se reconoce por su ancho en píxeles.
+  const RETENER_COMPRESION = () => {
+    const original = HTMLCanvasElement.prototype.toBlob;
+    window.__colaCompresion = [];
+    window.__retenerCompresion = false;
+    HTMLCanvasElement.prototype.toBlob = function (cb, ...args) {
+      if (!window.__retenerCompresion) return original.call(this, cb, ...args);
+      const canvas = this;
+      window.__colaCompresion.push({ ancho: canvas.width, liberar: () => original.call(canvas, cb, ...args) });
+    };
+    window.__liberarCompresion = (ancho) => {
+      const i = window.__colaCompresion.findIndex((e) => e.ancho === ancho);
+      if (i < 0) throw new Error("No hay compresión retenida de ancho " + ancho);
+      window.__colaCompresion.splice(i, 1)[0].liberar();
+    };
+  };
+  async function pngDeAncho(page, ancho) {
+    const b64 = await page.evaluate((w) => {
+      const c = document.createElement("canvas"); c.width = w; c.height = w;
+      const g = c.getContext("2d"); g.fillStyle = "#c33"; g.fillRect(0, 0, w, w);
+      return c.toDataURL("image/png").split(",")[1];
+    }, ancho);
+    return { name: "foto_" + ancho + ".png", mimeType: "image/png", buffer: Buffer.from(b64, "base64") };
+  }
+  const anchoGuardado = (page, cuenta) => page.evaluate((c) => new Promise((ok) => {
+    const r = indexedDB.open("alerce_borradores", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("imagenes_feria");
+    r.onsuccess = () => {
+      const g = r.result.transaction("imagenes_feria").objectStore("imagenes_feria").get(c);
+      g.onsuccess = () => { r.result.close(); if (!g.result) return ok(0); createImageBitmap(g.result.blob).then((b) => ok(b.width), () => ok(-1)); };
+    };
+  }), cuenta);
+  const anchoVistaPrevia = (page) => page.evaluate(() => { const i = document.querySelector("#e6-form-feria .e6-imagen-previa img"); return i && i.complete ? i.naturalWidth : 0; });
+  const compresionesRetenidas = (page) => page.evaluate(() => window.__colaCompresion.length);
+
+  for (const orden of [[3, 5], [5, 3]]) {
+    test(`Nueva feria: elijo la foto A (3 px) y luego B (5 px); terminan en orden ${orden.join(" → ")} y al volver aparece B`, async ({ page }) => {
+      await preparar(page, conAdmin());
+      await page.addInitScript(RETENER_COMPRESION);
+      await page.goto(ORIGEN + "/");
+      await abrirNuevaFeria(page);
+      await page.locator("#e6-feria-nombre").fill("Feria con dos fotos");
+      const fotoA = await pngDeAncho(page, 3), fotoB = await pngDeAncho(page, 5);
+      await page.evaluate(() => { window.__retenerCompresion = true; });
+      await page.locator("#e6-feria-imagen").setInputFiles(fotoA);
+      await expect.poll(() => compresionesRetenidas(page)).toBe(1);
+      await page.locator("#e6-feria-imagen").setInputFiles(fotoB);
+      await expect.poll(() => compresionesRetenidas(page)).toBe(2);
+      for (const ancho of orden) {
+        await page.evaluate((w) => window.__liberarCompresion(w), ancho);
+        await page.waitForTimeout(400);
+      }
+      await expect.poll(async () => (await avance(page, "u-admin") || {}).imagen).toBe("guardada");
+      expect(await anchoGuardado(page, "u-admin")).toBe(5);
+      await page.locator("#e6-feria-salir").click();
+      await page.reload();
+      await abrirNuevaFeria(page);
+      await expect(page.locator("#e6-feria-nombre")).toHaveValue("Feria con dos fotos");
+      await expect.poll(() => anchoVistaPrevia(page)).toBe(5);
+      await expect(page.locator("#e6-feria-aviso-imagen")).toHaveText("");
+    });
+  }
+
+  test("Nueva feria: la compresión pendiente de una feria descartada no borra ni reemplaza la foto de la siguiente", async ({ page }) => {
+    const dialogos = [];
+    page.on("dialog", (d) => { dialogos.push(d.message()); d.accept(); });
+    await preparar(page, conAdmin());
+    await page.addInitScript(RETENER_COMPRESION);
+    await page.goto(ORIGEN + "/");
+    const fotoA = await pngDeAncho(page, 3), fotoB = await pngDeAncho(page, 5);
+
+    // a) Feria descartada con su foto aún comprimiéndose: al terminar no deja nada guardado.
+    await abrirNuevaFeria(page);
+    await page.locator("#e6-feria-nombre").fill("Feria que se descarta");
+    await page.evaluate(() => { window.__retenerCompresion = true; });
+    await page.locator("#e6-feria-imagen").setInputFiles(fotoA);
+    await expect.poll(() => compresionesRetenidas(page)).toBe(1);
+    await page.locator("#e6-feria-descartar").click();
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    await page.evaluate(() => window.__liberarCompresion(3));
+    await page.waitForTimeout(600);
+    expect(await anchoGuardado(page, "u-admin")).toBe(0);
+    expect(await avance(page, "u-admin")).toBeNull();
+
+    // b) Feria descartada con foto pendiente → la siguiente feria elige otra foto, que termina
+    //    ANTES que la pendiente de la descartada. La siguiente conserva la suya.
+    await abrirNuevaFeria(page);
+    await page.locator("#e6-feria-nombre").fill("Otra que se descarta");
+    await page.locator("#e6-feria-imagen").setInputFiles(fotoA);
+    await expect.poll(() => compresionesRetenidas(page)).toBe(1);
+    await page.locator("#e6-feria-descartar").click();
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("");
+    await page.locator("#e6-feria-nombre").fill("La feria siguiente");
+    await page.locator("#e6-feria-imagen").setInputFiles(fotoB);
+    await expect.poll(() => compresionesRetenidas(page)).toBe(2);
+    await page.evaluate(() => window.__liberarCompresion(5));
+    await expect.poll(async () => (await avance(page, "u-admin") || {}).imagen).toBe("guardada");
+    await page.evaluate(() => window.__liberarCompresion(3));
+    await page.waitForTimeout(600);
+    expect(await anchoGuardado(page, "u-admin")).toBe(5);
+    expect(await avance(page, "u-admin")).toMatchObject({ nombre: "La feria siguiente", imagen: "guardada" });
+    expect(dialogos.length).toBe(2);
+    await page.reload();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("La feria siguiente");
+    await expect.poll(() => anchoVistaPrevia(page)).toBe(5);
+  });
+
+  const FALLAR_AVANCE = () => {
+    const original = Storage.prototype.setItem;
+    window.__fallarAvance = false;
+    Storage.prototype.setItem = function (k, v) {
+      if (window.__fallarAvance && String(k).startsWith("alerce_borrador_feria")) throw new DOMException("Almacenamiento lleno", "QuotaExceededError");
+      return original.call(this, k, v);
+    };
+  };
+
+  test("Nueva feria: si falla el guardado local con una versión anterior, avisa y «Salir» pide confirmar perder los últimos cambios", async ({ page }) => {
+    const dialogos = [];
+    let aceptar = false;
+    page.on("dialog", (d) => { dialogos.push(d.message()); return aceptar ? d.accept() : d.dismiss(); });
+    await preparar(page, conAdmin());
+    await page.addInitScript(FALLAR_AVANCE);
+    await page.goto(ORIGEN + "/");
+    await abrirNuevaFeria(page);
+    await page.locator("#e6-feria-nombre").fill("Versión 1");
+    expect(await avance(page, "u-admin")).toMatchObject({ nombre: "Versión 1" });
+    await expect(page.locator("#e6-feria-aviso-avance")).toHaveText("");
+
+    // La última edición no se puede guardar: aviso visible y queda la versión anterior.
+    await page.evaluate(() => { window.__fallarAvance = true; });
+    await page.locator("#e6-feria-nombre").fill("Versión 2");
+    await expect(page.locator("#e6-feria-aviso-avance")).toContainText("No pudimos guardar tu avance en este navegador");
+    await expect(page.locator("#e6-feria-aviso-avance")).toContainText("verás la versión guardada antes");
+    expect(await avance(page, "u-admin")).toMatchObject({ nombre: "Versión 1" });
+
+    // «Salir» → «Cancelar»: el formulario sigue abierto con lo último escrito.
+    await page.locator("#e6-feria-salir").click();
+    expect(dialogos).toHaveLength(1);
+    expect(dialogos[0]).toContain("No pudimos guardar tus últimos cambios");
+    await expect(page.locator("#e6-form-feria")).toBeVisible();
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Versión 2");
+
+    // «Salir» → «Aceptar»: se cierra y al volver aparece la versión anterior.
+    aceptar = true;
+    await page.locator("#e6-feria-salir").click();
+    expect(dialogos).toHaveLength(2);
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Versión 1");
+    await expect(page.locator("#e6-feria-recuperada")).toHaveText("Recuperamos la feria que estabas preparando.");
+
+    // Cuando el navegador vuelve a guardar, el aviso desaparece y «Salir» no pregunta.
+    await page.locator("#e6-feria-nombre").fill("Versión 3");
+    await expect(page.locator("#e6-feria-aviso-avance")).toContainText("No pudimos guardar");
+    await page.evaluate(() => { window.__fallarAvance = false; });
+    await page.locator("#e6-feria-nombre").fill("Versión 3b");
+    await expect(page.locator("#e6-feria-aviso-avance")).toHaveText("");
+    await page.locator("#e6-feria-salir").click();
+    expect(dialogos).toHaveLength(2);
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    await page.reload();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("Versión 3b");
+  });
+
+  test("Nueva feria: si el guardado local falla desde el inicio, avisa que se perderá todo y al salir confirmado vuelve vacía", async ({ page }) => {
+    const dialogos = [];
+    page.on("dialog", (d) => { dialogos.push(d.message()); d.accept(); });
+    await preparar(page, conAdmin());
+    await page.addInitScript(FALLAR_AVANCE);
+    await page.goto(ORIGEN + "/");
+    await page.evaluate(() => { window.__fallarAvance = true; });
+    await abrirNuevaFeria(page);
+    await page.locator("#e6-feria-nombre").fill("Nunca guardada");
+    await expect(page.locator("#e6-feria-aviso-avance")).toContainText("perderás lo que ingresaste");
+    expect(await avance(page, "u-admin")).toBeNull();
+    await page.locator("#e6-feria-salir").click();
+    expect(dialogos).toHaveLength(1);
+    await expect(page.locator("#e6-form-feria")).toBeHidden();
+    await abrirNuevaFeria(page);
+    await expect(page.locator("#e6-feria-nombre")).toHaveValue("");
+    await expect(page.locator("#e6-feria-recuperada")).toHaveText("");
+  });
+
   test("asigna una emprendedora a una asociación y aparece como integrante", async ({ page }) => {
     await preparar(page, conAdmin());
     await page.goto(ORIGEN + "/");

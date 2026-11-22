@@ -669,12 +669,93 @@
   // ---- Ferias con mapa (RF-FER-01, RF-MAP-01)
   var formFeria = null;
 
+  // ---- Avance de «Nueva feria» guardado SOLO en este navegador, por cuenta.
+  // Los campos van a localStorage y la imagen (ya comprimida) a IndexedDB, ambos con
+  // el id de la cuenta en la clave: otra cuenta del mismo navegador no lo ve. Nada de
+  // esto llega a Supabase; la feria se envía únicamente al pulsar «Guardar feria».
+  var CLAVE_BORRADOR_FERIA = "alerce_borrador_feria_v1:";
+  var BD_BORRADORES = "alerce_borradores", ALMACEN_IMAGENES = "imagenes_feria";
+
+  function cuentaActual() { var u = ctx.usuario(); return u && u.id ? String(u.id) : null; }
+  function leerBorradorFeria(cuenta) {
+    if (!cuenta) return null;
+    try { var b = JSON.parse(localStorage.getItem(CLAVE_BORRADOR_FERIA + cuenta) || "null"); return b && b.v === 1 ? b : null; } catch (e) { return null; }
+  }
+  function escribirBorradorFeria(cuenta, b) {
+    try { localStorage.setItem(CLAVE_BORRADOR_FERIA + cuenta, JSON.stringify(b)); return true; } catch (e) { return false; }
+  }
+  function hayCambiosBorrador(b) {
+    if (!b) return false;
+    return ["nombre", "descripcion", "lugar", "inicio", "fin", "horario", "organizador"].some(function (k) { return String(b[k] || "").trim() !== ""; }) ||
+      (b.estado && b.estado !== "PROXIMA") || b.lat !== null && b.lat !== undefined || (b.imagen && b.imagen !== "ninguna");
+  }
+  // Cada foto elegida recibe un número de serie creciente. IndexedDB guarda { blob, serie } y,
+  // dentro de la misma transacción, una foto solo reemplaza a otra de serie menor y un borrado
+  // solo quita fotos de serie menor o igual a la suya. Así el orden en que terminan las
+  // compresiones o los borrados pendientes no puede dejar una foto vieja ni borrar una nueva.
+  var ultimaSerie = 0;
+  function nuevaSerie() { ultimaSerie = Math.max(ultimaSerie + 1, Date.now() * 1000); return ultimaSerie; }
+  function serieDe(registro) { return registro && typeof registro.serie === "number" ? registro.serie : 0; }
+  /** op: { tipo: "leer" } | { tipo: "guardar", blob, serie, vigente() } | { tipo: "borrar", hasta }.
+   *  Resuelve con el registro (leer) o con "guardada" / "borrada" / "omitida". */
+  function imagenBorrador(cuenta, op) {
+    return new Promise(function (resolver, rechazar) {
+      if (!window.indexedDB) return rechazar(new Error("Este navegador no permite guardar la imagen."));
+      var apertura = window.indexedDB.open(BD_BORRADORES, 1);
+      apertura.onupgradeneeded = function () { apertura.result.createObjectStore(ALMACEN_IMAGENES); };
+      apertura.onerror = function () { rechazar(apertura.error || new Error("Sin acceso a IndexedDB")); };
+      apertura.onblocked = function () { rechazar(new Error("IndexedDB bloqueado")); };
+      apertura.onsuccess = function () {
+        var bd = apertura.result, resultado = "omitida";
+        // Una operación de una feria ya descartada o guardada, o de una foto reemplazada, no hace nada.
+        if (op.vigente && !op.vigente()) { bd.close(); return resolver("omitida"); }
+        var tx;
+        try {
+          tx = bd.transaction(ALMACEN_IMAGENES, op.tipo === "leer" ? "readonly" : "readwrite");
+          var almacen = tx.objectStore(ALMACEN_IMAGENES);
+          var lectura = almacen.get(cuenta);
+          lectura.onsuccess = function () {
+            var actual = lectura.result;
+            if (op.tipo === "leer") { resultado = actual || null; return; }
+            if (op.tipo === "guardar") {
+              if (serieDe(actual) > op.serie) return;
+              almacen.put({ blob: op.blob, serie: op.serie }, cuenta);
+              resultado = "guardada";
+              return;
+            }
+            if (actual && serieDe(actual) <= op.hasta) { almacen.delete(cuenta); resultado = "borrada"; }
+          };
+        } catch (e) { bd.close(); return rechazar(e); }
+        tx.oncomplete = function () { bd.close(); resolver(resultado); };
+        tx.onerror = tx.onabort = function () { bd.close(); rechazar(tx.error || new Error("No se pudo usar IndexedDB")); };
+      };
+    });
+  }
+  function borrarImagenBorrador(cuenta) {
+    // Solo borra fotos elegidas HASTA ahora: una foto que se elija después tiene una serie mayor.
+    return imagenBorrador(cuenta, { tipo: "borrar", hasta: nuevaSerie() }).catch(function () { return "omitida"; });
+  }
+  /** Marca el estado de la foto en el avance guardado, si sigue siendo esa misma foto. */
+  function marcarImagenEnBorrador(cuenta, serie, estado) {
+    var b = leerBorradorFeria(cuenta);
+    if (b && b.imagenSerie === serie && b.imagen !== estado) { b.imagen = estado; escribirBorradorFeria(cuenta, b); }
+  }
+  function borrarBorradorFeria(cuenta) {
+    if (!cuenta) return;
+    try { localStorage.removeItem(CLAVE_BORRADOR_FERIA + cuenta); } catch (e) { /* sin almacenamiento */ }
+    borrarImagenBorrador(cuenta);
+  }
+  function actualizarBotonNuevaFeria() {
+    var b = el("e6-btn-nueva-feria");
+    if (b) b.textContent = hayCambiosBorrador(leerBorradorFeria(cuentaActual())) ? "➕ Nueva feria · continuar la que preparabas" : "➕ Nueva feria";
+  }
+
   function adminFerias() {
     var lista = h("div", { class: "e6-admin-lista", id: "e6-admin-lista-ferias" });
     var form = h("div", { id: "e6-form-feria", class: "e6-form", style: "display:none;" });
-    var nueva = h("button", { type: "button", class: "btn-accion-pill btn-negro", text: "➕ Nueva feria", onclick: function () { abrirFormFeria(null); } });
+    var nueva = h("button", { type: "button", id: "e6-btn-nueva-feria", class: "btn-accion-pill btn-negro", text: "➕ Nueva feria", onclick: function () { abrirFormFeria(null); } });
     var tarjeta = tarjetaAdmin("🎪 Ferias", "Crea y edita ferias. La ubicación se fija marcando el mapa o buscando la dirección.", [h("div", { class: "e6-fila" }, [nueva]), form, lista]);
-    setTimeout(pintarListaFeriasAdmin, 0);
+    setTimeout(function () { pintarListaFeriasAdmin(); actualizarBotonNuevaFeria(); }, 0);
     return tarjeta;
   }
 
@@ -711,16 +792,33 @@
     if (!form) return;
     form.textContent = "";
     form.style.display = "";
-    formFeria = { id: f ? f.id : "feria_" + Date.now().toString(36), esNueva: !f, lat: f ? f.lat : null, lng: f ? f.lng : null, imagenUrl: f ? f.imagenUrl : "", archivo: null };
+    // Una feria nueva retoma el avance guardado en este navegador por esta misma cuenta.
+    var cuenta = f ? null : cuentaActual();
+    var borrador = f ? null : leerBorradorFeria(cuenta);
+    if (borrador && !hayCambiosBorrador(borrador)) { borrarBorradorFeria(cuenta); borrador = null; }
+    var v = f || (borrador ? {
+      nombre: borrador.nombre, descripcion: borrador.descripcion, lugar: borrador.lugar, fechaInicio: borrador.inicio,
+      fechaFin: borrador.fin, horario: borrador.horario, organizador: borrador.organizador, estado: borrador.estado,
+      lat: typeof borrador.lat === "number" ? borrador.lat : null, lng: typeof borrador.lng === "number" ? borrador.lng : null
+    } : {});
+    formFeria = {
+      id: f ? f.id : (borrador && borrador.id) || "feria_" + Date.now().toString(36), esNueva: !f,
+      lat: v.lat === undefined ? null : v.lat, lng: v.lng === undefined ? null : v.lng,
+      imagenUrl: f ? f.imagenUrl : "", archivo: null,
+      imagen: borrador ? (borrador.imagen || "ninguna") : "ninguna", turnoImagen: 0,
+      imagenSerie: borrador && typeof borrador.imagenSerie === "number" ? borrador.imagenSerie : null,
+      avanceSinGuardar: false
+    };
+    var formActual = formFeria;
 
-    var nombre = h("input", { id: "e6-feria-nombre", maxlength: "120", value: f ? f.nombre : "", required: true });
+    var nombre = h("input", { id: "e6-feria-nombre", maxlength: "120", value: v.nombre || "", required: true });
     var descripcion = h("textarea", { id: "e6-feria-descripcion", rows: "3", maxlength: "1000" });
-    descripcion.value = f ? f.descripcion : "";
-    var lugar = h("input", { id: "e6-feria-lugar", maxlength: "160", value: f ? f.lugar : "", placeholder: "Ej: Plaza de Alerce" });
-    var inicio = h("input", { id: "e6-feria-inicio", type: "date", value: f && f.fechaInicio ? String(f.fechaInicio).slice(0, 10) : "" });
-    var fin = h("input", { id: "e6-feria-fin", type: "date", value: f && f.fechaFin ? String(f.fechaFin).slice(0, 10) : "" });
-    var horario = h("input", { id: "e6-feria-horario", maxlength: "60", value: f ? f.horario : "", placeholder: "Ej: 10:00 a 18:00" });
-    var organizador = h("input", { id: "e6-feria-organizador", maxlength: "120", value: f ? f.organizador : "", placeholder: "Ej: Municipalidad de Puerto Montt" });
+    descripcion.value = v.descripcion || "";
+    var lugar = h("input", { id: "e6-feria-lugar", maxlength: "160", value: v.lugar || "", placeholder: "Ej: Plaza de Alerce" });
+    var inicio = h("input", { id: "e6-feria-inicio", type: "date", value: v.fechaInicio ? String(v.fechaInicio).slice(0, 10) : "" });
+    var fin = h("input", { id: "e6-feria-fin", type: "date", value: v.fechaFin ? String(v.fechaFin).slice(0, 10) : "" });
+    var horario = h("input", { id: "e6-feria-horario", maxlength: "60", value: v.horario || "", placeholder: "Ej: 10:00 a 18:00" });
+    var organizador = h("input", { id: "e6-feria-organizador", maxlength: "120", value: v.organizador || "", placeholder: "Ej: Municipalidad de Puerto Montt" });
     var estadoSel = h("select", { id: "e6-feria-estado" }, [
       h("option", { value: "PROXIMA", text: "Publicada (próxima)" }),
       h("option", { value: "EN_CURSO", text: "En curso" }),
@@ -728,20 +826,97 @@
       h("option", { value: "FINALIZADA", text: "Finalizada" }),
       h("option", { value: "CANCELADA", text: "Cancelada (deja de ofrecerse)" })
     ]);
-    estadoSel.value = f ? f.estado : "PROXIMA";
+    estadoSel.value = v.estado || "PROXIMA";
     var imagenArchivo = h("input", { id: "e6-feria-imagen", type: "file", accept: "image/*" });
     var imagenPrevia = h("div", { class: "e6-imagen-previa" });
+    var avisoImagen = h("p", { id: "e6-feria-aviso-imagen", class: "e6-aviso", role: "status" });
+    var avisoRecuperada = h("p", { id: "e6-feria-recuperada", class: "e6-aviso ok", role: "status" });
+    var avisoAvance = h("p", { id: "e6-feria-aviso-avance", class: "e6-aviso", role: "alert" });
     function pintarPrevia(url) {
       imagenPrevia.textContent = "";
       var i = url ? h("img", { src: url, alt: "Imagen de la feria" }) : null;
       if (i) imagenPrevia.appendChild(i);
     }
     pintarPrevia(formFeria.imagenUrl);
+
+    // Guarda el avance de una feria NUEVA (la edición de ferias existentes no cambia).
+    function guardarAvance() {
+      if (!formActual.esNueva || !cuenta || formActual.cerrada || formFeria !== formActual || cuentaActual() !== cuenta) return;
+      var b = {
+        v: 1, id: formActual.id, nombre: nombre.value, descripcion: descripcion.value, lugar: lugar.value,
+        inicio: inicio.value, fin: fin.value, horario: horario.value, organizador: organizador.value,
+        estado: estadoSel.value, lat: formActual.lat, lng: formActual.lng, imagen: formActual.imagen,
+        imagenSerie: formActual.imagenSerie, actualizado: new Date().toISOString()
+      };
+      var ok = true;
+      if (hayCambiosBorrador(b)) ok = escribirBorradorFeria(cuenta, b);
+      else borrarBorradorFeria(cuenta);
+      formActual.avanceSinGuardar = !ok;
+      if (ok) avisoAvance.textContent = "";
+      else avisoAvance.textContent = "⚠️ No pudimos guardar tu avance en este navegador (puede estar lleno o en modo privado). " +
+        (leerBorradorFeria(cuenta) ? "Si sales o recargas, perderás los últimos cambios y al volver verás la versión guardada antes." : "Si sales o recargas, perderás lo que ingresaste.");
+      actualizarBotonNuevaFeria();
+    }
     imagenArchivo.addEventListener("change", function () {
       var a = imagenArchivo.files && imagenArchivo.files[0];
-      formFeria.archivo = a || null;
+      formActual.archivo = a || null;
+      avisoImagen.textContent = "";
       if (a) pintarPrevia(URL.createObjectURL(a));
+      if (!formActual.esNueva || !cuenta) return;
+      formActual.turnoImagen++;
+      if (!a) { formActual.imagen = "ninguna"; formActual.imagenSerie = null; borrarImagenBorrador(cuenta); guardarAvance(); return; }
+      // La imagen se guarda comprimida; si el navegador no puede, se avisa y el resto sigue guardado.
+      var turno = formActual.turnoImagen, serie = nuevaSerie();
+      formActual.imagen = "pendiente";
+      formActual.imagenSerie = serie;
+      guardarAvance();
+      var vigente = function () { return turno === formActual.turnoImagen && !formActual.cerrada; };
+      comprimir(a).catch(function () { return a; }).then(function (blob) {
+        if (!vigente()) return "omitida";
+        return imagenBorrador(cuenta, { tipo: "guardar", blob: blob, serie: serie, vigente: vigente });
+      }).then(function (r) {
+        if (r !== "guardada") return;
+        // También si la persona ya salió del formulario: el avance guardado queda al día.
+        marcarImagenEnBorrador(cuenta, serie, "guardada");
+        if (!vigente()) return;
+        formActual.imagen = "guardada";
+        guardarAvance();
+      }, function () {
+        marcarImagenEnBorrador(cuenta, serie, "perdida");
+        if (!vigente()) return;
+        formActual.imagen = "perdida";
+        guardarAvance();
+        avisoImagen.className = "e6-aviso";
+        avisoImagen.textContent = "Este navegador no pudo guardar la imagen: si sales antes de guardar la feria, tendrás que elegirla de nuevo.";
+      });
     });
+    if (borrador) {
+      avisoRecuperada.textContent = "Recuperamos la feria que estabas preparando.";
+      toast("Recuperamos la feria que estabas preparando.");
+      if (formFeria.imagen !== "ninguna") {
+        var turnoRecuperado = formActual.turnoImagen, intentos = 0;
+        var recuperarImagen = function () {
+          imagenBorrador(cuenta, { tipo: "leer" }).catch(function () { return null; }).then(function (registro) {
+            if (turnoRecuperado !== formActual.turnoImagen || formActual.archivo || formActual.cerrada) return;
+            var esLaMisma = registro && registro.blob && serieDe(registro) === formActual.imagenSerie;
+            if (esLaMisma && formActual.imagen !== "perdida") {
+              formActual.imagen = "guardada";
+              formActual.archivo = registro.blob;
+              pintarPrevia(URL.createObjectURL(registro.blob));
+              guardarAvance();
+              return;
+            }
+            // Una foto aún comprimiéndose (se salió justo después de elegirla) puede tardar un poco.
+            if (formActual.imagen === "pendiente" && ++intentos < 6) { setTimeout(recuperarImagen, 400); return; }
+            formActual.imagen = "perdida";
+            guardarAvance();
+            avisoImagen.className = "e6-aviso";
+            avisoImagen.textContent = "No pudimos conservar la imagen en este navegador: elígela de nuevo. El resto de la feria está aquí.";
+          });
+        };
+        recuperarImagen();
+      }
+    }
 
     var busqueda = h("input", { id: "e6-feria-busqueda", type: "search", placeholder: "Buscar dirección (ej: Plaza de Alerce, Puerto Montt)" });
     var resultados = h("div", { class: "e6-resultados", role: "listbox", "aria-label": "Resultados de la búsqueda" });
@@ -763,6 +938,7 @@
         }
         if (mover) mapaRef.mapa.setView([formFeria.lat, formFeria.lng], 16);
       }
+      guardarAvance();
     }
     if (formFeria.lat === null) { coords.textContent = "Toca el mapa o busca la dirección para marcar la ubicación."; }
 
@@ -818,9 +994,10 @@
         var guardada = ctx.Cat.normalizarFeria(r.datos[0]);
         var idx = FERIAS.findIndex(function (x) { return x.id === guardada.id; });
         if (idx >= 0) FERIAS[idx] = guardada; else FERIAS.push(guardada);
-        toast(formFeria.esNueva ? "✅ Feria creada." : "✅ Cambios de la feria guardados.");
-        form.style.display = "none";
-        form.textContent = "";
+        toast(formActual.esNueva ? "✅ Feria creada." : "✅ Cambios de la feria guardados.");
+        // Ya está en el servidor: la siguiente «Nueva feria» empieza vacía.
+        if (formActual.esNueva) { formActual.cerrada = true; borrarBorradorFeria(cuenta); actualizarBotonNuevaFeria(); }
+        if (formFeria === formActual) { form.style.display = "none"; form.textContent = ""; }
         // Se vuelve a leer del servidor para confirmar que quedó guardada.
         cargarFerias().then(function () { pintarFerias(); pintarListaFeriasAdmin(); });
       }, function (e) {
@@ -828,9 +1005,35 @@
         aviso.textContent = "No se guardó: " + ((e && e.message) || "error al subir la imagen");
       });
     });
-    var cancelar = h("button", { type: "button", class: "btn-accion-pill", text: "Cancelar", onclick: function () { form.style.display = "none"; form.textContent = ""; } });
+    function cerrarForm() { form.style.display = "none"; form.textContent = ""; }
+    var botones = [guardar];
+    if (formActual.esNueva) {
+      // Salir conserva el avance; descartar lo borra (con confirmación si hay algo ingresado).
+      botones.push(h("button", { type: "button", id: "e6-feria-salir", class: "btn-accion-pill", text: cuenta ? "Salir (queda guardada aquí)" : "Salir", onclick: function () {
+        guardarAvance();
+        if (formActual.avanceSinGuardar && !window.confirm("No pudimos guardar tus últimos cambios en este navegador. Si sales, se perderán. ¿Salir de todas formas?")) return;
+        cerrarForm();
+      } }));
+      botones.push(h("button", { type: "button", id: "e6-feria-descartar", class: "btn-accion-pill", text: "Descartar feria", onclick: function () {
+        var b = leerBorradorFeria(cuenta);
+        var conCambios = hayCambiosBorrador(b) || !!formActual.archivo || [nombre, descripcion, lugar, inicio, fin, horario, organizador].some(function (c) { return c.value.trim() !== ""; });
+        if (conCambios && !window.confirm("¿Descartar esta feria? Se borrará lo que ingresaste y no se puede recuperar.")) return;
+        formActual.turnoImagen++;
+        formActual.cerrada = true;
+        borrarBorradorFeria(cuenta);
+        actualizarBotonNuevaFeria();
+        cerrarForm();
+        toast("Feria descartada.");
+      } }));
+    } else {
+      botones.push(h("button", { type: "button", class: "btn-accion-pill", text: "Cancelar", onclick: cerrarForm }));
+    }
 
     form.appendChild(h("h4", { class: "e6-subtitulo", text: f ? "Editar feria" : "Nueva feria" }));
+    if (formActual.esNueva) {
+      form.appendChild(avisoRecuperada);
+      if (cuenta) form.appendChild(h("p", { class: "tarjeta-sub", text: "Tu avance se guarda solo en este navegador mientras escribes. La feria se publica al pulsar «Guardar feria»." }));
+    }
     form.appendChild(campoForm("Nombre", nombre));
     form.appendChild(campoForm("Descripción", descripcion));
     form.appendChild(h("div", { class: "e6-grilla-2" }, [campoForm("Fecha de inicio", inicio), campoForm("Fecha de término", fin)]));
@@ -838,6 +1041,7 @@
     form.appendChild(h("div", { class: "e6-grilla-2" }, [campoForm("Lugar (texto)", lugar), campoForm("Estado", estadoSel)]));
     form.appendChild(campoForm("Imagen", imagenArchivo));
     form.appendChild(imagenPrevia);
+    form.appendChild(avisoImagen);
     form.appendChild(h("div", { class: "e6-buscar-direccion" }, [
       campoForm("Buscar dirección", busqueda),
       h("button", { type: "button", class: "btn-accion-pill", text: "🔎 Buscar", onclick: buscar })
@@ -846,7 +1050,9 @@
     form.appendChild(h("div", { id: "mapa-form-feria", class: "e6-mapa", role: "application", "aria-label": "Mapa: toca para marcar la ubicación de la feria" }));
     form.appendChild(coords);
     form.appendChild(aviso);
-    form.appendChild(h("div", { class: "e6-fila" }, [guardar, cancelar]));
+    form.appendChild(avisoAvance);
+    form.appendChild(h("div", { class: "e6-fila" }, botones));
+    if (formActual.esNueva) { form.addEventListener("input", guardarAvance); form.addEventListener("change", guardarAvance); }
 
     setTimeout(function () {
       mapaRef = crearMapa("mapa-form-feria", formFeria.lat, formFeria.lng, { editable: true });

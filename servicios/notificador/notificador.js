@@ -94,16 +94,17 @@ const MENSAJES_KONG = {
 /**
  * Describe un rechazo sin copiar el cuerpo. Devuelve { origen, formato, codigo, detalle }:
  *   origen "supabase": respondió Supabase (Auth, Kong o PostgREST) con un código reconocido.
- *   origen "servidor": llegó HTML, es decir, una página del servidor o de un intermediario
- *                      (firewall, proxy, filtro por país o IP) antes de llegar a Supabase.
+ *   origen "html": llegó HTML. Supabase Auth responde JSON, así que la página la generó o la
+ *                  reemplazó otro componente del camino (CDN, proxy o servidor web). Por sí
+ *                  sola NO dice qué componente fue ni si la contraseña llegó a revisarse.
  *   origen "desconocido": JSON sin código reconocido, texto plano o respuesta vacía.
  */
 function describirRechazo(tipoContenido, texto) {
   const t = String(texto || "");
   if (!t.trim()) return { origen: "desconocido", formato: "vacío", codigo: null, detalle: "respuesta vacía" };
   if (/html/i.test(tipoContenido || "") || /^\s*(<!doctype\s+html|<html|<head|<body|<title)/i.test(t)) {
-    return { origen: "servidor", formato: "HTML", codigo: null,
-      detalle: "respuesta HTML: la rechazó el servidor que recibe la petición, no Supabase" };
+    return { origen: "html", formato: "HTML", codigo: null,
+      detalle: "respuesta HTML (Supabase Auth responde JSON): la generó o la reemplazó otro componente del camino" };
   }
   let c;
   try { c = JSON.parse(t); } catch (e) {
@@ -129,21 +130,86 @@ function tipoDeContenido(r) {
   try { return (r.headers && typeof r.headers.get === "function" && r.headers.get("content-type")) || ""; } catch (e) { return ""; }
 }
 
+// Cabeceras con un identificador de solicitud (no son credenciales): sirven para que quien
+// administra el servidor o la CDN encuentre esta petición en sus registros.
+const CABECERAS_ID = ["cf-ray", "sb-request-id", "x-request-id", "x-kong-request-id", "x-amzn-requestid",
+  "x-amz-cf-id", "x-sucuri-id", "x-iinfo", "x-akamai-request-id", "x-correlation-id", "x-trace-id"];
+// Códigos de las páginas de error que genera Cloudflare (no el servidor de origen).
+const CODIGOS_CLOUDFLARE = {
+  "1006": "IP bloqueada", "1007": "IP bloqueada", "1008": "IP bloqueada", "1009": "país bloqueado",
+  "1010": "firma del navegador o cliente bloqueada", "1012": "acceso denegado", "1015": "límite de peticiones",
+  "1020": "regla de firewall de Cloudflare"
+};
+
+/**
+ * Rastro de una respuesta para el diagnóstico, sin cuerpo, cookies, credenciales ni tokens:
+ *   redireccion  null | { mismo_host, cambio_esquema, misma_ruta } calculado SOLO con la cabecera
+ *                Location de una respuesta 3xx (el inicio de sesión no sigue redirecciones ni
+ *                visita el destino; tampoco se muestra la URL). null en cada campo si no se reconoce.
+ *   ids          [{ cabecera, valor }] de CABECERAS_ID (valor solo si tiene formato de identificador)
+ *   servidor     cabecera Server, si es un nombre simple (p. ej. «cloudflare», «nginx»)
+ *   kong         true si la respuesta trae cabeceras de Kong (x-kong-* o Via: kong). Por sí solo
+ *                no dice quién produjo el código HTTP.
+ *   cloudflare   null | { desafio, codigo, motivo }: solo si la cabecera Server es cloudflare
+ * Del cuerpo HTML solo se toma un número de CODIGOS_CLOUDFLARE, nunca el texto.
+ */
+function rastroRespuesta(r, urlPedida, texto) {
+  const h = (n) => { try { return (r.headers && typeof r.headers.get === "function" && r.headers.get(n)) || ""; } catch (e) { return ""; } };
+  const rastro = { redireccion: null, ids: [], servidor: null, kong: false, cloudflare: null };
+  if ((r.status >= 300 && r.status < 400) || r.redirected) {
+    rastro.redireccion = { mismo_host: null, cambio_esquema: null, misma_ruta: null };
+    try {
+      const a = new URL(urlPedida), b = new URL(h("location") || (r.redirected && r.url) || "", urlPedida);
+      if (h("location") || r.redirected) rastro.redireccion = { mismo_host: a.host === b.host, cambio_esquema: a.protocol !== b.protocol, misma_ruta: a.pathname === b.pathname };
+    } catch (e) { /* destino no reconocible: se deja en null */ }
+  }
+  for (const n of CABECERAS_ID) {
+    const v = h(n);
+    if (v) rastro.ids.push({ cabecera: n, valor: /^[A-Za-z0-9._:\-]{1,100}$/.test(v) ? v : "(formato no reconocido)" });
+  }
+  const srv = h("server");
+  if (srv) rastro.servidor = /^[A-Za-z0-9._\-\/ ]{1,40}$/.test(srv) ? srv : "(formato no reconocido)";
+  let nombres = [];
+  try { if (r.headers && typeof r.headers.keys === "function") nombres = Array.from(r.headers.keys()); } catch (e) { nombres = []; }
+  rastro.kong = nombres.some(n => /^x-kong-/i.test(n)) || /kong/i.test(h("via"));
+  if (/^cloudflare$/i.test(srv)) {
+    const m = String(texto || "").match(/error(?:\s|&nbsp;|<[^>]{0,80}>)*(?:code)?(?:\s|&nbsp;|:|<[^>]{0,80}>)*(10\d\d)\b/i);
+    const codigo = m && CODIGOS_CLOUDFLARE[m[1]] ? m[1] : null;
+    rastro.cloudflare = { desafio: /challenge/i.test(h("cf-mitigated")), codigo, motivo: codigo ? CODIGOS_CLOUDFLARE[codigo] : null };
+  }
+  return rastro;
+}
+
+/** Una línea legible del rastro (sin valores privados). */
+function resumirRastro(x) {
+  if (!x) return "";
+  const rd = x.redireccion;
+  const red = !rd ? "no" : "sí, no se siguió (" + (rd.mismo_host === true ? "hacia el mismo servidor" : rd.mismo_host === false ? "hacia otro servidor" : "destino no reconocible")
+    + (rd.cambio_esquema ? ", cambia http/https" : "") + (rd.misma_ruta === false ? ", otra ruta" : "") + ")";
+  const ids = x.ids.length ? x.ids.map(i => i.cabecera + "=" + i.valor).join(", ") : "ninguno";
+  return "redirección: " + red + " · identificador de solicitud: " + ids + " · Server: " + (x.servidor || "sin cabecera")
+    + " · cabeceras de Kong: " + (x.kong ? "sí" : "no")
+    + (x.cloudflare ? " · Cloudflare: " + (x.cloudflare.desafio ? "desafío (cf-mitigated)" : (x.cloudflare.codigo ? "error " + x.cloudflare.codigo + " (" + x.cloudflare.motivo + ")" : "sin código propio")) : "");
+}
+
 function crearNotificador(config, deps = {}) {
   const pedir = deps.fetch || globalThis.fetch;
   const ahora = deps.ahora || (() => Date.now());
   const registrar = deps.log || ((...a) => console.log(...a));
   let sesion = null;           // { access_token, expira }
   let tokenGoogle = null;      // { valor, expira }
+  let ultimoRastro = null;     // rastro del último inicio de sesión correcto (para el diagnóstico)
 
   async function json(r) { const t = await r.text(); try { return t ? JSON.parse(t) : null; } catch (e) { return { texto: t }; } }
 
   async function entrar() {
     if (sesion && sesion.expira > ahora() + 60000) return sesion.access_token;
     let r;
+    const urlPedida = config.supabaseUrl + "/auth/v1/token?grant_type=password";
     try {
-      r = await pedir(config.supabaseUrl + "/auth/v1/token?grant_type=password", {
-        method: "POST", headers: { apikey: config.anonKey, "Content-Type": "application/json" },
+      // redirect: "manual": una redirección NO se sigue (no se reenvían la clave ni la contraseña a otro destino).
+      r = await pedir(urlPedida, {
+        method: "POST", redirect: "manual", headers: { apikey: config.anonKey, "Content-Type": "application/json" },
         body: JSON.stringify({ email: config.email, password: config.clave })
       });
     } catch (e) {
@@ -153,17 +219,27 @@ function crearNotificador(config, deps = {}) {
       err.diagnostico = { origen: "red", formato: null, codigo: cod || null, status: null };
       throw err;
     }
+    if ((r.status >= 300 && r.status < 400) || r.redirected) {
+      try { await r.text(); } catch (e) { /* el cuerpo no se usa */ }
+      const rastro = rastroRespuesta(r, urlPedida, "");
+      const err = new Error("No se pudo entrar con la cuenta del notificador (HTTP " + r.status + "): el servidor respondió con una redirección y el emisor se detuvo sin seguirla · " + resumirRastro(rastro));
+      err.diagnostico = { status: r.status, origen: "redireccion", formato: null, codigo: null, rastro,
+        detalle: "el servidor respondió con una redirección y el emisor se detuvo sin seguirla" };
+      throw err;
+    }
     const texto = await r.text();
     let c = null;
     try { c = texto ? JSON.parse(texto) : null; } catch (e) { c = null; }
     if (!r.ok || !c || !c.access_token) {
       const d = describirRechazo(tipoDeContenido(r), r.ok ? "" : texto);
       if (r.ok) Object.assign(d, { origen: "desconocido", detalle: "la respuesta no trae una sesión" });
-      const err = new Error("No se pudo entrar con la cuenta del notificador (HTTP " + r.status + "): " + d.detalle);
-      err.diagnostico = Object.assign({ status: r.status }, d);
+      const rastro = rastroRespuesta(r, urlPedida, texto);
+      const err = new Error("No se pudo entrar con la cuenta del notificador (HTTP " + r.status + "): " + d.detalle + " · " + resumirRastro(rastro));
+      err.diagnostico = Object.assign({ status: r.status, rastro }, d);
       throw err;
     }
     sesion = { access_token: c.access_token, expira: ahora() + (Number(c.expires_in) || 3600) * 1000 };
+    ultimoRastro = rastroRespuesta(r, urlPedida, "");
     return sesion.access_token;
   }
 
@@ -291,7 +367,7 @@ function crearNotificador(config, deps = {}) {
     return total;
   }
 
-  return { procesarLote, procesarHastaVaciar, entrar, _interno: { firmarJwt, mensajeFcm, clasificarRespuestaFcm } };
+  return { procesarLote, procesarHastaVaciar, entrar, rastroInicio: () => ultimoRastro, _interno: { firmarJwt, mensajeFcm, clasificarRespuestaFcm } };
 }
 
-module.exports = { crearNotificador, firmarJwt, mensajeFcm, clasificarRespuestaFcm, describirRechazo };
+module.exports = { crearNotificador, firmarJwt, mensajeFcm, clasificarRespuestaFcm, describirRechazo, rastroRespuesta, resumirRastro };

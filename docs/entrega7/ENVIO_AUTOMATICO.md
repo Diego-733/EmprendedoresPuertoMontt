@@ -88,11 +88,24 @@ Para los otros tres secretos, cambia `NOTIFICADOR_CLAVE` en el primer comando po
 4. Esta ejecución es real: envía lo que haya pendiente en la cola.
 
 #### C2. Si falla al iniciar sesión: diagnóstico sin tocar la cola
-**Actions → Enviar avisos → Run workflow**, elige `modo: diagnostico-sesion` y pulsa **Run workflow**. Hace **un** intento de inicio de sesión con la cuenta del notificador y termina: no lee la cola, no llama a ninguna RPC ni a Firebase. El paso «Probar solo el inicio de sesión» muestra solo el HTTP, el formato y un código reconocido. Nunca muestra el cuerpo, la clave, el token ni las cabeceras.
+**Actions → Enviar avisos → Run workflow**, elige `modo: diagnostico-sesion` y pulsa **Run workflow**. Hace **un** intento de inicio de sesión con la cuenta del notificador y termina: no lee la cola, no llama a ninguna RPC ni a Firebase. El paso «Probar solo el inicio de sesión» muestra:
+- el HTTP, el formato y un código reconocido;
+- una línea «Rastro» que dice si hubo redirección, el identificador de solicitud (`cf-ray`, `x-request-id`, `x-kong-request-id`…), la cabecera `Server` y si hay cabeceras de Kong;
+- la versión de Node.
+
+Nunca muestra el cuerpo, cookies, la clave, el token ni otras cabeceras.
+
+El inicio de sesión (el mismo en el diagnóstico y en el envío normal) **no sigue redirecciones**: si el servidor responde 301, 302, 303, 307 o 308, el emisor se detiene en esa primera petición. No visita el destino, no le reenvía la clave ni la contraseña y no muestra su URL; solo dice si apuntaba al mismo servidor o a otro.
+
+> **Ojo con `cf-ray` y las cabeceras de Kong.** Que aparezcan solo dice por dónde **pasó** la respuesta, no **quién produjo** el 403. Cloudflare agrega `cf-ray` a todo lo que atraviesa, también a un 403 que generó el servidor de detrás. Las cabeceras de Kong pueden venir de Kong o de un servicio detrás de él. Para saber quién lo produjo hace falta el código propio de Cloudflare (`error 10xx` o `desafío`), un código JSON reconocido, o que quien administra el dominio busque ese `cf-ray` en Cloudflare → Security → Events.
 
 | Lo que muestra | Qué significa |
 |---|---|
-| `formato: HTML` | **Bloqueo del servidor** que recibe la petición (firewall, proxy o filtro por IP o país). No respondió Supabase, así que la contraseña no alcanzó a revisarse. |
+| `formato: HTML` · `Cloudflare: error 10xx` o `desafío` | Cloudflare detuvo la petición antes del servidor de Supabase (1020 = regla de firewall, 1009 = país, 1006–1008 = IP, 1010 = firma del cliente). Quien administra el dominio debe permitir la ruta `/auth/v1/` y `/rest/v1/` para el emisor. |
+| `formato: HTML` · `Cloudflare: sin código propio` | Pasó por Cloudflare, pero la página puede venir de Cloudflare o del servidor detrás: el `cf-ray` no basta para saberlo. Quien administra el dominio puede buscarlo en Cloudflare → Security → Events. |
+| `formato: HTML` · `cabeceras de Kong: sí` | Pasó por la puerta de enlace de Supabase, pero eso no dice quién produjo el 403 (Kong, algo detrás o algo delante). |
+| `formato: HTML`, sin nada de lo anterior | Respondió un componente que no es Supabase Auth. No dice cuál ni si se revisó la contraseña; usa el identificador de solicitud para rastrearla. |
+| `redirección: sí, no se siguió (hacia el mismo servidor / hacia otro servidor)` | `SUPABASE_URL` apunta a algo que redirige. Revisa el esquema (`https`), el host y que no tenga ruta extra. El emisor no siguió la redirección. |
 | `formato: JSON · código reconocido: invalid_credentials` (u otro) | **Supabase Auth** recibió la petición y la rechazó con ese código. |
 | `formato: JSON · código reconocido: kong_…` | La puerta de enlace de Supabase rechazó la clave pública (`SUPABASE_ANON_KEY`). |
 | `formato: JSON · código reconocido: ninguno` | JSON sin un código conocido: no se puede saber el origen. |

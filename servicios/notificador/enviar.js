@@ -19,7 +19,7 @@
  */
 const fs = require("fs");
 const path = require("path");
-const { crearNotificador } = require("./notificador");
+const { crearNotificador, resumirRastro } = require("./notificador");
 
 function argumento(nombre) {
   const i = process.argv.indexOf(nombre);
@@ -86,27 +86,46 @@ function leerConfig() {
 
 /**
  * --solo-entrar: hace UN intento de inicio de sesión con la cuenta del notificador y termina.
- * No lee ni procesa la cola, no llama a ninguna RPC ni a Firebase. Muestra solo el resultado
- * (HTTP, formato y código reconocido), nunca el cuerpo, la clave, el token ni las cabeceras.
+ * No lee ni procesa la cola, no llama a ninguna RPC ni a Firebase. Muestra el HTTP, el formato,
+ * un código reconocido, si hubo redirección (no se sigue), los identificadores de solicitud (cf-ray, x-request-id…),
+ * la cabecera Server y la versión de Node. Nunca el cuerpo, cookies, la clave, el token ni otras cabeceras.
  */
 async function diagnosticarInicioDeSesion(n) {
   const enActions = process.env.GITHUB_ACTIONS === "true";
   try {
     await n.entrar();
     console.log("Diagnóstico: la cuenta del notificador inició sesión correctamente desde aquí.");
+    console.log("Rastro:", resumirRastro(n.rastroInicio()));
+    console.log("Node:", process.version);
     console.log("No se leyó ni se procesó la cola de avisos.");
     return 0;
   } catch (e) {
     const d = e.diagnostico || { origen: "desconocido" };
-    const conclusion = {
-      servidor: "Bloqueo del servidor que recibe la petición (firewall, proxy o filtro por IP o país): respondió una página HTML, no Supabase. La contraseña no alcanzó a revisarse.",
-      supabase: "Supabase recibió la petición y la rechazó" + (d.codigo ? " con el código " + d.codigo : "") + ".",
-      red: "No hubo respuesta HTTP: la conexión no se completó.",
-      desconocido: "La respuesta no permite saber si vino de Supabase o de otro servidor."
-    }[d.origen] || "Resultado no reconocido.";
+    const x = d.rastro || null;
+    const cf = x && x.cloudflare;
+    let conclusion;
+    if (d.origen === "html") {
+      if (cf && cf.desafio) conclusion = "Cloudflare respondió con un desafío (cf-mitigated: challenge): la petición no pasó de Cloudflare, así que no llegó a Supabase. Un programa sin navegador no puede resolverlo.";
+      else if (cf && cf.codigo) conclusion = "Página de error " + cf.codigo + " de Cloudflare (" + cf.motivo + "): la detuvo Cloudflare antes de llegar al servidor de Supabase.";
+      else if (x && x.kong) conclusion = "La respuesta HTML trae cabeceras de Kong: la petición pasó por la puerta de enlace de Supabase, pero eso no dice quién produjo el código HTTP (Kong, algo detrás o algo delante). No se puede saber si se revisó la contraseña.";
+      else if (cf) conclusion = "La respuesta pasó por Cloudflare, pero la página no trae un código propio de Cloudflare: puede venir de Cloudflare o del servidor detrás. Con el cf-ray, quien administra el dominio puede ver en Cloudflare qué la bloqueó. No se puede saber si se revisó la contraseña.";
+      else conclusion = "Respondió HTML un componente que no es Supabase Auth (que responde JSON). Esto no dice cuál fue ni si se revisó la contraseña; el identificador de solicitud sirve para rastrearla.";
+    } else if (d.origen === "redireccion") {
+      const rd = x && x.redireccion;
+      const hacia = rd && rd.mismo_host === true ? "hacia el mismo servidor" : rd && rd.mismo_host === false ? "hacia otro servidor" : "hacia un destino no reconocible";
+      conclusion = "El servidor respondió con una redirección " + hacia + " y el emisor se detuvo sin seguirla (no visitó el destino ni reenvió credenciales). Revisa SUPABASE_URL: esquema, host y ruta.";
+    } else {
+      conclusion = {
+        supabase: "Supabase recibió la petición y la rechazó" + (d.codigo ? " con el código " + d.codigo : "") + ".",
+        red: "No hubo respuesta HTTP: la conexión no se completó.",
+        desconocido: "La respuesta no permite saber si vino de Supabase o de otro servidor."
+      }[d.origen] || "Resultado no reconocido.";
+    }
     if (enActions) console.log("::error title=Inicio de sesión del notificador::" + conclusion);
-    console.error("Diagnóstico:", e.message);
+    console.error("Diagnóstico:", d.detalle || e.message);
     console.error("HTTP:", d.status == null ? "sin respuesta" : d.status, "· formato:", d.formato || "ninguno", "· código reconocido:", d.codigo || "ninguno");
+    if (x) console.error("Rastro:", resumirRastro(x));
+    console.error("Node:", process.version);
     console.error("Conclusión:", conclusion);
     console.error("No se leyó ni se procesó la cola de avisos.");
     return 1;

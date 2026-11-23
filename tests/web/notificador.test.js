@@ -236,9 +236,10 @@ function respuestaCruda(status, texto, tipo) {
 }
 const HTML_BLOQUEO = "<!DOCTYPE html><html><head><title>403 Forbidden</title></head><body>" + CENTINELA + " ray-id</body></html>";
 
-test("describirRechazo: HTML = servidor; JSON solo con código reconocido; nunca copia el cuerpo", () => {
+test("describirRechazo: HTML = otro componente, sin atribuirlo; JSON solo con código reconocido; nunca copia el cuerpo", () => {
   const html = describirRechazo("text/html; charset=UTF-8", HTML_BLOQUEO);
-  assert.deepStrictEqual([html.origen, html.formato, html.codigo], ["servidor", "HTML", null]);
+  assert.deepStrictEqual([html.origen, html.formato, html.codigo], ["html", "HTML", null]);
+  assert.ok(!/firewall|contraseña/i.test(html.detalle), "no atribuye el HTML a un firewall ni afirma nada de la contraseña");
   assert.strictEqual(describirRechazo("", "  <html><body>x</body></html>").formato, "HTML", "reconoce HTML aunque falte el tipo");
   const nuevo = describirRechazo("application/json", JSON.stringify({ code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials " + CENTINELA }));
   assert.deepStrictEqual([nuevo.origen, nuevo.codigo], ["supabase", "invalid_credentials"]);
@@ -253,14 +254,15 @@ test("describirRechazo: HTML = servidor; JSON solo con código reconocido; nunca
   for (const d of [html, nuevo, antiguo, kong, raro]) assert.ok(!JSON.stringify(d).includes(CENTINELA));
 });
 
-test("entrar: 403 HTML se informa como bloqueo del servidor, sin cuerpo ni credenciales", async () => {
+test("entrar: 403 HTML se informa sin atribuirlo a un firewall, sin cuerpo ni credenciales", async () => {
   const urls = [];
   const n = crearNotificador(Object.assign({}, CONFIG, { clave: CENTINELA + "-clave" }), { log: () => {},
     fetch: async (url) => { urls.push(url); return respuestaCruda(403, HTML_BLOQUEO, "text/html"); } });
   const e = await n.entrar().then(() => null, x => x);
   assert.ok(e, "debía fallar");
-  assert.match(e.message, /HTTP 403\): respuesta HTML: la rechazó el servidor que recibe la petición, no Supabase/);
-  assert.deepStrictEqual([e.diagnostico.origen, e.diagnostico.status], ["servidor", 403]);
+  assert.match(e.message, /HTTP 403\): respuesta HTML \(Supabase Auth responde JSON\): la generó o la reemplazó otro componente del camino · redirección: no/);
+  assert.ok(!/firewall|contraseña/i.test(e.message));
+  assert.deepStrictEqual([e.diagnostico.origen, e.diagnostico.status], ["html", 403]);
   assert.ok(!(e.message + JSON.stringify(e.diagnostico)).includes(CENTINELA));
   assert.deepStrictEqual(urls, ["https://falso.supabase.co/auth/v1/token?grant_type=password"]);
 });
@@ -268,7 +270,7 @@ test("entrar: 403 HTML se informa como bloqueo del servidor, sin cuerpo ni crede
 test("entrar: rechazo de Supabase Auth registra solo el código; error de red solo el código del sistema", async () => {
   const auth = await crearNotificador(CONFIG, { log: () => {}, fetch: async () => respuestaCruda(400,
     JSON.stringify({ code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials " + CENTINELA }), "application/json") }).entrar().catch(x => x);
-  assert.match(auth.message, /HTTP 400\): Supabase Auth rechazó la petición \(código invalid_credentials\)$/);
+  assert.match(auth.message, /HTTP 400\): Supabase Auth rechazó la petición \(código invalid_credentials\) · redirección: no/);
   assert.strictEqual(auth.diagnostico.origen, "supabase");
   assert.ok(!auth.message.includes(CENTINELA));
   const red = await crearNotificador(CONFIG, { log: () => {}, fetch: async () => {
@@ -308,13 +310,13 @@ function correrDiagnostico(url) {
 test("diagnóstico --solo-entrar: un solo intento de inicio de sesión, sin Firebase ni cola, y sin valores en la salida", async () => {
   const casos = [
     { nombre: "bloqueo HTML", status: 403, tipo: "text/html", cuerpo: HTML_BLOQUEO, codigo: 1,
-      espera: /::error title=Inicio de sesión del notificador::Bloqueo del servidor que recibe la petición[\s\S]*HTTP: 403 · formato: HTML · código reconocido: ninguno/ },
+      espera: /::error title=Inicio de sesión del notificador::Respondió HTML un componente que no es Supabase Auth[\s\S]*HTTP: 403 · formato: HTML · código reconocido: ninguno[\s\S]*Rastro: redirección: no · identificador de solicitud: ninguno · Server: sin cabecera · cabeceras de Kong: no/ },
     { nombre: "Supabase Auth", status: 400, tipo: "application/json", cuerpo: JSON.stringify({ code: 400, error_code: "invalid_credentials", msg: CENTINELA }), codigo: 1,
       espera: /Supabase recibió la petición y la rechazó con el código invalid_credentials[\s\S]*HTTP: 400 · formato: JSON · código reconocido: invalid_credentials/ },
     { nombre: "JSON sin código", status: 403, tipo: "application/json", cuerpo: JSON.stringify({ message: CENTINELA }), codigo: 1,
       espera: /no permite saber si vino de Supabase[\s\S]*HTTP: 403 · formato: JSON · código reconocido: ninguno/ },
     { nombre: "correcto", status: 200, tipo: "application/json", cuerpo: JSON.stringify({ access_token: CENTINELA + "-token", expires_in: 3600 }), codigo: 0,
-      espera: /inició sesión correctamente desde aquí\.[\s\S]*No se leyó ni se procesó la cola de avisos\./ }
+      espera: /inició sesión correctamente desde aquí\.[\s\S]*Rastro: redirección: no[\s\S]*Node: v\d+[\s\S]*No se leyó ni se procesó la cola de avisos\./ }
   ];
   for (const c of casos) {
     const srv = await servidorSimulado((req, res) => { res.writeHead(c.status, { "Content-Type": c.tipo }); res.end(c.cuerpo); });
@@ -336,6 +338,103 @@ test("diagnóstico --solo-entrar: sin servidor que responda, informa error de re
   assert.strictEqual(r.codigo, 1);
   assert.match(r.salida, /No se pudo conectar con Supabase para iniciar sesión \(ECONNREFUSED\)[\s\S]*HTTP: sin respuesta/);
   assert.ok(!r.salida.includes(CENTINELA));
+});
+
+const { rastroRespuesta, resumirRastro } = require("../../servicios/notificador/notificador");
+const PAGINA_CF_1020 = "<!DOCTYPE html><html><head><title>Access denied | ejemplo used Cloudflare to restrict access</title></head><body>"
+  + "<h1><span class=\"cf-error-type\">Error</span> <span class=\"cf-error-code\">1020</span></h1>" + CENTINELA + "</body></html>";
+
+test("rastroRespuesta: redirección, identificadores y quién respondió, sin cookies ni cuerpo", () => {
+  const r = { status: 302,
+    headers: new Headers({ "server": "cloudflare", "location": "http://otro.test/login", "cf-ray": "8f1a2b3c4d5e6f70-SCL", "set-cookie": "__cf_bm=" + CENTINELA, "x-request-id": "a b<" + CENTINELA }) };
+  const x = rastroRespuesta(r, "https://falso.supabase.co/auth/v1/token?grant_type=password", PAGINA_CF_1020);
+  assert.deepStrictEqual(x.redireccion, { mismo_host: false, cambio_esquema: true, misma_ruta: false });
+  assert.deepStrictEqual(x.ids, [{ cabecera: "cf-ray", valor: "8f1a2b3c4d5e6f70-SCL" }, { cabecera: "x-request-id", valor: "(formato no reconocido)" }]);
+  assert.deepStrictEqual(x.cloudflare, { desafio: false, codigo: "1020", motivo: "regla de firewall de Cloudflare" });
+  const linea = resumirRastro(x);
+  assert.match(linea, /redirección: sí, no se siguió \(hacia otro servidor, cambia http\/https, otra ruta\) · identificador de solicitud: cf-ray=8f1a2b3c4d5e6f70-SCL/);
+  assert.ok(!(linea + JSON.stringify(x)).includes(CENTINELA), "ni cookies, ni cuerpo, ni valores raros");
+  assert.ok(!(linea + JSON.stringify(x)).includes("otro.test"), "no muestra la URL de destino");
+  // Location relativa = mismo servidor; 3xx sin Location = destino no reconocible.
+  assert.deepStrictEqual(rastroRespuesta({ status: 301, headers: new Headers({ location: "/otra" }) }, "https://a.test/x", "").redireccion,
+    { mismo_host: true, cambio_esquema: false, misma_ruta: false });
+  assert.match(resumirRastro(rastroRespuesta({ status: 303, headers: new Headers() }, "https://a.test/x", "")), /redirección: sí, no se siguió \(destino no reconocible\)/);
+  // Un número 10xx en una página que NO es de Cloudflare no se toma como código de Cloudflare.
+  const origen = rastroRespuesta({ headers: new Headers({ server: "nginx" }) }, "https://a.test/x", PAGINA_CF_1020);
+  assert.strictEqual(origen.cloudflare, null);
+  assert.strictEqual(rastroRespuesta({ headers: new Headers({ via: "kong/2.8.1" }) }, "https://a.test/x", "").kong, true);
+});
+
+test("diagnóstico --solo-entrar con HTML: dice quién lo generó solo cuando hay pruebas, con identificador y sin cookies", async () => {
+  const casos = [
+    { nombre: "Cloudflare 1020", cabeceras: { server: "cloudflare", "cf-ray": "8f1a2b3c4d5e6f70-SCL" }, cuerpo: PAGINA_CF_1020,
+      espera: /::error title=Inicio de sesión del notificador::Página de error 1020 de Cloudflare \(regla de firewall de Cloudflare\): la detuvo Cloudflare antes de llegar al servidor de Supabase\.[\s\S]*identificador de solicitud: cf-ray=8f1a2b3c4d5e6f70-SCL · Server: cloudflare/ },
+    { nombre: "desafío de Cloudflare", cabeceras: { server: "cloudflare", "cf-ray": "8f1a2b3c4d5e6f71-GRU", "cf-mitigated": "challenge" }, cuerpo: "<!DOCTYPE html><title>Just a moment...</title>" + CENTINELA,
+      espera: /Cloudflare respondió con un desafío \(cf-mitigated: challenge\)[\s\S]*Cloudflare: desafío \(cf-mitigated\)/ },
+    { nombre: "HTML a través de Cloudflare sin código", cabeceras: { server: "cloudflare", "cf-ray": "8f1a2b3c4d5e6f72-SCL" }, cuerpo: HTML_BLOQUEO,
+      espera: /pasó por Cloudflare, pero la página no trae un código propio de Cloudflare: puede venir de Cloudflare o del servidor detrás[\s\S]*No se puede saber si se revisó la contraseña[\s\S]*Cloudflare: sin código propio/ },
+    { nombre: "nginx con x-request-id", cabeceras: { server: "nginx", "x-request-id": "5d41402abc4b2a76" }, cuerpo: HTML_BLOQUEO,
+      espera: /Respondió HTML un componente que no es Supabase Auth[\s\S]*identificador de solicitud: x-request-id=5d41402abc4b2a76 · Server: nginx · cabeceras de Kong: no/ },
+    { nombre: "HTML tras Kong", cabeceras: { via: "kong/2.8.1", "x-kong-request-id": "c0ffee1234" }, cuerpo: HTML_BLOQUEO,
+      espera: /trae cabeceras de Kong: la petición pasó por la puerta de enlace de Supabase, pero eso no dice quién produjo el código HTTP[\s\S]*x-kong-request-id=c0ffee1234[\s\S]*cabeceras de Kong: sí/ }
+  ];
+  for (const c of casos) {
+    const srv = await servidorSimulado((req, res) => {
+      res.writeHead(403, Object.assign({ "Content-Type": "text/html; charset=UTF-8", "Set-Cookie": "__cf_bm=" + CENTINELA + "; HttpOnly" }, c.cabeceras));
+      res.end(c.cuerpo);
+    });
+    const r = await correrDiagnostico(srv.url);
+    await srv.cerrar();
+    assert.strictEqual(r.codigo, 1, c.nombre);
+    assert.match(r.salida, c.espera, c.nombre + ":\n" + r.salida);
+    assert.ok(!r.salida.includes(CENTINELA), c.nombre + ": sin cuerpo, cookies, clave ni token");
+    assert.ok(!/Set-Cookie|__cf_bm/i.test(r.salida), c.nombre + ": no menciona cookies");
+    assert.strictEqual(srv.peticiones.length, 1, c.nombre + ": un solo intento");
+  }
+});
+
+test("diagnóstico --solo-entrar: ante una redirección se detiene en la primera petición, sin visitar el destino", async () => {
+  // 302 a otra ruta del mismo servidor: no se sigue (antes fetch la seguía y convertía el POST en GET).
+  const a = await servidorSimulado((req, res) => {
+    if (req.url.startsWith("/auth/")) { res.writeHead(302, { Location: "/inicio", Server: "cloudflare", "cf-ray": "8f1a2b3c4d5e6f73-SCL" }); res.end(); }
+    else { res.writeHead(405, { "Content-Type": "text/html" }); res.end(HTML_BLOQUEO); }
+  });
+  const r1 = await correrDiagnostico(a.url);
+  await a.cerrar();
+  assert.strictEqual(r1.codigo, 1);
+  assert.match(r1.salida, /::error title=Inicio de sesión del notificador::El servidor respondió con una redirección hacia el mismo servidor y el emisor se detuvo sin seguirla/);
+  assert.match(r1.salida, /HTTP: 302 · formato: ninguno[\s\S]*Rastro: redirección: sí, no se siguió \(hacia el mismo servidor, otra ruta\) · identificador de solicitud: cf-ray=8f1a2b3c4d5e6f73-SCL · Server: cloudflare/);
+  assert.deepStrictEqual(a.peticiones.map(p => p.metodo + " " + p.ruta), ["POST /auth/v1/token?grant_type=password"], "una sola petición");
+  assert.ok(!r1.salida.includes(CENTINELA) && !r1.salida.includes("/inicio"), "sin valores ni la URL de destino");
+  // 307 (conserva POST y cuerpo) y 308 hacia otro servidor: el segundo servidor recibe CERO peticiones.
+  for (const codigo of [307, 308]) {
+    const destino = await servidorSimulado((req, res) => { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ access_token: "robado", expires_in: 3600 })); });
+    const b = await servidorSimulado((req, res) => { res.writeHead(codigo, { Location: destino.url + "/auth/v1/token?grant_type=password" }); res.end(); });
+    const r2 = await correrDiagnostico(b.url);
+    await b.cerrar(); await destino.cerrar();
+    assert.strictEqual(r2.codigo, 1, codigo + ": falla aunque el destino daría una sesión");
+    assert.match(r2.salida, /redirección hacia otro servidor y el emisor se detuvo sin seguirla[\s\S]*Rastro: redirección: sí, no se siguió \(hacia otro servidor\)/);
+    assert.strictEqual(b.peticiones.length, 1, codigo + ": una sola petición al primer servidor");
+    assert.strictEqual(destino.peticiones.length, 0, codigo + ": el segundo servidor no recibe nada (ni la clave ni la contraseña)");
+    assert.ok(!r2.salida.includes(destino.url.split("//")[1]), "no muestra el host de destino");
+    assert.ok(!r2.salida.includes(CENTINELA));
+  }
+});
+
+test("envío normal: el inicio de sesión compartido usa redirect manual y una redirección detiene todo antes de la cola", async () => {
+  const llamadas = [];
+  const f = async (url, op) => { llamadas.push({ url, redirect: op && op.redirect });
+    return { ok: false, status: 301, redirected: false, text: async () => "", headers: new Headers({ location: "https://otro.test/auth/v1/token" }) }; };
+  const e = await crearNotificador(CONFIG, { fetch: f, log: () => {} }).procesarLote().catch(x => x);
+  assert.match(e.message, /HTTP 301\): el servidor respondió con una redirección y el emisor se detuvo sin seguirla · redirección: sí, no se siguió \(hacia otro servidor\)/);
+  assert.strictEqual(e.diagnostico.origen, "redireccion");
+  assert.deepStrictEqual(llamadas, [{ url: "https://falso.supabase.co/auth/v1/token?grant_type=password", redirect: "manual" }], "ni RPC ni cola");
+  assert.ok(!e.message.includes("otro.test"));
+  // Aunque un fetch ignorara «manual» y siguiera la redirección, la sesión obtenida así se descarta.
+  const g = async () => ({ ok: true, status: 200, redirected: true, url: "https://otro.test/x",
+    text: async () => JSON.stringify({ access_token: "robado", expires_in: 3600 }), headers: new Headers() });
+  const e2 = await crearNotificador(CONFIG, { fetch: g, log: () => {} }).entrar().catch(x => x);
+  assert.ok(e2 instanceof Error && e2.diagnostico.origen === "redireccion", "no acepta una sesión llegada tras una redirección");
 });
 
 test("workflow: el modo diagnostico-sesion solo corre --solo-entrar y no recibe la cuenta de Firebase", () => {

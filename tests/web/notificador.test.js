@@ -224,3 +224,128 @@ test("emisor en Actions: JSON de Firebase inválido o clave no anon fallan con e
   assert.match(secreta.stdout, /no es la clave pública anon/);
   assert.ok(!(secreta.stdout + secreta.stderr).includes(CENTINELA));
 });
+
+// ---------- Inicio de sesión rechazado: ¿Supabase o el servidor que recibe la petición? ----------
+const { describirRechazo } = require("../../servicios/notificador/notificador");
+const http = require("http");
+const { spawn } = require("child_process");
+
+function respuestaCruda(status, texto, tipo) {
+  return { ok: status >= 200 && status < 300, status, text: async () => texto,
+    headers: { get: n => (n.toLowerCase() === "content-type" ? tipo || null : null) } };
+}
+const HTML_BLOQUEO = "<!DOCTYPE html><html><head><title>403 Forbidden</title></head><body>" + CENTINELA + " ray-id</body></html>";
+
+test("describirRechazo: HTML = servidor; JSON solo con código reconocido; nunca copia el cuerpo", () => {
+  const html = describirRechazo("text/html; charset=UTF-8", HTML_BLOQUEO);
+  assert.deepStrictEqual([html.origen, html.formato, html.codigo], ["servidor", "HTML", null]);
+  assert.strictEqual(describirRechazo("", "  <html><body>x</body></html>").formato, "HTML", "reconoce HTML aunque falte el tipo");
+  const nuevo = describirRechazo("application/json", JSON.stringify({ code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials " + CENTINELA }));
+  assert.deepStrictEqual([nuevo.origen, nuevo.codigo], ["supabase", "invalid_credentials"]);
+  const antiguo = describirRechazo("application/json", JSON.stringify({ error: "invalid_grant", error_description: CENTINELA }));
+  assert.deepStrictEqual([antiguo.origen, antiguo.codigo], ["supabase", "invalid_grant"]);
+  const kong = describirRechazo("application/json", JSON.stringify({ message: "Invalid API key" }));
+  assert.deepStrictEqual([kong.origen, kong.codigo], ["supabase", "kong_apikey_invalida"]);
+  const raro = describirRechazo("application/json", JSON.stringify({ error_code: CENTINELA, message: CENTINELA }));
+  assert.deepStrictEqual([raro.origen, raro.codigo], ["desconocido", null], "un código no reconocido no se registra");
+  assert.strictEqual(describirRechazo("text/plain", "Forbidden " + CENTINELA).formato, "texto");
+  assert.strictEqual(describirRechazo("", "").formato, "vacío");
+  for (const d of [html, nuevo, antiguo, kong, raro]) assert.ok(!JSON.stringify(d).includes(CENTINELA));
+});
+
+test("entrar: 403 HTML se informa como bloqueo del servidor, sin cuerpo ni credenciales", async () => {
+  const urls = [];
+  const n = crearNotificador(Object.assign({}, CONFIG, { clave: CENTINELA + "-clave" }), { log: () => {},
+    fetch: async (url) => { urls.push(url); return respuestaCruda(403, HTML_BLOQUEO, "text/html"); } });
+  const e = await n.entrar().then(() => null, x => x);
+  assert.ok(e, "debía fallar");
+  assert.match(e.message, /HTTP 403\): respuesta HTML: la rechazó el servidor que recibe la petición, no Supabase/);
+  assert.deepStrictEqual([e.diagnostico.origen, e.diagnostico.status], ["servidor", 403]);
+  assert.ok(!(e.message + JSON.stringify(e.diagnostico)).includes(CENTINELA));
+  assert.deepStrictEqual(urls, ["https://falso.supabase.co/auth/v1/token?grant_type=password"]);
+});
+
+test("entrar: rechazo de Supabase Auth registra solo el código; error de red solo el código del sistema", async () => {
+  const auth = await crearNotificador(CONFIG, { log: () => {}, fetch: async () => respuestaCruda(400,
+    JSON.stringify({ code: 400, error_code: "invalid_credentials", msg: "Invalid login credentials " + CENTINELA }), "application/json") }).entrar().catch(x => x);
+  assert.match(auth.message, /HTTP 400\): Supabase Auth rechazó la petición \(código invalid_credentials\)$/);
+  assert.strictEqual(auth.diagnostico.origen, "supabase");
+  assert.ok(!auth.message.includes(CENTINELA));
+  const red = await crearNotificador(CONFIG, { log: () => {}, fetch: async () => {
+    const x = new TypeError("fetch failed"); x.cause = { code: "ENOTFOUND", message: CENTINELA }; throw x; } }).entrar().catch(x => x);
+  assert.match(red.message, /\(ENOTFOUND\)$/);
+  assert.deepStrictEqual([red.diagnostico.origen, red.diagnostico.status], ["red", null]);
+  assert.ok(!red.message.includes(CENTINELA));
+});
+
+test("rpc: un error con página HTML ya no copia el cuerpo al registro", async () => {
+  const n = crearNotificador(CONFIG, { log: () => {}, fetch: async (url) => url.includes("/auth/v1/token")
+    ? respuesta(200, { access_token: "jwt", expires_in: 3600 }) : respuestaCruda(502, HTML_BLOQUEO, "text/html") });
+  const e = await n.procesarLote().catch(x => x);
+  assert.match(e.message, /^avisos_por_enviar respondió HTTP 502: respuesta HTML/);
+  assert.ok(!e.message.includes(CENTINELA));
+});
+
+// Servidor HTTP local que hace de Supabase: registra cada petición y responde lo que se le pida.
+function servidorSimulado(responder) {
+  const peticiones = [];
+  const s = http.createServer((req, res) => {
+    let cuerpo = ""; req.on("data", d => { cuerpo += d; });
+    req.on("end", () => { peticiones.push({ metodo: req.method, ruta: req.url, apikey: req.headers.apikey, cuerpo }); responder(req, res); });
+  });
+  return new Promise(ok => s.listen(0, "127.0.0.1", () => ok({ url: "http://127.0.0.1:" + s.address().port, peticiones, cerrar: () => new Promise(c => s.close(c)) })));
+}
+function correrDiagnostico(url) {
+  return new Promise(ok => {
+    const p = spawn(process.execPath, [path.join(RAIZ, "servicios", "notificador", "enviar.js"), "--env", path.join(RAIZ, "no-existe.env"), "--solo-entrar"],
+      { env: soloPath({ GITHUB_ACTIONS: "true", SUPABASE_URL: url, SUPABASE_ANON_KEY: "sb_publishable_" + CENTINELA + "-anon",
+        NOTIFICADOR_EMAIL: "notificador@alerce.test", NOTIFICADOR_CLAVE: CENTINELA + "-clave" }) });
+    let salida = ""; p.stdout.on("data", d => { salida += d; }); p.stderr.on("data", d => { salida += d; });
+    p.on("close", codigo => ok({ codigo, salida }));
+  });
+}
+
+test("diagnóstico --solo-entrar: un solo intento de inicio de sesión, sin Firebase ni cola, y sin valores en la salida", async () => {
+  const casos = [
+    { nombre: "bloqueo HTML", status: 403, tipo: "text/html", cuerpo: HTML_BLOQUEO, codigo: 1,
+      espera: /::error title=Inicio de sesión del notificador::Bloqueo del servidor que recibe la petición[\s\S]*HTTP: 403 · formato: HTML · código reconocido: ninguno/ },
+    { nombre: "Supabase Auth", status: 400, tipo: "application/json", cuerpo: JSON.stringify({ code: 400, error_code: "invalid_credentials", msg: CENTINELA }), codigo: 1,
+      espera: /Supabase recibió la petición y la rechazó con el código invalid_credentials[\s\S]*HTTP: 400 · formato: JSON · código reconocido: invalid_credentials/ },
+    { nombre: "JSON sin código", status: 403, tipo: "application/json", cuerpo: JSON.stringify({ message: CENTINELA }), codigo: 1,
+      espera: /no permite saber si vino de Supabase[\s\S]*HTTP: 403 · formato: JSON · código reconocido: ninguno/ },
+    { nombre: "correcto", status: 200, tipo: "application/json", cuerpo: JSON.stringify({ access_token: CENTINELA + "-token", expires_in: 3600 }), codigo: 0,
+      espera: /inició sesión correctamente desde aquí\.[\s\S]*No se leyó ni se procesó la cola de avisos\./ }
+  ];
+  for (const c of casos) {
+    const srv = await servidorSimulado((req, res) => { res.writeHead(c.status, { "Content-Type": c.tipo }); res.end(c.cuerpo); });
+    const r = await correrDiagnostico(srv.url);
+    await srv.cerrar();
+    assert.strictEqual(r.codigo, c.codigo, c.nombre + ": " + r.salida);
+    assert.match(r.salida, c.espera, c.nombre);
+    assert.ok(!r.salida.includes(CENTINELA), c.nombre + ": no muestra cuerpo, clave, token ni apikey");
+    assert.ok(!/notificador@alerce\.test/.test(r.salida), c.nombre + ": no muestra el correo");
+    assert.strictEqual(srv.peticiones.length, 1, c.nombre + ": exactamente una petición");
+    assert.deepStrictEqual([srv.peticiones[0].metodo, srv.peticiones[0].ruta], ["POST", "/auth/v1/token?grant_type=password"]);
+    assert.strictEqual(srv.peticiones[0].apikey, "sb_publishable_" + CENTINELA + "-anon", "la petición sigue igual que antes");
+  }
+});
+
+test("diagnóstico --solo-entrar: sin servidor que responda, informa error de red y no reintenta", async () => {
+  const srv = await servidorSimulado(() => {}); const url = srv.url; await srv.cerrar();
+  const r = await correrDiagnostico(url);
+  assert.strictEqual(r.codigo, 1);
+  assert.match(r.salida, /No se pudo conectar con Supabase para iniciar sesión \(ECONNREFUSED\)[\s\S]*HTTP: sin respuesta/);
+  assert.ok(!r.salida.includes(CENTINELA));
+});
+
+test("workflow: el modo diagnostico-sesion solo corre --solo-entrar y no recibe la cuenta de Firebase", () => {
+  const yml = require("fs").readFileSync(path.join(RAIZ, ".github", "workflows", "notificador.yml"), "utf8");
+  const paso = yml.split("      - name: ").find(p => p.startsWith("Probar solo el inicio de sesión"));
+  assert.ok(paso, "existe el paso de diagnóstico");
+  assert.match(paso, /if: inputs\.modo == 'diagnostico-sesion'/);
+  assert.match(paso, /run: node servicios\/notificador\/enviar\.js --solo-entrar\s*$/);
+  assert.ok(!/FIREBASE/.test(paso), "el diagnóstico no recibe la clave de Firebase");
+  const envio = yml.split("      - name: ").find(p => p.startsWith("Enviar avisos pendientes"));
+  assert.match(envio, /if: inputs\.modo != 'diagnostico-sesion'/, "los disparos sin modo siguen enviando");
+  assert.match(yml, /default: enviar/);
+});

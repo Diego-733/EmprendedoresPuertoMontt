@@ -73,6 +73,62 @@ function mensajeFcm(aviso, destino, urlWeb) {
   return { message: base };
 }
 
+// ---------- Diagnóstico de rechazos (sin cuerpos, credenciales, tokens ni cabeceras) ----------
+// Códigos que devuelve Supabase Auth (GoTrue): «error_code» en versiones nuevas y «error»
+// (estilo OAuth) en las antiguas. Solo se registra un código si está en esta lista.
+const CODIGOS_AUTH = new Set([
+  "invalid_credentials", "email_not_confirmed", "phone_not_confirmed", "user_not_found", "user_banned",
+  "over_request_rate_limit", "over_email_send_rate_limit", "validation_failed", "bad_json", "bad_jwt",
+  "email_provider_disabled", "provider_disabled", "signup_disabled", "captcha_failed", "unexpected_failure",
+  "request_timeout", "no_authorization", "not_admin", "session_not_found", "user_sso_managed",
+  "invalid_grant", "invalid_request", "unauthorized_client", "unsupported_grant_type", "access_denied"
+]);
+// Mensajes de la puerta de enlace (Kong) de Supabase sobre la clave pública: se traducen a un código fijo.
+const MENSAJES_KONG = {
+  "invalid api key": "kong_apikey_invalida",
+  "no api key found in request": "kong_sin_apikey",
+  "invalid authentication credentials": "kong_credenciales_invalidas",
+  "api rate limit exceeded": "kong_limite_de_peticiones"
+};
+
+/**
+ * Describe un rechazo sin copiar el cuerpo. Devuelve { origen, formato, codigo, detalle }:
+ *   origen "supabase": respondió Supabase (Auth, Kong o PostgREST) con un código reconocido.
+ *   origen "servidor": llegó HTML, es decir, una página del servidor o de un intermediario
+ *                      (firewall, proxy, filtro por país o IP) antes de llegar a Supabase.
+ *   origen "desconocido": JSON sin código reconocido, texto plano o respuesta vacía.
+ */
+function describirRechazo(tipoContenido, texto) {
+  const t = String(texto || "");
+  if (!t.trim()) return { origen: "desconocido", formato: "vacío", codigo: null, detalle: "respuesta vacía" };
+  if (/html/i.test(tipoContenido || "") || /^\s*(<!doctype\s+html|<html|<head|<body|<title)/i.test(t)) {
+    return { origen: "servidor", formato: "HTML", codigo: null,
+      detalle: "respuesta HTML: la rechazó el servidor que recibe la petición, no Supabase" };
+  }
+  let c;
+  try { c = JSON.parse(t); } catch (e) {
+    return { origen: "desconocido", formato: "texto", codigo: null, detalle: "respuesta que no es JSON ni HTML" };
+  }
+  if (!c || typeof c !== "object") return { origen: "desconocido", formato: "JSON", codigo: null, detalle: "JSON sin código de error reconocido" };
+  for (const campo of ["error_code", "error", "code"]) {
+    if (typeof c[campo] === "string" && CODIGOS_AUTH.has(c[campo])) {
+      return { origen: "supabase", formato: "JSON", codigo: c[campo], detalle: "Supabase Auth rechazó la petición (código " + c[campo] + ")" };
+    }
+  }
+  const kong = typeof c.message === "string" && MENSAJES_KONG[c.message.trim().toLowerCase()];
+  if (kong) return { origen: "supabase", formato: "JSON", codigo: kong, detalle: "la puerta de enlace de Supabase rechazó la petición (código " + kong + ")" };
+  if (typeof c.code === "string" && /^(PGRST\d{3}|[0-9A-Z]{5})$/.test(c.code)) {
+    // PostgREST: código SQLSTATE o PGRST; el mensaje solo si es uno de nuestros códigos (p. ej. SIN_SESION).
+    const propio = typeof c.message === "string" && /^[A-Z][A-Z_]{2,39}$/.test(c.message) ? " " + c.message : "";
+    return { origen: "supabase", formato: "JSON", codigo: c.code + propio, detalle: "PostgREST " + c.code + propio };
+  }
+  return { origen: "desconocido", formato: "JSON", codigo: null, detalle: "JSON sin código de error reconocido" };
+}
+
+function tipoDeContenido(r) {
+  try { return (r.headers && typeof r.headers.get === "function" && r.headers.get("content-type")) || ""; } catch (e) { return ""; }
+}
+
 function crearNotificador(config, deps = {}) {
   const pedir = deps.fetch || globalThis.fetch;
   const ahora = deps.ahora || (() => Date.now());
@@ -84,12 +140,29 @@ function crearNotificador(config, deps = {}) {
 
   async function entrar() {
     if (sesion && sesion.expira > ahora() + 60000) return sesion.access_token;
-    const r = await pedir(config.supabaseUrl + "/auth/v1/token?grant_type=password", {
-      method: "POST", headers: { apikey: config.anonKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ email: config.email, password: config.clave })
-    });
-    const c = await json(r);
-    if (!r.ok || !c || !c.access_token) throw new Error("No se pudo entrar con la cuenta del notificador (HTTP " + r.status + ")");
+    let r;
+    try {
+      r = await pedir(config.supabaseUrl + "/auth/v1/token?grant_type=password", {
+        method: "POST", headers: { apikey: config.anonKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: config.email, password: config.clave })
+      });
+    } catch (e) {
+      // Sin respuesta HTTP (DNS, TLS, conexión): solo el código del sistema, si es reconocible.
+      const cod = [e && e.cause && e.cause.code, e && e.code].find(x => typeof x === "string" && /^[A-Z][A-Z0-9_]{1,40}$/.test(x));
+      const err = new Error("No se pudo conectar con Supabase para iniciar sesión (" + (cod || "sin respuesta HTTP") + ")");
+      err.diagnostico = { origen: "red", formato: null, codigo: cod || null, status: null };
+      throw err;
+    }
+    const texto = await r.text();
+    let c = null;
+    try { c = texto ? JSON.parse(texto) : null; } catch (e) { c = null; }
+    if (!r.ok || !c || !c.access_token) {
+      const d = describirRechazo(tipoDeContenido(r), r.ok ? "" : texto);
+      if (r.ok) Object.assign(d, { origen: "desconocido", detalle: "la respuesta no trae una sesión" });
+      const err = new Error("No se pudo entrar con la cuenta del notificador (HTTP " + r.status + "): " + d.detalle);
+      err.diagnostico = Object.assign({ status: r.status }, d);
+      throw err;
+    }
     sesion = { access_token: c.access_token, expira: ahora() + (Number(c.expires_in) || 3600) * 1000 };
     return sesion.access_token;
   }
@@ -101,9 +174,9 @@ function crearNotificador(config, deps = {}) {
       headers: { apikey: config.anonKey, Authorization: "Bearer " + token, "Content-Type": "application/json" },
       body: JSON.stringify(cuerpo || {})
     });
-    const c = await json(r);
-    if (!r.ok) throw new Error(nombre + " respondió HTTP " + r.status + ": " + ((c && (c.message || c.texto)) || ""));
-    return c;
+    const texto = await r.text();
+    if (!r.ok) throw new Error(nombre + " respondió HTTP " + r.status + ": " + describirRechazo(tipoDeContenido(r), texto).detalle);
+    try { return texto ? JSON.parse(texto) : null; } catch (e) { return { texto }; }
   }
 
   async function accesoGoogle() {
@@ -221,4 +294,4 @@ function crearNotificador(config, deps = {}) {
   return { procesarLote, procesarHastaVaciar, entrar, _interno: { firmarJwt, mensajeFcm, clasificarRespuestaFcm } };
 }
 
-module.exports = { crearNotificador, firmarJwt, mensajeFcm, clasificarRespuestaFcm };
+module.exports = { crearNotificador, firmarJwt, mensajeFcm, clasificarRespuestaFcm, describirRechazo };

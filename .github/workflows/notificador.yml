@@ -1,15 +1,26 @@
 # Entrega 7: envía los avisos pendientes (invitaciones, incorporaciones, recordatorios,
 # avisos de feria, cancelaciones, seguidores y contactos) por Firebase Cloud Messaging.
 # Usa una cuenta propia registrada en la tabla notificadores (NO la service_role).
-# Si faltan los secretos, termina sin error y avisa: no inventa envíos.
+# Si faltan los secretos, la ejecución falla y dice cuáles (sin valores): no inventa envíos.
 name: Enviar avisos
 
 # Sin cron. Lo dispara Supabase (supabase/08_envio_automatico.sql, con pg_net) cada vez que
 # guarda un aviso pendiente y no hay otra ejecución viva. También se puede correr a mano
 # («Run workflow»). Cada ejecución vacía la cola, espera los reintentos programados y termina:
 # sin actividad no hay ejecuciones ni consultas.
+# Al correrlo a mano se puede elegir «diagnostico-sesion»: hace UN intento de inicio de
+# sesión con la cuenta del notificador y termina, sin leer ni procesar la cola. Los disparos
+# de Supabase no envían este dato y usan el valor por defecto («enviar»).
 on:
   workflow_dispatch:
+    inputs:
+      modo:
+        description: "enviar = procesa los avisos · diagnostico-sesion = solo prueba el inicio de sesión (no toca la cola)"
+        type: choice
+        default: enviar
+        options:
+          - enviar
+          - diagnostico-sesion
 
 permissions:
   contents: read
@@ -37,7 +48,17 @@ jobs:
           NOTIFICADOR_CLAVE: ${{ secrets.NOTIFICADOR_CLAVE }}
           FIREBASE_CUENTA_SERVICIO: ${{ secrets.FIREBASE_CUENTA_SERVICIO }}
         run: bash servicios/notificador/comprobar_secretos.sh
+      - name: Probar solo el inicio de sesión (no toca la cola)
+        if: inputs.modo == 'diagnostico-sesion'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NOTIFICADOR_EMAIL: ${{ secrets.NOTIFICADOR_EMAIL }}
+          NOTIFICADOR_CLAVE: ${{ secrets.NOTIFICADOR_CLAVE }}
+        # Muestra solo HTTP, formato (JSON/HTML) y un código reconocido; nunca el cuerpo ni valores.
+        run: node servicios/notificador/enviar.js --solo-entrar
       - name: Enviar avisos pendientes
+        if: inputs.modo != 'diagnostico-sesion'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

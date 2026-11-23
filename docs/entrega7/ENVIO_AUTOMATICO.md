@@ -87,6 +87,20 @@ Para los otros tres secretos, cambia `NOTIFICADOR_CLAVE` en el primer comando po
 3. Si falta un secreto, la ejecución **falla** (queda en rojo) en el paso «Comprobar secretos». El mensaje nombra los que faltan, sin mostrar valores: por ejemplo, `Faltan secretos de GitHub Actions: NOTIFICADOR_CLAVE`. Un JSON de Firebase mal pegado también falla con un mensaje claro.
 4. Esta ejecución es real: envía lo que haya pendiente en la cola.
 
+#### C2. Si falla al iniciar sesión: diagnóstico sin tocar la cola
+**Actions → Enviar avisos → Run workflow**, elige `modo: diagnostico-sesion` y pulsa **Run workflow**. Hace **un** intento de inicio de sesión con la cuenta del notificador y termina: no lee la cola, no llama a ninguna RPC ni a Firebase. El paso «Probar solo el inicio de sesión» muestra solo el HTTP, el formato y un código reconocido. Nunca muestra el cuerpo, la clave, el token ni las cabeceras.
+
+| Lo que muestra | Qué significa |
+|---|---|
+| `formato: HTML` | **Bloqueo del servidor** que recibe la petición (firewall, proxy o filtro por IP o país). No respondió Supabase, así que la contraseña no alcanzó a revisarse. |
+| `formato: JSON · código reconocido: invalid_credentials` (u otro) | **Supabase Auth** recibió la petición y la rechazó con ese código. |
+| `formato: JSON · código reconocido: kong_…` | La puerta de enlace de Supabase rechazó la clave pública (`SUPABASE_ANON_KEY`). |
+| `formato: JSON · código reconocido: ninguno` | JSON sin un código conocido: no se puede saber el origen. |
+| `HTTP: sin respuesta` | La conexión no se completó (DNS, TLS o red). |
+| `inició sesión correctamente` | Desde GitHub también se puede entrar. |
+
+Los disparos automáticos de Supabase no envían `modo`, así que siempre usan `enviar`.
+
 ### D. Comprobación mínima del servidor ✅ (hecha el 22-nov)
 Ya confirmaste en Studio que están instalados `pg_net` 0.14.0 y `supabase_vault` 0.3.1, y que una petición de la base a GitHub respondió HTTP 200. No hace falta repetirlo.
 

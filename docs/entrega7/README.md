@@ -173,6 +173,8 @@ No se hicieron pruebas de carga ni consultas contra la instancia del curso.
 
 Nunca se usa la `service_role`: el notificador rechaza una clave que no sea anon.
 
+**D. Envío automático** (sin computador encendido): `supabase/08_envio_automatico.sql` despierta al workflow «Enviar avisos» cada vez que se guarda un aviso pendiente. Activación, permisos y prueba final en [ENVIO_AUTOMATICO.md](ENVIO_AUTOMATICO.md).
+
 ## 4. Migración 07: procedimiento seguro (preparado, NO aplicado)
 
 Archivos: `07_diagnostico.sql` (solo lectura) · `07_respaldo.sql` (solo lectura: datos + políticas, permisos, triggers, restricciones y funciones de triggers) · `07_ferias_seguidores.sql` · `07_revertir.sql` · `07_restaurar_datos.sql`. Todo el procedimiento está ensayado en `tests/sql` en PostgreSQL 15 y 17.

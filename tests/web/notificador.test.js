@@ -133,3 +133,94 @@ test("el mensaje web no incluye datos de otras personas ni tokens ajenos", () =>
   assert.deepStrictEqual(Object.keys(m.message.data).sort(), ["aviso_id", "enlace", "feria_id", "tipo"]);
   assert.strictEqual(m.message.android, undefined);
 });
+
+// ---------- Modo automático (08): procesarHastaVaciar ----------
+function supabaseGuionado(guion) {
+  // guion: { avisos_por_enviar: [respuestas...], cerrar_envio: [...], latido_envio: [...] }; cada respuesta {status, cuerpo}
+  const llamadas = [];
+  const f = async (url, op) => {
+    llamadas.push(url.replace(/^.*\/(rpc\/)?/, ""));
+    if (url.includes("/auth/v1/token")) return respuesta(200, { access_token: "jwt", expires_in: 3600 });
+    if (url.includes("oauth2.googleapis.com")) return respuesta(200, { access_token: "g", expires_in: 3600 });
+    if (url.includes("fcm.googleapis.com")) return respuesta(200, {});
+    if (url.endsWith("/rpc/resultado_envio")) return respuesta(200, { estado: "ENVIADO" });
+    const nombre = url.split("/rpc/")[1];
+    const r = (guion[nombre] || []).shift() || { status: 200, cuerpo: nombre === "avisos_por_enviar" ? [] : {} };
+    return respuesta(r.status, r.cuerpo);
+  };
+  return { f, llamadas };
+}
+const UNO = [Object.assign({}, AVISO, { tokens: [{ token: "t", plataforma: "ANDROID" }] })];
+
+test("modo automático sin 08 aplicada (latido_envio no existe): procesa un solo lote y termina", async () => {
+  const { f, llamadas } = supabaseGuionado({ latido_envio: [{ status: 404, cuerpo: { code: "PGRST202" } }], avisos_por_enviar: [{ status: 200, cuerpo: UNO }] });
+  const t = await crearNotificador(CONFIG, { fetch: f, log: () => {}, dormir: async () => { throw new Error("no debía esperar"); } }).procesarHastaVaciar();
+  assert.deepStrictEqual([t.modo, t.pasadas, t.enviados], ["un_lote (08 sin aplicar)", 1, 1]);
+  assert.strictEqual(llamadas.filter(l => l === "cerrar_envio").length, 0);
+});
+
+test("modo automático: vacía la cola, espera el reintento con latidos y despierta antes si ya hay algo listo", async () => {
+  let reloj = 0; const esperas = [];
+  const { f, llamadas } = supabaseGuionado({
+    avisos_por_enviar: [{ status: 200, cuerpo: UNO }, { status: 200, cuerpo: [] }, { status: 200, cuerpo: UNO }, { status: 200, cuerpo: [] }],
+    cerrar_envio: [{ status: 200, cuerpo: { siguiente: "2026-11-22T12:02:00Z", espera_seg: 120 } }, { status: 200, cuerpo: { siguiente: null } }],
+    latido_envio: [{ status: 200, cuerpo: { listos: false } }, { status: 200, cuerpo: { listos: true } }]   // arranque; latido tras el 1.er tramo
+  });
+  const t = await crearNotificador(CONFIG, { fetch: f, log: () => {}, ahora: () => reloj, dormir: async ms => { esperas.push(ms); reloj += ms; } })
+    .procesarHastaVaciar({ presupuestoMs: 10 * 60000 });
+  assert.deepStrictEqual([t.enviados, t.esperas, esperas], [2, 1, [30000]], "un solo tramo de 30 s: el latido dijo que ya había algo listo");
+  assert.strictEqual(llamadas.filter(l => l === "cerrar_envio").length, 2);
+});
+
+test("modo automático: sin tiempo para el reintento, se apaga avisando al servidor (p_rendirse)", async () => {
+  const cuerpos = [];
+  const { f } = supabaseGuionado({ cerrar_envio: [{ status: 200, cuerpo: { siguiente: "x", espera_seg: 900 } }, { status: 200, cuerpo: { siguiente: null, quedan: true } }] });
+  const espia = async (url, op) => { if (url.endsWith("/rpc/cerrar_envio")) cuerpos.push(JSON.parse(op.body)); return f(url, op); };
+  const t = await crearNotificador(CONFIG, { fetch: espia, log: () => {}, ahora: () => 0, dormir: async () => {} }).procesarHastaVaciar({ presupuestoMs: 60000 });
+  assert.strictEqual(t.sin_tiempo, true);
+  assert.deepStrictEqual(cuerpos, [{ p_rendirse: false }, { p_rendirse: true }]);
+});
+
+test("modo automático: una falla momentánea de Supabase se reintenta en la misma ejecución", async () => {
+  const esperas = [];
+  const { f } = supabaseGuionado({ avisos_por_enviar: [{ status: 503, cuerpo: { message: "no disponible" } }, { status: 200, cuerpo: UNO }] });
+  const t = await crearNotificador(CONFIG, { fetch: f, log: () => {}, ahora: () => 0, dormir: async ms => { esperas.push(ms); } }).procesarHastaVaciar();
+  assert.deepStrictEqual([t.enviados, esperas], [1, [30000]]);
+});
+
+// ---------- Workflow «Enviar avisos»: secretos faltantes ----------
+const { spawnSync } = require("child_process");
+const path = require("path");
+const RAIZ = path.resolve(__dirname, "..", "..");
+const CENTINELA = "VALOR-SECRETO-CENTINELA-9876";
+function soloPath(extra) { return Object.assign({ PATH: process.env.PATH, SystemRoot: process.env.SystemRoot || "" }, extra); }
+
+test("workflow: si faltan secretos, falla (exit 1) nombrando solo los que faltan y sin mostrar valores", () => {
+  const r = spawnSync("bash", [path.join(RAIZ, "servicios", "notificador", "comprobar_secretos.sh")], { encoding: "utf8",
+    env: soloPath({ SUPABASE_URL: CENTINELA, NOTIFICADOR_CLAVE: CENTINELA, FIREBASE_CUENTA_SERVICIO: "   " }) });
+  const salida = r.stdout + r.stderr;
+  assert.strictEqual(r.status, 1);
+  assert.match(salida, /::error title=Faltan secretos::Faltan secretos de GitHub Actions: SUPABASE_ANON_KEY, NOTIFICADOR_EMAIL, FIREBASE_CUENTA_SERVICIO\./);
+  assert.ok(!salida.includes(CENTINELA), "no muestra valores");
+  assert.ok(!/SUPABASE_URL|NOTIFICADOR_CLAVE/.test(salida), "no nombra los que sí están");
+});
+
+test("workflow: con los cinco secretos, la comprobación pasa", () => {
+  const r = spawnSync("bash", [path.join(RAIZ, "servicios", "notificador", "comprobar_secretos.sh")], { encoding: "utf8",
+    env: soloPath({ SUPABASE_URL: "a", SUPABASE_ANON_KEY: "b", NOTIFICADOR_EMAIL: "c", NOTIFICADOR_CLAVE: "d", FIREBASE_CUENTA_SERVICIO: "e" }) });
+  assert.strictEqual(r.status, 0);
+});
+
+test("emisor en Actions: JSON de Firebase inválido o clave no anon fallan con error visible y sin valores", () => {
+  const base = { GITHUB_ACTIONS: "true", SUPABASE_URL: "https://x.test", SUPABASE_ANON_KEY: "sb_publishable_x", NOTIFICADOR_EMAIL: "a@b.test", NOTIFICADOR_CLAVE: CENTINELA };
+  const correr = (extra) => spawnSync(process.execPath, [path.join(RAIZ, "servicios", "notificador", "enviar.js"), "--env", path.join(RAIZ, "no-existe.env"), "--hasta-vaciar", "1"],
+    { encoding: "utf8", env: soloPath(Object.assign({}, base, extra)) });
+  const json = correr({ FIREBASE_CUENTA_SERVICIO: '{"private_key":"' + CENTINELA });
+  assert.strictEqual(json.status, 2);
+  assert.match(json.stdout, /::error title=Configuración del notificador::La cuenta de servicio de Firebase no es JSON válido/);
+  assert.ok(!(json.stdout + json.stderr).includes(CENTINELA));
+  const secreta = correr({ SUPABASE_ANON_KEY: "sb_secret_" + CENTINELA, FIREBASE_CUENTA_SERVICIO: JSON.stringify({ client_email: "e", private_key: "k", project_id: "p" }) });
+  assert.strictEqual(secreta.status, 2);
+  assert.match(secreta.stdout, /no es la clave pública anon/);
+  assert.ok(!(secreta.stdout + secreta.stderr).includes(CENTINELA));
+});

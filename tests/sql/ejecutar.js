@@ -11,6 +11,7 @@ const { crearUsuarios, como, error, UID, Registro } = require("./ayudas");
 const pruebasEntrega5 = require("./pruebas_entrega5");
 const pruebasEntrega6 = require("./pruebas_entrega6");
 const pruebasEntrega7 = require("./pruebas_entrega7");
+const pruebasEnvioAutomatico = require("./pruebas_envio_automatico");
 const concurrencia = require("./concurrencia");
 
 const COMMIT_ESQUEMA_ANTERIOR = "6859b8f";
@@ -63,6 +64,7 @@ async function instalacionLimpia(pg, r) {
     await pruebasEntrega5(c, r);
     await pruebasEntrega6(c, r);
     await pruebasEntrega7(c, r);
+    await pruebasEnvioAutomatico(c, r);
     await concurrencia(pg, "limpia", c, r);
   } finally {
     await c.end();

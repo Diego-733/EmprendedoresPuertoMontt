@@ -37,6 +37,13 @@ function cargarEnv(archivo) {
   return true;
 }
 
+/** Termina con un mensaje claro (en GitHub Actions, como error visible). Nunca incluye valores. */
+function fallarConfig(mensaje) {
+  if (process.env.GITHUB_ACTIONS === "true") console.log("::error title=Configuración del notificador::" + mensaje);
+  console.error(mensaje);
+  process.exit(2);
+}
+
 function leerConfig() {
   const archivoEnv = argumento("--env") || path.join(__dirname, ".env");
   if (cargarEnv(archivoEnv)) console.log("Configuración leída de", path.relative(process.cwd(), archivoEnv) || archivoEnv);
@@ -57,18 +64,17 @@ function leerConfig() {
   }
   if (!cuenta && !faltan.some(f => f.startsWith("FIREBASE"))) faltan.push("FIREBASE_CUENTA_SERVICIO_ARCHIVO o FIREBASE_CUENTA_SERVICIO");
   if (faltan.length) {
-    console.error("Faltan variables: " + faltan.join(", ") + ". Ver docs/entrega7/README.md (configuración externa).");
-    process.exit(2);
+    fallarConfig("Faltan variables: " + faltan.join(", ") + ". Ver docs/entrega7/ENVIO_AUTOMATICO.md (paso B).");
   }
-  try { config.cuentaServicio = JSON.parse(cuenta); } catch (e) { console.error("La cuenta de servicio de Firebase no es JSON válido."); process.exit(2); }
+  try { config.cuentaServicio = JSON.parse(cuenta); } catch (e) { fallarConfig("La cuenta de servicio de Firebase no es JSON válido (pega el contenido COMPLETO del archivo)."); }
   if (!config.cuentaServicio.client_email || !config.cuentaServicio.private_key || !config.cuentaServicio.project_id) {
-    console.error("La cuenta de servicio no tiene client_email, private_key y project_id."); process.exit(2);
+    fallarConfig("La cuenta de servicio no tiene client_email, private_key y project_id.");
   }
   // Defensa: este servicio usa la clave pública y su propia cuenta, nunca la service_role.
   let rol = "";
   try { rol = JSON.parse(Buffer.from(config.anonKey.split(".")[1], "base64url").toString()).role || ""; } catch (e) { /* clave sb_publishable_ */ }
   if (/^sb_secret_/.test(config.anonKey) || (rol && rol !== "anon")) {
-    console.error("SUPABASE_ANON_KEY no es la clave pública anon. No se usa la service_role."); process.exit(2);
+    fallarConfig("SUPABASE_ANON_KEY no es la clave pública anon. No se usa la service_role.");
   }
   return config;
 }
@@ -76,6 +82,20 @@ function leerConfig() {
 (async () => {
   const config = leerConfig();
   const n = crearNotificador(config);
+  if (process.argv.includes("--hasta-vaciar")) {
+    // Modo automático (lo usa el workflow que dispara Supabase): vacía la cola y espera reintentos.
+    const minutos = Math.min(Math.max(1, Number(argumento("--hasta-vaciar")) || 40), 300);
+    try {
+      const t = await n.procesarHastaVaciar({ presupuestoMs: minutos * 60000 });
+      console.log(new Date().toISOString(), "modo", t.modo, "· pasadas", t.pasadas, "· tomados", t.tomados,
+        "· aceptados por FCM", t.enviados, "· sin dispositivo", t.sin_dispositivo, "· fallidos", t.fallidos,
+        "· reintentos programados", t.por_reintentar, "· esperas", t.esperas, t.sin_tiempo ? "· terminó por tiempo (lo pendiente espera el próximo disparo)" : "");
+    } catch (e) {
+      console.error(new Date().toISOString(), "Error:", e.message);
+      process.exit(1);
+    }
+    return;
+  }
   const vigilar = process.argv.includes("--vigilar");
   const pausaBase = Math.max(5, Number(argumento("--vigilar")) || 30) * 1000;   // demostración: npm run notificar:vigilar (15 s)
   let detener = false, errores = 0;

@@ -160,7 +160,65 @@ function crearNotificador(config, deps = {}) {
     return resumen;
   }
 
-  return { procesarLote, entrar, _interno: { firmarJwt, mensajeFcm, clasificarRespuestaFcm } };
+  /** Llama una RPC que puede no existir (08 sin aplicar): devuelve undefined en vez de fallar. */
+  async function rpcOpcional(nombre, cuerpo) {
+    try { return await rpc(nombre, cuerpo); }
+    catch (e) { if (/respondió HTTP 404/.test(e.message)) return undefined; throw e; }
+  }
+
+  /**
+   * Modo automático (08): lo usa el workflow que dispara Supabase al guardar un aviso.
+   * Vacía la cola; si quedan reintentos programados, espera hasta el próximo (avisando
+   * que sigue vivo cada ~30 s y despertando antes si llega algo nuevo) y termina cuando
+   * no queda nada o se acaba el tiempo. Sin 08 aplicada, procesa un solo lote.
+   */
+  async function procesarHastaVaciar(opciones = {}) {
+    const dormir = deps.dormir || (ms => new Promise(res => setTimeout(res, ms)));
+    const presupuestoMs = opciones.presupuestoMs || 40 * 60000;
+    const latidoMs = opciones.latidoMs || 30000;
+    const fin = ahora() + presupuestoMs;
+    const total = { tomados: 0, enviados: 0, sin_dispositivo: 0, fallidos: 0, por_reintentar: 0, pasadas: 0, esperas: 0, modo: "automatico" };
+    const sumar = r => { for (const k of ["tomados", "enviados", "sin_dispositivo", "fallidos", "por_reintentar"]) total[k] += r[k]; total.pasadas++; };
+
+    if (await rpcOpcional("latido_envio") === undefined) {
+      sumar(await procesarLote(50));
+      total.modo = "un_lote (08 sin aplicar)";
+      return total;
+    }
+    let erroresSeguidos = 0;
+    for (;;) {
+      let r, c;
+      try {
+        r = await procesarLote(50);
+        sumar(r);
+        erroresSeguidos = 0;
+        if (r.tomados > 0) continue;
+        c = await rpc("cerrar_envio", { p_rendirse: false }) || {};
+      } catch (e) {
+        // Supabase o la red fallaron un momento: se reintenta dentro de esta misma ejecución.
+        erroresSeguidos++;
+        registrar("Falla temporal del emisor (" + erroresSeguidos + "):", e.message);
+        if (erroresSeguidos >= 5 || ahora() + 30000 > fin) throw e;
+        await dormir(Math.min(30000 * erroresSeguidos, 120000));
+        continue;
+      }
+      if (!c.siguiente) break;
+      let esperaMs = Math.max(1000, Number(c.espera_seg || 0) * 1000);
+      if (ahora() + esperaMs > fin) { await rpc("cerrar_envio", { p_rendirse: true }); total.sin_tiempo = true; break; }
+      total.esperas++;
+      // Espera por tramos: cada latido avisa que sigue vivo y pregunta si ya hay algo listo.
+      while (esperaMs > 0) {
+        const tramo = Math.min(esperaMs, latidoMs);
+        await dormir(tramo);
+        esperaMs -= tramo;
+        const l = await rpc("latido_envio") || {};
+        if (l.listos) break;
+      }
+    }
+    return total;
+  }
+
+  return { procesarLote, procesarHastaVaciar, entrar, _interno: { firmarJwt, mensajeFcm, clasificarRespuestaFcm } };
 }
 
 module.exports = { crearNotificador, firmarJwt, mensajeFcm, clasificarRespuestaFcm };

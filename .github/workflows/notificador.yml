@@ -1,22 +1,20 @@
-# Entrega 7: envía los avisos pendientes (invitaciones, recordatorios, avisos de
-# feria, seguidores y contactos) por Firebase Cloud Messaging.
+# Entrega 7: envía los avisos pendientes (invitaciones, incorporaciones, recordatorios,
+# avisos de feria, cancelaciones, seguidores y contactos) por Firebase Cloud Messaging.
 # Usa una cuenta propia registrada en la tabla notificadores (NO la service_role).
 # Si faltan los secretos, termina sin error y avisa: no inventa envíos.
-# Para una demostración en vivo: `npm run notificar:vigilar` en un computador del grupo.
 name: Enviar avisos
 
-# Desactivado por defecto: solo se ejecuta a mano ("Run workflow"). La instancia del curso
-# tiene capacidad desconocida; activar el cron solo después de configurar los secretos y
-# acordar su uso con el administrador. Cada ejecución hace 1 inicio de sesión + 1 consulta
-# a la cola (+ 1 por aviso enviado). Para activarlo, quitar los # de las dos líneas de abajo.
+# Sin cron. Lo dispara Supabase (supabase/08_envio_automatico.sql, con pg_net) cada vez que
+# guarda un aviso pendiente y no hay otra ejecución viva. También se puede correr a mano
+# («Run workflow»). Cada ejecución vacía la cola, espera los reintentos programados y termina:
+# sin actividad no hay ejecuciones ni consultas.
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: "*/10 * * * *"
 
 permissions:
   contents: read
 
+# Una ejecución a la vez; si llegan varios disparos mientras corre, queda UNA en espera.
 concurrency:
   group: notificador
   cancel-in-progress: false
@@ -24,12 +22,21 @@ concurrency:
 jobs:
   enviar:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # Si falta un secreto, la ejecución FALLA (roja) y dice cuál, sin mostrar valores.
+      - name: Comprobar secretos
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NOTIFICADOR_EMAIL: ${{ secrets.NOTIFICADOR_EMAIL }}
+          NOTIFICADOR_CLAVE: ${{ secrets.NOTIFICADOR_CLAVE }}
+          FIREBASE_CUENTA_SERVICIO: ${{ secrets.FIREBASE_CUENTA_SERVICIO }}
+        run: bash servicios/notificador/comprobar_secretos.sh
       - name: Enviar avisos pendientes
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -37,9 +44,6 @@ jobs:
           NOTIFICADOR_EMAIL: ${{ secrets.NOTIFICADOR_EMAIL }}
           NOTIFICADOR_CLAVE: ${{ secrets.NOTIFICADOR_CLAVE }}
           FIREBASE_CUENTA_SERVICIO: ${{ secrets.FIREBASE_CUENTA_SERVICIO }}
-        run: |
-          if [ -z "$NOTIFICADOR_EMAIL" ] || [ -z "$FIREBASE_CUENTA_SERVICIO" ] || [ -z "$SUPABASE_URL" ]; then
-            echo "::notice::El servicio de envío no está configurado (faltan secretos). No se envió nada. Ver docs/entrega7/README.md"
-            exit 0
-          fi
-          node servicios/notificador/enviar.js
+          URL_WEB: https://diego-733.github.io/EmprendedoresPuertoMontt/
+        # El registro solo muestra conteos (sin nombres, correos ni tokens): el repositorio es público.
+        run: node servicios/notificador/enviar.js --hasta-vaciar 40

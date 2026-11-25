@@ -88,6 +88,9 @@ import com.example.trabajodea10.data.AlAgotarse
 import com.example.trabajodea10.data.Categoria
 import com.example.trabajodea10.data.EstadoPublico
 import com.example.trabajodea10.data.FormularioProducto
+import com.example.trabajodea10.data.GuiaProducto
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.liveRegion
 import com.example.trabajodea10.data.FotoProductoStore
 import com.example.trabajodea10.data.Modalidad
 import com.example.trabajodea10.data.Producto
@@ -197,8 +200,16 @@ fun PantallaProductoDetalle(
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", archivo)
         runCatching { camara.launch(uri) }.onFailure { avisar("Este celular no tiene una app de cámara disponible.") }
     }
+    // Si se rechaza la cámara, el paso de foto lo explica ahí mismo y ofrece la galería o seguir sin foto.
+    var camaraRechazada by rememberSaveable { mutableStateOf(false) }
     val permisoCamara = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { concedido ->
-        if (concedido) abrirCamara() else avisar("Sin permiso para la cámara. Puedes elegir una foto de la galería.")
+        camaraRechazada = !concedido
+        if (concedido) abrirCamara()
+    }
+    // La guía termina al salir de esta pantalla (no al girar el celular).
+    val actividad = context as? android.app.Activity
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { if (actividad?.isChangingConfigurations != true) GuiaProducto.salir() }
     }
     fun pedirCamara(destino: String?) {
         destinoFoto = destino
@@ -285,6 +296,12 @@ fun PantallaProductoDetalle(
             }
         )
         IndicadorPasos(paso = paso, onIrA = { destino -> if (destino < paso) { mostrarErrores = false; paso = destino } })
+        // Ayuda en el momento de la duda; quien ya sabe sigue con los mismos pasos de siempre.
+        if (!GuiaProducto.activa) {
+            TextButton(onClick = { GuiaProducto.iniciar() }, modifier = Modifier.padding(horizontal = 8.dp).heightIn(min = 48.dp)) {
+                Text("🧭 Guíame paso a paso", fontWeight = FontWeight.Bold, color = com.example.trabajodea10.ui.theme.Musgo)
+            }
+        }
         // Producto ya guardado: si su último cambio llegó al servidor o quedó pendiente por falta de señal.
         if (!esNuevo) Box(modifier = Modifier.padding(horizontal = 16.dp)) { EstadoGuardadoProducto(productoId) }
 
@@ -295,8 +312,20 @@ fun PantallaProductoDetalle(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            val avisoCamara = if (camaraRechazada && producto.fotoUrl == null)
+                "No diste permiso para la cámara. Puedes «Elegir de la galería» o tocar «Siguiente» para seguir sin foto." else null
+            if (GuiaProducto.activa) {
+                val estadoGuia = when (paso) {
+                    0 -> if (producto.fotoUrl != null) "Así quedó tu foto. Para cambiarla, toca «Tomar otra foto» o «Cambiar por una de la galería»." else avisoCamara
+                    1 -> if (producto.nombre.isNotBlank()) "Nombre: «${producto.nombre}». Puedes corregirlo aquí abajo." else null
+                    4 -> if (producto.publicado) "Ahora: lo ven todos." else "Ahora: solo tú lo ves."
+                    else -> null
+                }
+                TarjetaGuiaPaso(paso = paso, totalPasos = PASOS.size, nombrePaso = PASOS[paso], estado = estadoGuia,
+                    abrirEjemplo = paso == 0 && GuiaProducto.abrirEjemploFoto, onSalir = { GuiaProducto.salir() })
+            }
             when (paso) {
-                0 -> PasoFoto(producto, onCamara = { pedirCamara(null) }, onGaleria = { pedirGaleria(null) }, onQuitar = { producto = producto.copy(fotoUrl = null) })
+                0 -> PasoFoto(producto, avisoCamara = avisoCamara, onCamara = { pedirCamara(null) }, onGaleria = { camaraRechazada = false; pedirGaleria(null) }, onQuitar = { producto = producto.copy(fotoUrl = null) })
                 1 -> PasoDatos(producto, erroresPaso) { producto = it }
                 2 -> PasoOpciones(producto, erroresPaso, onCambio = { producto = it }, onCamara = { pedirCamara(it) }, onGaleria = { pedirGaleria(it) })
                 3 -> PasoDisponibilidad(producto, erroresPaso, onCambio = { producto = it }, onIrAOpciones = { paso = 2 })
@@ -555,7 +584,7 @@ private fun compartirProducto(context: Context, p: Producto) {
 // ============================================================ Paso 1: foto
 
 @Composable
-private fun PasoFoto(p: Producto, onCamara: () -> Unit, onGaleria: () -> Unit, onQuitar: () -> Unit) {
+private fun PasoFoto(p: Producto, avisoCamara: String?, onCamara: () -> Unit, onGaleria: () -> Unit, onQuitar: () -> Unit) {
     TituloPaso("Foto del producto", "Una foto clara ayuda a vender. Si no la tienes ahora, puedes agregarla después.")
     if (p.fotoUrl != null) {
         FotoProducto(
@@ -582,6 +611,10 @@ private fun PasoFoto(p: Producto, onCamara: () -> Unit, onGaleria: () -> Unit, o
     if (p.fotoUrl != null) {
         TextButton(onClick = onQuitar, modifier = Modifier.heightIn(min = 48.dp)) { Text("Quitar la foto", color = TextoSecundario) }
     }
+    if (avisoCamara != null) {
+        Text(avisoCamara, color = com.example.trabajodea10.ui.theme.EstadoPendTexto, style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
+    }
 }
 
 // ============================================================ Paso 2: datos
@@ -598,7 +631,9 @@ private fun PasoDatos(p: Producto, errores: List<FormularioProducto.Error>, onCa
     CampoEtiquetado(
         etiqueta = "Nombre del producto", valor = p.nombre, onValorChange = { onCambio(p.copy(nombre = it.take(90))) },
         ejemplo = "Ej: Pan amasado", error = error(FormularioProducto.Campo.NOMBRE),
-        iconoFinal = { BotonMicrofono(onClick = dictarNombre) }
+        // El dictado se anuncia con texto: un micrófono solo no siempre se descubre.
+        ayuda = "Escríbelo o toca el micrófono para dictarlo. Después puedes corregirlo.",
+        iconoFinal = { BotonMicrofono(onClick = dictarNombre, descripcion = "Dictar el nombre del producto") }
     )
     CampoEtiquetado(
         etiqueta = "Precio", valor = if (p.precio > 0) p.precio.toLong().toString() else "",

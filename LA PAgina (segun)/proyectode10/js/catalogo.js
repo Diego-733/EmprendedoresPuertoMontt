@@ -111,6 +111,8 @@
   }
   // ---------- WhatsApp de cada tienda (misma regla que ContactoWhatsApp.kt en Android) ----------
   var SIN_WHATSAPP = "Esta tienda aún no tiene un WhatsApp de contacto";
+  /** Sin WhatsApp utilizable y sin mensajes por la vitrina: una sola frase, sin destino de reemplazo. */
+  var SIN_CONTACTO = "Por ahora esta tienda no recibe mensajes desde la vitrina";
 
   /**
    * Número chileno para wa.me ("56912345678") o null. Acepta "+56 9 1234 5678", "56912345678",
@@ -130,22 +132,81 @@
     if (!d) return null;
     return d.charAt(2) === "9" ? "+56 9 " + d.slice(3, 7) + " " + d.slice(7) : "+56 " + d.slice(2, 4) + " " + d.slice(4, 7) + " " + d.slice(7);
   }
+  /**
+   * Números de ejemplo que vienen en los datos de prueba (supabase/02_datos_prueba.sql, la demo de la
+   * web y MockData/SesionManager en Android). Si una tienda real los conserva, abrir WhatsApp le
+   * escribiría a un desconocido: se tratan como «sin WhatsApp». Misma lista en ContactoWhatsApp.kt.
+   */
+  var NUMEROS_DEMOSTRACION = ["56987654321", "56991234567", "56976543210", "56965432109", "56912345678", "56988887777"];
+  function esNumeroDemostracion(texto) {
+    var d = numeroWhatsapp(texto);
+    if (!d) return false;
+    if (NUMEROS_DEMOSTRACION.indexOf(d) >= 0) return true;
+    var ocho = d.slice(-8);
+    if (/^(\d)\1{7}$/.test(ocho) || ocho === "12345678" || ocho === "87654321") return true;   // 0000 0000, 1234 5678…
+    // Serie 9 6123 de los ejemplos: el antiguo «soporte» terminado en 0000 y 4500 a 4520 (asociaciones y tiendas).
+    return /^96123(0000|45[01]\d|4520)$/.test(d.slice(2));
+  }
+  /** Número para abrir WhatsApp: válido y que no sea de los datos de ejemplo. Si no, null. */
+  function whatsappDeContacto(texto) {
+    var d = numeroWhatsapp(texto);
+    return d && !esNumeroDemostracion(d) ? d : null;
+  }
   function enlaceWhatsapp(numero, texto) {
-    var d = numeroWhatsapp(numero);
+    var d = whatsappDeContacto(numero);
     return d ? "https://wa.me/" + d + "?text=" + encodeURIComponent(texto || "") : null;
   }
+  /** Rótulos que dicen, antes de tocar, a quién le llega y por qué canal. */
+  function etiquetaWhatsapp(nombre) { return "Enviar WhatsApp a " + nombre; }
+  function etiquetaMensaje(nombre) { return "Enviar mensaje a " + nombre; }
+  function etiquetaPedidoWhatsapp(nombre) { return "Enviar pedido por WhatsApp a " + nombre; }
 
   /** Qué vías de contacto ofrece la vitrina según lo que configuró la emprendedora. */
   function viasContacto(tienda) {
     var modo = modoContacto(tienda && tienda.contactoModo);
     var quiereWhatsapp = modo === "WHATSAPP" || modo === "AMBOS";
-    var tieneNumero = !!(tienda && numeroWhatsapp(tienda.whatsapp));
+    var tieneNumero = !!(tienda && whatsappDeContacto(tienda.whatsapp));
+    var formulario = modo === "FORMULARIO" || modo === "AMBOS";
     return {
       whatsapp: quiereWhatsapp && tieneNumero,
-      // Eligió WhatsApp pero el número falta o no sirve: se avisa en vez de abrir otro chat.
+      // Eligió WhatsApp pero el número falta, no sirve o es de ejemplo: se avisa en vez de abrir otro chat.
       faltaWhatsapp: quiereWhatsapp && !tieneNumero,
-      formulario: modo === "FORMULARIO" || modo === "AMBOS"
+      formulario: formulario,
+      sinCanal: !(quiereWhatsapp && tieneNumero) && !formulario
     };
+  }
+  /** La frase que explica por qué no hay botón de WhatsApp ("" si lo hay). */
+  function avisoContacto(vias) {
+    if (!vias || vias.sinCanal) return SIN_CONTACTO;
+    return vias.faltaWhatsapp ? SIN_WHATSAPP : "";
+  }
+
+  // ---------- Búsqueda pública (la misma para lo escrito y lo dictado) ----------
+  var PALABRAS_VACIAS = ["de", "del", "la", "las", "el", "los", "un", "una", "unos", "unas", "y", "o", "para", "con", "en", "por",
+    "a", "al", "me", "mi", "quiero", "busco", "necesito", "comprar", "algo", "hay"];
+  /** Sin tildes ni mayúsculas: «panaderia» encuentra «Panadería». */
+  function normalizarBusqueda(texto) {
+    var t = String(texto == null ? "" : texto).toLowerCase();
+    return (t.normalize ? t.normalize("NFD").replace(/[̀-ͯ]/g, "") : t).replace(/\s+/g, " ").trim();
+  }
+  /** Palabras que importan de la consulta («quiero una torta de cumpleaños» → torta, cumpleanos). */
+  function palabrasBusqueda(consulta) {
+    var todas = normalizarBusqueda(consulta).replace(/[^a-z0-9ñ ]/g, " ").split(" ").filter(Boolean);
+    var utiles = todas.filter(function (w) { return PALABRAS_VACIAS.indexOf(w) < 0; });
+    return utiles.length ? utiles : todas;
+  }
+  /**
+   * true si TODAS las palabras útiles aparecen en alguno de los campos, en cualquier orden.
+   * Acepta el singular de un plural simple: «tortas» encuentra «torta». Consulta vacía: true.
+   */
+  function coincideBusqueda(consulta, campos) {
+    var palabras = palabrasBusqueda(consulta);
+    if (!palabras.length) return true;
+    var texto = " " + (campos || []).map(normalizarBusqueda).join(" ") + " ";
+    return palabras.every(function (w) {
+      if (texto.indexOf(w) !== -1) return true;
+      return w.length > 3 && /s$/.test(w) && texto.indexOf(w.replace(/e?s$/, "")) !== -1;
+    });
   }
 
   /**
@@ -160,7 +221,7 @@
         var t = (tiendas || []).find(function (x) { return x.id === item.tiendaId; }) || null;
         var vias = viasContacto(t);
         grupos[item.tiendaId] = { tiendaId: item.tiendaId, nombre: t ? t.nombre : (item.tiendaNombre || "Tienda"),
-          numero: vias.whatsapp ? numeroWhatsapp(t.whatsapp) : null, formulario: !!(t && vias.formulario),
+          numero: vias.whatsapp ? whatsappDeContacto(t.whatsapp) : null, formulario: !!(t && vias.formulario),
           disponible: !!t, items: [], total: 0 };
         orden.push(item.tiendaId);
       }
@@ -568,6 +629,9 @@
     ventaParaRegistrar: ventaParaRegistrar, mensajeError: mensajeError, nuevoId: nuevoId, fechaLocal: fechaLocal,
     MODOS_CONTACTO: MODOS_CONTACTO, modoContacto: modoContacto, puntoValido: puntoValido, viasContacto: viasContacto,
     SIN_WHATSAPP: SIN_WHATSAPP, numeroWhatsapp: numeroWhatsapp, formatearWhatsapp: formatearWhatsapp, enlaceWhatsapp: enlaceWhatsapp,
+    SIN_CONTACTO: SIN_CONTACTO, esNumeroDemostracion: esNumeroDemostracion, whatsappDeContacto: whatsappDeContacto, avisoContacto: avisoContacto,
+    etiquetaWhatsapp: etiquetaWhatsapp, etiquetaMensaje: etiquetaMensaje, etiquetaPedidoWhatsapp: etiquetaPedidoWhatsapp,
+    normalizarBusqueda: normalizarBusqueda, palabrasBusqueda: palabrasBusqueda, coincideBusqueda: coincideBusqueda,
     agruparPedido: agruparPedido, textoPedido: textoPedido,
     textoPrecio: textoPrecio, normalizarFeria: normalizarFeria, feriasProximas: feriasProximas, urlComoLlegar: urlComoLlegar,
     fechaSantiago: fechaSantiago, feriaActiva: feriaActiva, calendarioFerias: calendarioFerias,

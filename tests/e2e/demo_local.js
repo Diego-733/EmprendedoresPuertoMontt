@@ -33,7 +33,7 @@ function crearServidorDemo() {
   return http.createServer((req, res) => {
     const ruta = decodeURIComponent(new URL(req.url, "http://x").pathname);
     const enviar = (tipo, cuerpo) => { res.writeHead(200, { "Content-Type": tipo, "Cache-Control": "no-store" }); res.end(cuerpo); };
-    if (ruta === "/js/config.js") return enviar(TIPOS[".js"], 'window.__CONFIG__ = {"supabase":{"url":"http://localhost/falso","anonKey":"demo-sin-credenciales"}};');
+    if (ruta === "/js/config.js") return enviar(TIPOS[".js"], 'window.__CONFIG__ = {"supabase":{"url":"http://localhost/falso","anonKey":"demo-sin-credenciales"},"demo":{"contactoSimulado":true}};');
     if (ruta === "/__demo/datos.js") return enviar(TIPOS[".js"], fs.readFileSync(path.join(__dirname, "datos_demo.js")));
     if (ruta === "/__demo/supabase.js") return enviar(TIPOS[".js"], falso);
     const mFoto = ruta.match(/^\/__demo\/fotos\/([a-z_]+)\.svg$/);

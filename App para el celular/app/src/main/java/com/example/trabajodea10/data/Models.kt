@@ -358,11 +358,19 @@ data class Tienda(
     val calificacionesActivas: Boolean = false
 ) {
     val tienePuntoRetiro: Boolean get() = puntoLat != null && puntoLng != null
-    /** WhatsApp solo si lo eligió y dejó un número chileno válido (ContactoWhatsApp). */
-    val ofreceWhatsApp: Boolean get() = contactoModo.usaWhatsApp && ContactoWhatsApp.esValido(whatsapp)
-    /** Eligió WhatsApp, pero el número falta o no es válido: se avisa en vez de abrir un chat equivocado. */
-    val faltaWhatsApp: Boolean get() = contactoModo.usaWhatsApp && !ContactoWhatsApp.esValido(whatsapp)
+    /** WhatsApp solo si lo eligió y dejó un número chileno válido que no sea de ejemplo (ContactoWhatsApp). */
+    val ofreceWhatsApp: Boolean get() = contactoModo.usaWhatsApp && ContactoWhatsApp.numeroContacto(whatsapp) != null
+    /** Eligió WhatsApp, pero el número falta, no es válido o es de ejemplo: se avisa en vez de abrir un chat equivocado. */
+    val faltaWhatsApp: Boolean get() = contactoModo.usaWhatsApp && ContactoWhatsApp.numeroContacto(whatsapp) == null
     val ofreceFormulario: Boolean get() = contactoModo.usaFormulario
+    /** Ni WhatsApp utilizable ni mensajes por la vitrina. */
+    val sinCanalContacto: Boolean get() = !ofreceWhatsApp && !ofreceFormulario
+    /** La frase que explica por qué no hay botón de WhatsApp ("" si lo hay). */
+    val avisoContacto: String get() = when {
+        sinCanalContacto -> ContactoWhatsApp.SIN_CONTACTO
+        faltaWhatsApp -> ContactoWhatsApp.SIN_WHATSAPP
+        else -> ""
+    }
 
     fun toMap(): Map<String, Any> = mapOf(
         "id" to id,

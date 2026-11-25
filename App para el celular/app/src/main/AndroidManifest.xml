@@ -39,6 +39,10 @@
             <action android:name="android.intent.action.SEND" />
             <data android:mimeType="*/*" />
         </intent>
+        <!-- Saber si el celular tiene dictado por voz (si no, el micrófono no se muestra). -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
     </queries>
 
     <application

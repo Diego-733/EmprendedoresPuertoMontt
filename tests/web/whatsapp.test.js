@@ -25,12 +25,43 @@ test("número chileno: acepta +56 con espacios, sin +56 y fijos; rechaza vacío,
 test("tienda con número: enlace a ESE número; sin número o inválido: sin enlace y con aviso", () => {
   assert.strictEqual(Cat.enlaceWhatsapp("+56 9 8765 1111", "Hola"), "https://wa.me/56987651111?text=Hola");
   assert.strictEqual(Cat.enlaceWhatsapp("", "Hola"), null, "sin número de respaldo");
-  assert.deepStrictEqual(Cat.viasContacto(tienda("a", "A", "+56 9 8765 1111")), { whatsapp: true, faltaWhatsapp: false, formulario: true });
-  assert.deepStrictEqual(Cat.viasContacto(tienda("b", "B", "")), { whatsapp: false, faltaWhatsapp: true, formulario: true });
-  assert.deepStrictEqual(Cat.viasContacto(tienda("c", "C", "1234", "WHATSAPP")), { whatsapp: false, faltaWhatsapp: true, formulario: false });
-  assert.deepStrictEqual(Cat.viasContacto(tienda("d", "D", "+56 9 8765 1111", "FORMULARIO")), { whatsapp: false, faltaWhatsapp: false, formulario: true },
+  assert.deepStrictEqual(Cat.viasContacto(tienda("a", "A", "+56 9 8765 1111")), { whatsapp: true, faltaWhatsapp: false, formulario: true, sinCanal: false });
+  assert.deepStrictEqual(Cat.viasContacto(tienda("b", "B", "")), { whatsapp: false, faltaWhatsapp: true, formulario: true, sinCanal: false });
+  assert.deepStrictEqual(Cat.viasContacto(tienda("c", "C", "1234", "WHATSAPP")), { whatsapp: false, faltaWhatsapp: true, formulario: false, sinCanal: true });
+  assert.deepStrictEqual(Cat.viasContacto(tienda("d", "D", "+56 9 8765 1111", "FORMULARIO")), { whatsapp: false, faltaWhatsapp: false, formulario: true, sinCanal: false },
     "respeta la preferencia: solo formulario aunque tenga número");
   assert.strictEqual(Cat.SIN_WHATSAPP, "Esta tienda aún no tiene un WhatsApp de contacto");
+  assert.strictEqual(Cat.avisoContacto(Cat.viasContacto(tienda("b", "B", ""))), Cat.SIN_WHATSAPP);
+  assert.strictEqual(Cat.avisoContacto(Cat.viasContacto(tienda("c", "C", "1234", "WHATSAPP"))), Cat.SIN_CONTACTO, "sin ningún canal: una frase");
+  assert.strictEqual(Cat.avisoContacto(Cat.viasContacto(tienda("a", "A", "+56 9 8765 1111"))), "");
+});
+
+test("número de los datos de ejemplo: no abre WhatsApp a un desconocido; se ofrece el mensaje interno si está habilitado", () => {
+  for (const demo of ["+56 9 8765 4321", "+56991234567", "+56 9 7654 3210", "+56 9 6543 2109", "+56 9 1234 5678", "+56 9 0000 0000", "+56 9 6123 4505", "+56 9 6123 4520"]) {
+    assert.ok(Cat.esNumeroDemostracion(demo), demo + " es de ejemplo");
+    assert.strictEqual(Cat.enlaceWhatsapp(demo, "Hola"), null, demo + " no debe abrir WhatsApp");
+  }
+  for (const real of ["+56 9 4821 7735", "+56 9 6123 4599", "+56 65 212 3456"]) assert.ok(!Cat.esNumeroDemostracion(real), real + " no es de ejemplo");
+  assert.deepStrictEqual(Cat.viasContacto(tienda("e", "E", "+56 9 8765 4321")), { whatsapp: false, faltaWhatsapp: true, formulario: true, sinCanal: false });
+  const g = Cat.agruparPedido([item("e", "Pan", 1000, 1)], [tienda("e", "E", "+56 9 8765 4321")])[0];
+  assert.deepStrictEqual([g.numero, g.formulario], [null, true], "el pedido no va a un número de ejemplo");
+});
+
+test("rótulos con destino y canal: se sabe a quién le llega antes de tocar", () => {
+  assert.strictEqual(Cat.etiquetaWhatsapp("Tejidos Marta"), "Enviar WhatsApp a Tejidos Marta");
+  assert.strictEqual(Cat.etiquetaMensaje("Tejidos Marta"), "Enviar mensaje a Tejidos Marta");
+  assert.strictEqual(Cat.etiquetaPedidoWhatsapp("Tejidos Marta"), "Enviar pedido por WhatsApp a Tejidos Marta");
+});
+
+test("búsqueda por palabras (la misma para lo escrito y lo dictado)", () => {
+  const torta = ["Torta de chocolate para cumpleaños", "Repostería Sureña"];
+  assert.ok(Cat.coincideBusqueda("torta de cumpleaños", torta), "frase dictada con palabras en otro orden");
+  assert.ok(Cat.coincideBusqueda("Quiero una TORTA de cumpleanos", torta), "sin tildes, mayúsculas ni muletillas");
+  assert.ok(Cat.coincideBusqueda("tortas", torta), "plural simple");
+  assert.ok(Cat.coincideBusqueda("pan amasado", ["Pan amasado"]), "lo que ya funcionaba sigue igual");
+  assert.ok(Cat.coincideBusqueda("", ["lo que sea"]), "consulta vacía muestra todo");
+  assert.ok(!Cat.coincideBusqueda("torta de frambuesa", torta), "todas las palabras útiles deben aparecer");
+  assert.deepStrictEqual(Cat.palabrasBusqueda("una torta de cumpleaños"), ["torta", "cumpleanos"]);
 });
 
 test("carrito con dos tiendas: cada destinataria recibe solo sus productos, a su número", () => {

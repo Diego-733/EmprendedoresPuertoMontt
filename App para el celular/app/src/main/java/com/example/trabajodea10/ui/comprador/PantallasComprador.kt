@@ -54,6 +54,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -120,7 +122,21 @@ fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
 
     val tiendas = SesionManager.tiendas.toList()
     val asociaciones = VitrinaStore.asociaciones.filter { it.activa }
-    val filtradas = ReglasVitrina.filtrarTiendas(tiendas, busqueda, tipo, sector, asociacion, VitrinaStore.pertenencias)
+    val filtradas = ReglasVitrina.filtrarTiendas(tiendas, busqueda, tipo, sector, asociacion, VitrinaStore.pertenencias) { TramaStore.productosDeTienda(it) }
+    // Productos que calzan con lo escrito o dictado (misma búsqueda), de las tiendas que pasan los filtros.
+    val productosEncontrados = if (busqueda.isBlank()) emptyList() else filtradas.flatMap { t ->
+        TramaStore.productosDeTienda(t.id)
+            .filter { ReglasCatalogo.estadoPublico(it) != com.example.trabajodea10.data.EstadoPublico.OCULTO && ReglasVitrina.coincideProducto(busqueda, it) }
+            .map { it to t }
+    }.take(12)
+    // Buscar por voz con el dictado del celular: lo dictado queda en el buscador y se puede corregir.
+    val contextoVoz = LocalContext.current
+    val hayDictado = remember { com.example.trabajodea10.ui.componentes.dictadoDisponible(contextoVoz) }
+    var estadoVoz by rememberSaveable { mutableStateOf("") }
+    val dictarBusqueda = com.example.trabajodea10.ui.componentes.rememberDictadoPorVoz(
+        indicacion = "Di lo que buscas",
+        onSinTexto = { estadoVoz = "Dictado cancelado. Tu búsqueda sigue igual." }
+    ) { texto -> busqueda = texto; estadoVoz = "Buscando «$texto». Puedes corregirlo en el buscador." }
     val tipos = tiendas.map { it.rubro }.filter { it.isNotBlank() }.distinct().sorted()
     val sectores = tiendas.map { it.sector }.filter { it.isNotBlank() }.distinct().sorted()
     val asocFiltradas = asociaciones.filter { a ->
@@ -152,7 +168,25 @@ fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
             }
         }
         item {
-            CampoBusqueda(valor = busqueda, onValorChange = { busqueda = it }, placeholder = "Buscar por nombre, rubro o sector")
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                CampoBusqueda(
+                    valor = busqueda, onValorChange = { busqueda = it; estadoVoz = "" },
+                    etiqueta = "¿Qué buscas?", placeholder = "Ej: torta, chal, barbería",
+                    onDictar = if (hayDictado) dictarBusqueda else null
+                )
+                if (estadoVoz.isNotBlank()) {
+                    Text(estadoVoz, style = MaterialTheme.typography.bodyMedium, color = TextoSecundario,
+                        modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
+                }
+            }
+        }
+        if (!verAsociaciones && productosEncontrados.isNotEmpty()) {
+            item {
+                Text("Productos que coinciden (${productosEncontrados.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NegroApple)
+            }
+            items(productosEncontrados, key = { "p_" + it.first.id }) { (p, t) ->
+                TarjetaProductoPublico(p, t) { nav.irA(Ruta.ProductoPublico(p.id)) }
+            }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -411,9 +445,10 @@ private fun TarjetaProductoPublico(p: Producto, tienda: Tienda, onClick: () -> U
 private fun BotonesContacto(tienda: Tienda, productoId: String?, referencia: String, onFormulario: (String?, String) -> Unit) {
     val contexto = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // El rótulo dice a quién le llega y por qué canal (nombre público de la tienda); el mensaje lleva el producto.
         if (tienda.ofreceWhatsApp) {
             BotonPrimario(
-                texto = "Escribir por WhatsApp",
+                texto = com.example.trabajodea10.data.ContactoWhatsApp.etiquetaWhatsApp(tienda.nombre),
                 icono = { Icon(Icons.Filled.Chat, contentDescription = null) },
                 onClick = {
                     val texto = if (referencia.isBlank()) "Hola ${tienda.nombre}, vi tu tienda en Alerce Emprende y quisiera consultar."
@@ -422,12 +457,12 @@ private fun BotonesContacto(tienda: Tienda, productoId: String?, referencia: Str
                 }
             )
         }
-        if (tienda.faltaWhatsApp) {
-            Text(com.example.trabajodea10.data.ContactoWhatsApp.SIN_WHATSAPP, color = TextoSecundario, style = MaterialTheme.typography.bodyMedium)
+        if (tienda.avisoContacto.isNotEmpty()) {
+            Text(tienda.avisoContacto, color = TextoSecundario, style = MaterialTheme.typography.bodyMedium)
         }
         if (tienda.ofreceFormulario) {
             BotonSecundario(
-                texto = "Enviar un mensaje",
+                texto = com.example.trabajodea10.data.ContactoWhatsApp.etiquetaMensaje(tienda.nombre),
                 icono = { Icon(Icons.Filled.Email, contentDescription = null) },
                 onClick = { onFormulario(productoId, referencia) }
             )

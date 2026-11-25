@@ -58,7 +58,7 @@ test.describe("Comprador en el celular (390 px)", () => {
     await expect(detalle.locator(".detalle-vende-destino")).toContainText("+56 9 3333 4444");
     // El contacto del producto va a ESA tienda, con el producto y el precio en el mensaje.
     const wsp = detalle.locator(".btn-whatsapp-prod");
-    await expect(wsp).toHaveAttribute("aria-label", "Pedir «Gorro de lana» por WhatsApp a Tejidos Austral");
+    await expect(wsp).toHaveAttribute("aria-label", "Enviar WhatsApp a Tejidos Austral sobre «Gorro de lana»");
     const href = await wsp.getAttribute("href");
     expect(href).toMatch(/^https:\/\/wa\.me\/56933334444\?/);
     expect(decodeURIComponent(href)).toContain("«Gorro de lana» ($ 8.500)");

@@ -94,6 +94,7 @@ fun PantallaCatalogo(
     var seleccionando by remember { mutableStateOf(false) }
     val seleccion = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     var productoVenta by remember { mutableStateOf<Producto?>(null) }
+    var mostrarGuia by remember { mutableStateOf(false) }
     // Último producto marcado como "Se acabó", para poder deshacerlo.
     var ultimoAgotado by remember { mutableStateOf<Pair<Producto, List<Variante>>?>(null) }
     // El aviso con "Deshacer" se esconde solo después de 8 segundos.
@@ -135,6 +136,26 @@ fun PantallaCatalogo(
                 }
             }
         )
+
+        if (mostrarGuia) {
+            DialogoGuia(
+                ventaDisponible = true,
+                onIr = { intencion ->
+                    mostrarGuia = false
+                    val paso = intencion.paso
+                    if (paso == null) {
+                        nav.irA(Ruta.EmpVenta)
+                    } else {
+                        // Si había un producto sin terminar, se retoma: lo escrito no se pierde.
+                        val id = TramaStore.crearProductoBorrador()
+                        TramaStore.borrador?.let { TramaStore.actualizarBorrador(it.producto, paso) }
+                        com.example.trabajodea10.data.GuiaProducto.iniciar(intencion)
+                        nav.irA(Ruta.ProductoDetalle(id))
+                    }
+                },
+                onCerrar = { mostrarGuia = false }
+            )
+        }
 
         productoVenta?.let { p ->
             com.example.trabajodea10.ui.emprendedora.DialogoElegirOpcion(
@@ -231,6 +252,15 @@ fun PantallaCatalogo(
                 )
                 Text("➔", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+        }
+        // Guía opcional: entiende frases escritas o dictadas y acompaña el alta de siempre.
+        androidx.compose.material3.OutlinedButton(
+            onClick = { mostrarGuia = true },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).heightIn(min = 48.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = androidx.compose.foundation.BorderStroke(1.5.dp, com.example.trabajodea10.ui.theme.Musgo)
+        ) {
+            Text("🧭 Guíame paso a paso", fontWeight = FontWeight.Bold, color = com.example.trabajodea10.ui.theme.Musgo)
         }
 
         CampoBusqueda(

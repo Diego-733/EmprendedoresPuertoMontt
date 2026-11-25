@@ -34,7 +34,8 @@ class Entrega6Test {
     }
 
     @Test fun contactoSegunConfiguracion() {
-        val conNumero = Tienda(whatsapp = "+56 9 1234 5678")
+        // Número neutro: +56 9 1234 5678 es de los datos de ejemplo y ya no abre WhatsApp (ContactoWhatsApp.esDemostracion).
+        val conNumero = Tienda(whatsapp = "+56 9 4821 7735")
         assertTrue(conNumero.copy(contactoModo = ModoContacto.WHATSAPP).ofreceWhatsApp)
         assertFalse(conNumero.copy(contactoModo = ModoContacto.WHATSAPP).ofreceFormulario)
         assertFalse(conNumero.copy(contactoModo = ModoContacto.FORMULARIO).ofreceWhatsApp)

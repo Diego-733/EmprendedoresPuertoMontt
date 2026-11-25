@@ -30,18 +30,24 @@ object ReglasVitrina {
         tipo: String?,
         sector: String?,
         asociacion: String?,
-        pertenencias: Map<String, List<String>> = emptyMap()
+        pertenencias: Map<String, List<String>> = emptyMap(),
+        productosDe: (String) -> List<Producto> = { emptyList() }
     ): List<Tienda> {
         val t = texto.trim()
         return tiendas.filter { tienda ->
-            val coincideTexto = t.isEmpty() || listOf(tienda.nombre, tienda.rubro, tienda.sector, tienda.bio)
-                .any { it.contains(t, ignoreCase = true) }
+            // Por palabras, como en la web; quien busca «torta» también encuentra la tienda que la vende.
+            val coincideTexto = t.isEmpty() || ReglasBusqueda.coincide(t, listOf(tienda.nombre, tienda.rubro, tienda.sector, tienda.bio)) ||
+                productosDe(tienda.id).any { coincideProducto(t, it) }
             val coincideTipo = tipo.isNullOrBlank() || tienda.rubro == tipo
             val coincideSector = sector.isNullOrBlank() || tienda.sector == sector
             val coincideAsoc = asociacion.isNullOrBlank() || perteneceA(tienda, asociacion, pertenencias)
             coincideTexto && coincideTipo && coincideSector && coincideAsoc
         }
     }
+
+    /** Producto que calza con la búsqueda (nombre, descripción o categoría). */
+    fun coincideProducto(texto: String, p: Producto): Boolean =
+        ReglasBusqueda.coincide(texto, listOf(p.nombre, p.descripcion, p.categoria.etiqueta))
 
     const val SIN_ASOCIACION = "__ninguna"
 

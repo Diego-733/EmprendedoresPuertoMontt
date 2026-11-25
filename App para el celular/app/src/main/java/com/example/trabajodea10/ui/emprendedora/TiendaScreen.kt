@@ -404,9 +404,12 @@ fun PantallaTienda(
                 tipoTeclado = androidx.compose.ui.text.input.KeyboardType.Phone
             )
             Text(
-                text = if (whatsapp.isNotBlank() && !com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp))
-                    com.example.trabajodea10.data.ContactoWhatsApp.INVALIDO else com.example.trabajodea10.data.ContactoWhatsApp.AYUDA,
-                color = if (whatsapp.isNotBlank() && !com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp)) Color(0xFFB91C1C) else Color(0xFF6B7280),
+                text = when {
+                    whatsapp.isNotBlank() && !com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp) -> com.example.trabajodea10.data.ContactoWhatsApp.INVALIDO
+                    com.example.trabajodea10.data.ContactoWhatsApp.esDemostracion(whatsapp) -> com.example.trabajodea10.data.ContactoWhatsApp.DE_EJEMPLO
+                    else -> com.example.trabajodea10.data.ContactoWhatsApp.AYUDA
+                },
+                color = if (whatsapp.isNotBlank() && (!com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp) || com.example.trabajodea10.data.ContactoWhatsApp.esDemostracion(whatsapp))) Color(0xFFB91C1C) else Color(0xFF6B7280),
                 fontSize = 12.sp
             )
 
@@ -530,6 +533,10 @@ fun PantallaTienda(
                 onClick = {
                     if (whatsapp.isNotBlank() && !com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp)) {
                         avisar(com.example.trabajodea10.data.ContactoWhatsApp.INVALIDO)
+                        return@Button
+                    }
+                    if (com.example.trabajodea10.data.ContactoWhatsApp.esDemostracion(whatsapp)) {
+                        avisar(com.example.trabajodea10.data.ContactoWhatsApp.DE_EJEMPLO)
                         return@Button
                     }
                     guardando = true

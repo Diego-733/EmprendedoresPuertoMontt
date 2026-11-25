@@ -339,23 +339,26 @@ fun CampoTexto(
  * Devuelve una función que se llama al tocar el micrófono.
  */
 @Composable
-fun rememberDictadoPorVoz(onTexto: (String) -> Unit): () -> Unit {
+fun rememberDictadoPorVoz(
+    indicacion: String = "Habla ahora, te escucho",
+    onSinTexto: () -> Unit = {},
+    onTexto: (String) -> Unit
+): () -> Unit {
     val contexto = LocalContext.current
     val lanzador = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { resultado ->
-        if (resultado.resultCode == Activity.RESULT_OK) {
-            val texto = resultado.data
-                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()
-            if (!texto.isNullOrBlank()) onTexto(texto)
-        }
+        val texto = if (resultado.resultCode == Activity.RESULT_OK) resultado.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull() else null
+        // Cancelado, sin permiso del micrófono o sin entender: el campo queda como estaba.
+        if (!texto.isNullOrBlank()) onTexto(texto) else onSinTexto()
     }
     return {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-CL")
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Habla ahora, te escucho")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, indicacion)
         }
         try {
             lanzador.launch(intent)
@@ -369,11 +372,15 @@ fun rememberDictadoPorVoz(onTexto: (String) -> Unit): () -> Unit {
     }
 }
 
+/** true si el celular tiene una app de dictado por voz (si no, el micrófono no se muestra). */
+fun dictadoDisponible(contexto: android.content.Context): Boolean =
+    runCatching { contexto.packageManager.queryIntentActivities(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0).isNotEmpty() }.getOrDefault(false)
+
 /** Botón de micrófono de 48 dp para poner al final de un campo de texto. */
 @Composable
-fun BotonMicrofono(onClick: () -> Unit) {
+fun BotonMicrofono(onClick: () -> Unit, descripcion: String = "Dictar con la voz") {
     IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-        Icon(Icons.Filled.Mic, contentDescription = "Dictar con la voz", tint = Berenjena)
+        Icon(Icons.Filled.Mic, contentDescription = descripcion, tint = Berenjena)
     }
 }
 
@@ -382,14 +389,19 @@ fun CampoBusqueda(
     valor: String,
     onValorChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "Buscar…"
+    placeholder: String = "Buscar…",
+    etiqueta: String? = null,
+    onDictar: (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = valor,
         onValueChange = onValorChange,
         modifier = modifier.fillMaxWidth(),
+        label = etiqueta?.let { { Text(it) } },
         placeholder = { Text(placeholder) },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+        // Buscar por voz: solo si el celular tiene dictado; lo dictado queda en este mismo campo.
+        trailingIcon = onDictar?.let { { BotonMicrofono(onClick = it, descripcion = "Buscar por voz") } },
         singleLine = true,
         shape = RoundedCornerShape(50),
         colors = OutlinedTextFieldDefaults.colors(

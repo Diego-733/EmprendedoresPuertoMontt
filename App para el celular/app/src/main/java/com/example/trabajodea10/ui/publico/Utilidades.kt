@@ -44,7 +44,8 @@ fun llamarTelefono(contexto: Context, numero: String) {
  * no es válido, no abre nada y devuelve false (la pantalla muestra «Esta tienda aún no tiene…»).
  */
 fun abrirWhatsApp(contexto: Context, numero: String, mensaje: String): Boolean {
-    val numeroLimpio = com.example.trabajodea10.data.ContactoWhatsApp.normalizar(numero) ?: return false
+    // Nunca a un número de los datos de ejemplo: podría ser de un desconocido.
+    val numeroLimpio = com.example.trabajodea10.data.ContactoWhatsApp.numeroContacto(numero) ?: return false
     val uri = Uri.parse("https://wa.me/$numeroLimpio?text=" + Uri.encode(mensaje))
     val intent = Intent(Intent.ACTION_VIEW, uri).apply {
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -60,9 +61,9 @@ fun abrirWhatsApp(contexto: Context, numero: String, mensaje: String): Boolean {
 fun contactarTiendaPorWhatsApp(contexto: Context, tienda: com.example.trabajodea10.data.Tienda, mensaje: String): Boolean {
     if (tienda.ofreceWhatsApp && abrirWhatsApp(contexto, tienda.whatsapp, mensaje)) return true
     val aviso = when {
-        tienda.faltaWhatsApp && tienda.ofreceFormulario -> com.example.trabajodea10.data.ContactoWhatsApp.SIN_WHATSAPP + ". Usa «Enviar un mensaje» en su ficha."
-        tienda.faltaWhatsApp -> com.example.trabajodea10.data.ContactoWhatsApp.SIN_WHATSAPP + "."
-        else -> "Esta tienda recibe consultas por mensaje: usa «Enviar un mensaje» en su ficha."
+        tienda.sinCanalContacto -> com.example.trabajodea10.data.ContactoWhatsApp.SIN_CONTACTO + "."
+        tienda.faltaWhatsApp -> com.example.trabajodea10.data.ContactoWhatsApp.SIN_WHATSAPP + ". Usa «" + com.example.trabajodea10.data.ContactoWhatsApp.etiquetaMensaje(tienda.nombre) + "» en su ficha."
+        else -> "Esta tienda recibe consultas por mensaje: usa «" + com.example.trabajodea10.data.ContactoWhatsApp.etiquetaMensaje(tienda.nombre) + "» en su ficha."
     }
     android.widget.Toast.makeText(contexto, aviso, android.widget.Toast.LENGTH_LONG).show()
     return false

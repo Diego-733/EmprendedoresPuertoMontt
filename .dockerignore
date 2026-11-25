@@ -1,0 +1,18 @@
+# La imagen solo necesita la web y sus scripts: lo demás no se envía a la construcción.
+.git
+.github
+.claude
+node_modules
+dist
+App para el celular
+docs
+supabase
+servicios
+tests
+test-results
+playwright-report
+firebase
+**/*.apk
+**/js/config.js
+*.png
+!LA PAgina (segun)/**/*.png

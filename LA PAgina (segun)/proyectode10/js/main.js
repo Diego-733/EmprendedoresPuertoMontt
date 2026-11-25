@@ -428,6 +428,12 @@
     al("pub-quitar-foto", "click", quitarFotoProducto);
     al("pub-abrir-afiche", "click", function () { abrirEstudioFlyerDesdePublicar(); });
     al("gestion-nuevo", "click", function () { abrirModalPublicarProducto(); });
+    // «Guíame paso a paso»: guía opcional sobre el mismo formulario y el mismo guardado.
+    if (window.AlerceGuiaProducto) window.AlerceGuiaProducto.iniciar({ documento: document, ventana: window, voz: window.AlerceVoz,
+      abrirPublicar: function () { abrirModalPublicarProducto(); },
+      publicarAbierto: function () { var m = document.getElementById("modal-publicar-producto"); return !!(m && m.classList.contains("abierto")); },
+      ventaDisponible: function () { var b = document.getElementById("btn-abrir-pos-nav"); return !!(b && b.style.display !== "none"); },
+      abrirVenta: function () { cerrarModal("modal-gestion-catalogo"); abrirModalPOS(); } });
     al("gestion-disponibles", "click", function () { cambiarDisponibleSeleccion(true); });
     al("gestion-no-disponibles", "click", function () { cambiarDisponibleSeleccion(false); });
     al("gestion-filtro-categoria", "change", renderizarGestionCatalogo);
@@ -777,13 +783,13 @@
       html += '  <div class="carrito-envio-tienda" style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-top: 8px;">';
       if (grupo.numero) {
         html += '    <button type="button" class="btn-accion-pill btn-negro" style="min-height: 40px; font-size: 12.5px; padding: 0 14px;" onclick="TramaWeb.finalizarPedidoWhatsApp(\'' + escaparHtml(tId) + '\')">';
-        html += '      Enviar pedido a ' + escaparHtml(grupo.nombre) + ' ➔';
+        html += '      ' + escaparHtml(Cat.etiquetaPedidoWhatsapp(grupo.nombre));
         html += '    </button>';
       } else {
         html += '    <p class="aviso-sin-whatsapp" role="status" style="font-size: 12px; color: var(--gris-texto); margin: 0;">' +
-          (grupo.disponible ? escaparHtml(Cat.SIN_WHATSAPP) + '.' : 'Esta tienda ya no está disponible en la vitrina.') + '</p>';
+          (grupo.disponible ? escaparHtml(grupo.formulario ? Cat.SIN_WHATSAPP : Cat.SIN_CONTACTO) + '.' : 'Esta tienda ya no está disponible en la vitrina.') + '</p>';
         if (grupo.formulario) {
-          html += '    <button type="button" class="btn-accion-pill" style="min-height: 40px; font-size: 12.5px; padding: 0 14px;" onclick="TramaWeb.enviarPedidoPorMensaje(\'' + escaparHtml(tId) + '\')">Enviar un mensaje</button>';
+          html += '    <button type="button" class="btn-accion-pill btn-contacto-destino" style="min-height: 48px; font-size: 12.5px; padding: 0 14px;" onclick="TramaWeb.enviarPedidoPorMensaje(\'' + escaparHtml(tId) + '\')">' + escaparHtml(Cat.etiquetaMensaje(grupo.nombre)) + '</button>';
         }
       }
       html += '  </div>';
@@ -794,7 +800,7 @@
     var btnGeneral = document.getElementById("btn-finalizar-pedido-general");
     if (btnGeneral) {
       var unica = grupos.length === 1 ? grupos[0] : null;
-      if (unica && unica.numero) { btnGeneral.style.display = ""; btnGeneral.textContent = "Enviar pedido a " + unica.nombre; }
+      if (unica && unica.numero) { btnGeneral.style.display = ""; btnGeneral.textContent = Cat.etiquetaPedidoWhatsapp(unica.nombre); }
       else btnGeneral.style.display = "none";
     }
     var avisoVarias = document.getElementById("aviso-carrito-varias-tiendas");
@@ -901,15 +907,34 @@
     var grupo = tiendaIdFiltro ? grupos.find(function (g) { return g.tiendaId === tiendaIdFiltro; }) : (grupos.length === 1 ? grupos[0] : null);
     if (!grupo) { mostrarToast("Tu pedido tiene productos de varias tiendas: envía cada pedido con su botón."); return; }
     if (!grupo.numero) {
-      mostrarToast(Cat.SIN_WHATSAPP + (grupo.formulario ? ". Puedes usar «Enviar un mensaje»." : "."));
+      mostrarToast(grupo.formulario ? Cat.SIN_WHATSAPP + ". Puedes usar «" + Cat.etiquetaMensaje(grupo.nombre) + "»." : Cat.SIN_CONTACTO + ".");
       renderizarCarrito();
       return;
     }
     var url = Cat.enlaceWhatsapp(grupo.numero, Cat.textoPedido(grupo, datosPedido(grupo)));
     estado.ultimoPedidoEnviado = { tiendaId: grupo.tiendaId, url: url };
+    if (CONTACTO_SIMULADO) { avisarWhatsappSimulado(grupo.nombre); return; }
     window.open(url, "_blank", "noopener");
     mostrarToast("Abriendo WhatsApp para enviar tu pedido a " + grupo.nombre + ". Tu pedido se mantiene aquí.");
   }
+
+  /**
+   * Modo demostración: los números son ficticios. En vez de abrir WhatsApp (podría escribirle a un
+   * desconocido) se avisa a quién le llegaría. Con servidor, los enlaces abren WhatsApp normalmente.
+   */
+  // Demo con datos ficticios: sin servidor (MODO demo) o la demo local (npm run demo), cuya configuración
+  // falsa trae demo.contactoSimulado. La configuración real nunca lo trae.
+  var CONTACTO_SIMULADO = MODO === "demo" || !!(window.__CONFIG__ && window.__CONFIG__.demo && window.__CONFIG__.demo.contactoSimulado);
+  function avisarWhatsappSimulado(nombreTienda) {
+    mostrarToast("Modo demostración: aquí se abriría WhatsApp de " + nombreTienda + " con tu mensaje. No se envió nada.");
+  }
+  document.addEventListener("click", function (e) {
+    if (!CONTACTO_SIMULADO) return;
+    var enlace = e.target && e.target.closest ? e.target.closest('a[href^="https://wa.me/"]') : null;
+    if (!enlace || !enlace.getAttribute("data-tienda-nombre")) return;
+    e.preventDefault();
+    avisarWhatsappSimulado(enlace.getAttribute("data-tienda-nombre"));
+  }, true);
 
   /** Sin WhatsApp: el mismo pedido va por el formulario de la tienda (si lo acepta). */
   function enviarPedidoPorMensaje(tiendaId) {
@@ -931,17 +956,15 @@
     pintarEstadoDatos();
 
     var filtro = estado.categoriaActiva;
-    var texto = estado.textoBusqueda.toLowerCase().trim();
+    var texto = estado.textoBusqueda.trim();
 
     var tiendasFiltradas = TIENDAS.filter(function (t) {
       var coincideCategoria = filtro === "Todos" || t.rubro === filtro;
+      // Misma búsqueda por palabras para lo escrito y lo dictado (Cat.coincideBusqueda).
       var coincideTexto = texto === "" ||
-        t.nombre.toLowerCase().indexOf(texto) !== -1 ||
-        t.rubro.toLowerCase().indexOf(texto) !== -1 ||
-        t.sector.toLowerCase().indexOf(texto) !== -1 ||
-        (t.bio || "").toLowerCase().indexOf(texto) !== -1 ||
+        Cat.coincideBusqueda(texto, [t.nombre, t.rubro, t.sector, t.bio]) ||
         // Quien busca «pan» o «chal» también encuentra la tienda que lo vende.
-        productosPublicosDeTienda(t.id).some(function (p) { return normalizarBusqueda(p.nombre).indexOf(normalizarBusqueda(texto)) !== -1; });
+        productosPublicosDeTienda(t.id).some(function (p) { return Cat.coincideBusqueda(texto, [p.nombre, p.descripcion, Cat.etiquetaCategoria(p)]); });
       var coincideTipo = !estado.filtroTipo || t.rubro === estado.filtroTipo;
       var coincideSector = !estado.filtroSector || t.sector === estado.filtroSector;
       // Entrega 7: una tienda puede pertenecer a varias asociaciones (RN-05).
@@ -1008,10 +1031,10 @@
           badges.length ? h("div", { class: "tarjeta-badges-wrap" }, badges) : null,
           h("div", { class: "tarjeta-acciones-fila" }, [
             accionPrincipal,
-            urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-accion-pill btn-secundario", text: "WhatsApp",
-              "aria-label": "Escribir por WhatsApp a " + tienda.nombre }) : null,
-            vias.formulario && !vias.whatsapp ? h("button", { type: "button", class: "btn-accion-pill btn-secundario", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tienda.id); } }) : null,
-            vias.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", text: Cat.SIN_WHATSAPP }) : null
+            urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-accion-pill btn-secundario btn-contacto-destino", text: Cat.etiquetaWhatsapp(tienda.nombre),
+              "data-tienda-nombre": tienda.nombre }) : null,
+            vias.formulario && !vias.whatsapp ? h("button", { type: "button", class: "btn-accion-pill btn-secundario btn-contacto-destino", text: Cat.etiquetaMensaje(tienda.nombre), onclick: function () { abrirFormularioContacto(tienda.id); } }) : null,
+            Cat.avisoContacto(vias) ? h("small", { class: "aviso-sin-whatsapp", text: Cat.avisoContacto(vias) }) : null
           ])
         ])
       ]));
@@ -1078,14 +1101,20 @@
       var url = viasModal.whatsapp ? enlaceWhatsapp(tienda.whatsapp, "Hola " + tienda.nombre + "! Vi tu vitrina en Alerce Emprende.") : null;
       if (url) {
         btnWhatsapp.href = url; btnWhatsapp.style.display = "";
-        btnWhatsapp.setAttribute("aria-label", "Escribir por WhatsApp a " + tienda.nombre + ", número " + Cat.formatearWhatsapp(tienda.whatsapp));
+        btnWhatsapp.textContent = Cat.etiquetaWhatsapp(tienda.nombre);
+        btnWhatsapp.setAttribute("data-tienda-nombre", tienda.nombre);
+        btnWhatsapp.setAttribute("aria-label", Cat.etiquetaWhatsapp(tienda.nombre) + ", número " + Cat.formatearWhatsapp(tienda.whatsapp));
       } else { btnWhatsapp.removeAttribute("href"); btnWhatsapp.style.display = "none"; }
     }
     actualizarPedidoEnFicha();
     var btnFormulario = document.getElementById("btn-modal-tienda-formulario");
-    if (btnFormulario) btnFormulario.style.display = viasModal.formulario ? "" : "none";
+    if (btnFormulario) {
+      btnFormulario.style.display = viasModal.formulario ? "" : "none";
+      btnFormulario.textContent = Cat.etiquetaMensaje(tienda.nombre);
+    }
     var avisoSinWsp = document.getElementById("modal-tienda-sin-whatsapp");
-    if (avisoSinWsp) { avisoSinWsp.textContent = viasModal.faltaWhatsapp ? Cat.SIN_WHATSAPP : ""; avisoSinWsp.style.display = viasModal.faltaWhatsapp ? "" : "none"; }
+    var textoAviso = Cat.avisoContacto(viasModal);
+    if (avisoSinWsp) { avisoSinWsp.textContent = textoAviso; avisoSinWsp.style.display = textoAviso ? "" : "none"; }
     if (window.AlerceVitrina6) window.AlerceVitrina6.pintarExtrasTienda(tienda);
 
     cambiarTabModal(0);
@@ -1242,11 +1271,15 @@
           text: !vendible ? "Se acabó" : (estadoP === "A_PEDIDO" ? "Encargar" : "Agregar al pedido"),
           onclick: function () { agregarAlCarrito(p.id, opcion ? opcion.id : null); }
         }) : null,
-        urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-whatsapp-prod", text: preciosVisibles ? "Pedir por WhatsApp" : "Consultar por WhatsApp",
-          "aria-label": (preciosVisibles ? "Pedir «" : "Consultar «") + nombreOpcion + "» por WhatsApp a " + tiendaP.nombre }) : null,
+        // El rótulo dice a quién le llega y por qué canal; el mensaje editable lleva el producto.
+        urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-whatsapp-prod btn-contacto-destino", text: Cat.etiquetaWhatsapp(tiendaP.nombre),
+          "data-tienda-nombre": tiendaP.nombre,
+          "aria-label": Cat.etiquetaWhatsapp(tiendaP.nombre) + " sobre «" + nombreOpcion + "»" }) : null,
         // Sin WhatsApp, el mensaje va por el formulario de la tienda (con WhatsApp no se repite: está en la ficha).
-        viasP.formulario && tiendaP && !viasP.whatsapp ? h("button", { type: "button", class: "btn-accion-pill btn-secundario", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tiendaP.id, p.id, nombreOpcion); } }) : null,
-        viasP.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", text: Cat.SIN_WHATSAPP }) : null
+        viasP.formulario && tiendaP && !viasP.whatsapp ? h("button", { type: "button", class: "btn-accion-pill btn-secundario btn-contacto-destino", text: Cat.etiquetaMensaje(tiendaP.nombre),
+          "aria-label": Cat.etiquetaMensaje(tiendaP.nombre) + " sobre «" + nombreOpcion + "»",
+          onclick: function () { abrirFormularioContacto(tiendaP.id, p.id, nombreOpcion); } }) : null,
+        tiendaP && Cat.avisoContacto(viasP) ? h("small", { class: "aviso-sin-whatsapp", text: Cat.avisoContacto(viasP) }) : null
       ])
     ]);
   }
@@ -1299,7 +1332,7 @@
     if (!cont) return;
     cont.textContent = "";
     if (estadoCatalogo.cargando && !estadoCatalogo.cargado) { if (sub) sub.textContent = "Cargando productos…"; if (masBtn) masBtn.style.display = "none"; return; }
-    var texto = normalizarBusqueda(estado.textoBusqueda.trim());
+    var texto = estado.textoBusqueda.trim();
     var activas = {};
     TIENDAS.forEach(function (t) { activas[t.id] = t; });
     var orden = { DISPONIBLE: 0, A_PEDIDO: 1, AGOTADO: 2 };
@@ -1307,7 +1340,7 @@
       if (!activas[p.tiendaId] || Cat.estadoPublico(p) === "OCULTO") return false;
       if (!texto) return true;
       var t = activas[p.tiendaId];
-      return [p.nombre, p.descripcion, Cat.etiquetaCategoria(p), t.nombre, t.rubro].some(function (x) { return normalizarBusqueda(x).indexOf(texto) !== -1; });
+      return Cat.coincideBusqueda(texto, [p.nombre, p.descripcion, Cat.etiquetaCategoria(p), t.nombre, t.rubro]);
     }).sort(function (a, b) {
       return (orden[Cat.estadoPublico(a)] - orden[Cat.estadoPublico(b)]) || ((b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
     });
@@ -1735,9 +1768,14 @@
     if (id) cerrarModal(id, true);
   });
 
+  // La última ventana abierta queda arriba (antes mandaba el orden del HTML: «Añadir producto» abierto
+  // desde «Mis productos» quedaba detrás).
+  var capaModal = 2000;
   function abrirModal(modalId) {
     var m = document.getElementById(modalId);
     if (!m) return;
+    if (!document.querySelector(".modal-overlay.abierto")) capaModal = 2000;
+    m.style.zIndex = String(++capaModal);
     if (!m.classList.contains("abierto")) { focoAntesDeModal.push(document.activeElement); registrarEnHistorial(modalId); }
     m.classList.add("abierto");
     m.style.display = "flex";
@@ -2889,6 +2927,9 @@
         renderizarProductosPortada();
         pintarAtajosPortada();
       });
+      // Buscar por voz: el texto dictado llena este mismo campo y pasa por la misma búsqueda.
+      if (window.AlerceVoz) window.AlerceVoz.conectar({ campo: inputBusqueda, boton: document.getElementById("btn-buscar-voz"),
+        estado: document.getElementById("estado-buscar-voz"), ventana: window });
     }
 
     // Filtros de categoría pills
@@ -4389,6 +4430,11 @@
     var wspGuardar = wspEscrito ? Cat.formatearWhatsapp(wspEscrito) : "";
     if (wspEscrito && !wspGuardar) {
       mostrarAviso("edit-tienda-aviso", "Revisa el WhatsApp: escribe +56 9 y los 8 dígitos de tu celular (ej.: +56 9 XXXX XXXX). Si lo dejas vacío, tu tienda no mostrará el botón.");
+      return;
+    }
+    // Un número de los datos de ejemplo no se abre nunca: se pide el real (o dejarlo vacío).
+    if (wspGuardar && Cat.esNumeroDemostracion(wspGuardar)) {
+      mostrarAviso("edit-tienda-aviso", "Ese número es de ejemplo. Escribe el WhatsApp real de tu tienda o déjalo vacío.");
       return;
     }
     var cambios = {

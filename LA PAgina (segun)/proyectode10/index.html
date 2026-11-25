@@ -190,7 +190,12 @@
             <div class="buscador-campo">
               <span class="icono-lupa" aria-hidden="true">🔍</span>
               <input type="search" id="campo-busqueda-principal" class="input-buscador-pill" placeholder="Ej: pan amasado, chal, kuchen" autocomplete="off" enterkeyhint="search">
+              <!-- Buscar por voz: aparece solo si el navegador lo permite (js/busquedaVoz.js). -->
+              <button type="button" id="btn-buscar-voz" class="btn-buscar-voz" aria-label="Buscar por voz" aria-pressed="false" title="Buscar por voz" hidden>
+                <span aria-hidden="true">🎤</span>
+              </button>
             </div>
+            <p id="estado-buscar-voz" class="estado-buscar-voz" role="status" aria-live="polite"></p>
           </div>
           <div class="portada-atajos" id="portada-atajos" aria-label="Buscar por tipo de tienda"></div>
         </div>
@@ -634,6 +639,7 @@
           <li><strong>Mensajes del formulario de contacto</strong>: los recibe solo la emprendedora a quien escribes.</li>
           <li><strong>Seguimientos y avisos</strong>: si sigues una tienda o asociación y aceptas los avisos, guardamos ese consentimiento y el identificador de tu dispositivo para enviarte la notificación. Puedes dejar de seguir o darte de baja cuando quieras desde Mi perfil → Avisos.</li>
           <li><strong>Calificaciones</strong>: el público ve solo el promedio y la cantidad, sin tu nombre.</li>
+          <li><strong>Buscar por voz</strong>: el micrófono se enciende solo cuando tocas el botón 🎤. El reconocimiento lo hace tu navegador o tu celular y, según cuál uses, el audio puede procesarse en los servidores de ese proveedor (por ejemplo, Google en Chrome y Android). Alerce no graba ni guarda audio: solo recibe el texto, que queda en el buscador.</li>
           <li><strong>Ubicación</strong>: la app la pide solo para ordenar las ferias por cercanía o sugerir la feria del día. Se usa en el celular y no se guarda en el servidor.</li>
         </ul>
         <h3 style="font-size: 14px; margin: 6px 0 0;">Quién accede</h3>
@@ -669,10 +675,10 @@
           <div class="ficha-contacto" id="ficha-contacto">
             <p class="ficha-destinatario" id="ficha-destinatario"></p>
             <div class="ficha-contacto-botones">
-              <a id="btn-modal-tienda-whatsapp" href="#" target="_blank" rel="noopener" class="btn-accion-pill btn-whatsapp-grande">
+              <a id="btn-modal-tienda-whatsapp" href="#" target="_blank" rel="noopener" class="btn-accion-pill btn-whatsapp-grande btn-contacto-destino">
                 Escribir por WhatsApp
               </a>
-              <button type="button" class="btn-accion-pill btn-secundario" id="btn-modal-tienda-formulario" onclick="TramaWeb.abrirFormularioContactoActual()">
+              <button type="button" class="btn-accion-pill btn-secundario btn-contacto-destino" id="btn-modal-tienda-formulario" onclick="TramaWeb.abrirFormularioContactoActual()">
                 Enviar un mensaje
               </button>
               <button type="button" class="btn-accion-pill btn-secundario btn-ficha-pedido" id="btn-ficha-ver-pedido" style="display: none;" onclick="TramaWeb.abrirCarrito()">
@@ -943,6 +949,7 @@
         <div>
           <h2 id="modal-publicar-titulo" style="font-size: 17px; font-weight: 800; color: var(--negro-apple);">Añadir producto</h2>
           <p style="font-size: 12px; color: var(--gris-texto); margin: 2px 0 0 0;">Se guarda en el servidor solo al tocar «Guardar producto».</p>
+          <button type="button" id="pub-abrir-guia" class="btn-accion-pill btn-terciario btn-guia-formulario">🧭 Guíame paso a paso</button>
         </div>
         <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-publicar-producto')" aria-label="Cerrar">✕</button>
       </div>
@@ -968,7 +975,11 @@
           <legend>2. Datos</legend>
           <div>
             <label for="pub-nombre" class="label-fb-market">Nombre del producto *</label>
-            <input type="text" id="pub-nombre" class="input-fb-market" placeholder="Ej: Pan amasado" maxlength="90" autocomplete="off">
+            <div class="campo-con-voz">
+              <input type="text" id="pub-nombre" class="input-fb-market" placeholder="Ej: Pan amasado" maxlength="90" autocomplete="off">
+              <button type="button" id="pub-nombre-voz" class="btn-buscar-voz btn-voz-campo" aria-label="Dictar el nombre del producto" hidden><span aria-hidden="true">🎤</span></button>
+            </div>
+            <p id="pub-nombre-voz-estado" class="estado-buscar-voz" role="status" aria-live="polite"></p>
           </div>
           <div class="pub-dos-columnas">
             <div>
@@ -1318,7 +1329,10 @@
         <div class="gestion-barra">
           <span id="conteo-prods-catalogo-gestion">Cargando tu catálogo…</span>
           <button type="button" id="gestion-nuevo" class="btn-accion-pill btn-negro">➕ Añadir producto</button>
+          <!-- Guía opcional (js/guiaProducto.js): entiende frases escritas o dictadas y acompaña el formulario real. -->
+          <button type="button" id="gestion-guia" class="btn-accion-pill btn-secundario" aria-expanded="false" aria-controls="guia-entrada">🧭 Guíame paso a paso</button>
         </div>
+        <div id="guia-entrada" class="guia-entrada" hidden></div>
         <div class="gestion-barra gestion-masiva">
           <label for="gestion-filtro-categoria" class="label-fb-market">Categoría</label>
           <select id="gestion-filtro-categoria" class="input-fb-market">
@@ -1903,11 +1917,13 @@
 
   <!-- Scripts -->
   <script src="js/qrcode.min.js"></script>
-  <script src="js/catalogo.js?v=20261119_e7"></script>
+  <script src="js/catalogo.js?v=20261125_voz"></script>
+  <script src="js/busquedaVoz.js?v=20261125_voz"></script>
+  <script src="js/guiaProducto.js?v=20261125_voz"></script>
   <script src="js/servicio.js?v=20261119_e7"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="js/vitrina6.js?v=20261122_e7b"></script>
   <script src="js/ferias7.js?v=20261119_e7"></script>
-  <script src="js/main.js?v=20261119_e7"></script>
+  <script src="js/main.js?v=20261125_voz"></script>
 </body>
 </html>

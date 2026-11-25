@@ -142,6 +142,20 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   background: var(--neblina); border: 2px solid var(--linea); color: var(--tinta);
 }
 .buscador-portada .input-buscador-pill:focus { border-color: var(--musgo); background: #fff; box-shadow: none; outline: none; }
+/* Buscar por voz: botón de 48 px dentro del campo, a la derecha; el texto no queda bajo el botón. */
+.buscador-campo:has(.btn-buscar-voz:not([hidden])) .input-buscador-pill { padding-right: 64px; }
+.btn-buscar-voz {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: var(--alto-toque); height: var(--alto-toque); border-radius: 12px; border: 1.5px solid var(--musgo);
+  background: var(--lana); color: var(--musgo); font-size: 1.375rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.btn-buscar-voz[hidden] { display: none; }
+.btn-buscar-voz:hover { background: var(--musgo-claro); }
+.btn-buscar-voz.escuchando { background: var(--musgo); color: #fff; box-shadow: 0 0 0 4px var(--musgo-claro); }
+.estado-buscar-voz { font-size: 0.9375rem; color: var(--tinta-suave); margin: 2px 0 0; min-height: 0; overflow-wrap: anywhere; }
+.estado-buscar-voz:empty { display: none; }
+/* Botones de contacto con el nombre de la tienda: nombres largos se parten en líneas, sin cortarse. */
+.btn-contacto-destino { white-space: normal; overflow-wrap: anywhere; height: auto; min-height: var(--alto-toque); line-height: 1.25; text-align: center; }
 .portada-atajos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .atajo {
   min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--linea); background: var(--lana);
@@ -483,3 +497,28 @@ h1, h2, h3, h4, .portada-titulo, .panel-emp-saludo, .panel-admin-titulo, .portad
   body:has(#modal-tienda-vitrina.abierto) #toast-alerta { bottom: 190px; }
 }
 .portada-feria .btn-accion-pill { flex: 0 0 auto; height: auto !important; }
+
+/* ---------- «Guíame paso a paso» (js/guiaProducto.js): tarjetas dentro del formulario, sin tapar nada ---------- */
+.campo-con-voz { position: relative; }
+.campo-con-voz:has(.btn-voz-campo:not([hidden])) .input-fb-market { padding-right: 60px; }
+.btn-voz-campo { right: 4px; }
+.guia-entrada { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px; background: var(--neblina); border: 1.5px solid var(--linea); }
+.guia-entrada[hidden] { display: none; }
+.guia-botones { display: flex; flex-wrap: wrap; gap: 8px; }
+.guia-botones > .btn-accion-pill { flex: 1 1 160px; }
+.guia-pregunta { font-weight: 700; margin: 4px 0; }
+.guia-respuesta:empty { display: none; }
+.guia-paso { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 12px; padding: 14px; border-radius: 14px;
+  background: var(--musgo-claro); border: 2px solid var(--musgo); color: var(--tinta); scroll-margin-top: 72px; }
+.guia-paso-titulo { font-weight: 800; font-size: 1rem; margin: 0; }
+.guia-paso-titulo:focus { outline: none; }
+.guia-paso-indicacion { font-size: 1rem; line-height: 1.4; margin: 0; }
+.guia-estado { font-size: 0.9375rem; font-weight: 700; color: var(--musgo-oscuro, var(--musgo)); margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.guia-estado:empty { display: none; }
+.guia-detalle summary { min-height: var(--alto-toque); display: flex; align-items: center; cursor: pointer; font-weight: 700; color: var(--musgo); text-decoration: underline; text-underline-offset: 3px; }
+.guia-detalle p { margin: 4px 0 0; font-size: 0.9375rem; line-height: 1.45; }
+.guia-ejemplo-foto { margin: 6px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.guia-ejemplo-foto svg { width: 100%; max-width: 240px; height: auto; border: 2px dashed var(--musgo); border-radius: 12px; }
+.guia-ejemplo-foto figcaption { font-size: 0.875rem; font-weight: 700; color: var(--tinta-suave); }
+fieldset.guia-paso-actual { border-color: var(--musgo); }
+.btn-guia-formulario { min-height: var(--alto-toque); padding-left: 0; margin-top: 2px; }

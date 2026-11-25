@@ -82,8 +82,8 @@ test("carrito con dos tiendas: «Enviar pedido a [tienda]» por tienda, cada una
   await abrirCarrito(page);
   await expect(page.locator("#btn-finalizar-pedido-general")).toBeHidden();
   await expect(page.locator("#aviso-carrito-varias-tiendas")).toContainText("productos de 2 tiendas");
-  await page.locator("#modal-carrito .carrito-envio-tienda button", { hasText: "Enviar pedido a Tejidos Austral" }).click();
-  await page.locator("#modal-carrito .carrito-envio-tienda button", { hasText: "Enviar pedido a Panadería Rosa" }).click();
+  await page.locator("#modal-carrito .carrito-envio-tienda button", { hasText: "Enviar pedido por WhatsApp a Tejidos Austral" }).click();
+  await page.locator("#modal-carrito .carrito-envio-tienda button", { hasText: "Enviar pedido por WhatsApp a Panadería Rosa" }).click();
   const envios = await abiertos(page);
   expect(envios.map(e => e.numero)).toEqual(["56911112222", "56933334444"]);
   expect(envios[0].texto).toContain("¡Hola Tejidos Austral!");
@@ -101,7 +101,7 @@ test("número cambiado después de agregar al carrito: el pedido va al número a
   await preparar(page, datos("+56 9 5555 6666"), previo);   // la dueña cambió su número
   await page.goto(ORIGEN + "/");
   await abrirCarrito(page);
-  await expect(page.locator("#btn-finalizar-pedido-general")).toHaveText("Enviar pedido a Tejidos Austral");
+  await expect(page.locator("#btn-finalizar-pedido-general")).toHaveText("Enviar pedido por WhatsApp a Tejidos Austral");
   await page.locator("#btn-finalizar-pedido-general").click();
   const envios = await abiertos(page);
   expect(envios.map(e => e.numero)).toEqual(["56955556666"]);
@@ -116,7 +116,7 @@ test("tienda sin WhatsApp en el carrito: avisa y «Enviar un mensaje» abre el f
   const grupo = page.locator('[data-tienda-pedido="t_pan"]');
   await expect(grupo).toContainText("Esta tienda aún no tiene un WhatsApp de contacto");
   await expect(page.locator("#btn-finalizar-pedido-general")).toBeHidden();
-  await grupo.locator("button", { hasText: "Enviar un mensaje" }).click();
+  await grupo.locator("button", { hasText: "Enviar mensaje a Panadería Rosa" }).click();
   await expect(page.locator("#modal-contacto")).toBeVisible();
   await expect(page.locator("#contacto-mensaje")).toHaveValue(/3 x Pan amasado[\s\S]*Total: \$ 7\.500/);
   expect(await abiertos(page)).toEqual([]);   // no se abrió WhatsApp con el número viejo ni otro

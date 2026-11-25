@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pantalla de arranque en Android 7 a 11 (en 12+ la dibuja el sistema con windowSplashScreen*):
+     el logo sobre el musgo de la marca mientras la app abre. Solo dura lo que tarda en cargar. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/alerce_musgo" />
+    <item android:width="96dp" android:height="121dp" android:gravity="center"
+        android:drawable="@drawable/logo_alerce_claro" />
+</layer-list>

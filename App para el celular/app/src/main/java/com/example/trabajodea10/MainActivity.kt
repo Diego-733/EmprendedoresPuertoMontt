@@ -58,6 +58,9 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // El manifiesto abre con Theme.TrabajoDeA10.Arranque (logo sobre musgo mientras carga);
+        // apenas la actividad existe se vuelve al tema normal, sin esperas añadidas.
+        setTheme(R.style.Theme_TrabajoDeA10)
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("app_diagnostico", Context.MODE_PRIVATE)
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()

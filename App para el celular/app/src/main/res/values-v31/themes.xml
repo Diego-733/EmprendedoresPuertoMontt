@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+: pantalla de arranque nativa del sistema con el logo sobre el musgo de la marca.
+         No agrega espera: desaparece cuando la app dibuja su primera pantalla. -->
+    <style name="Theme.TrabajoDeA10.Arranque">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:windowSplashScreenBackground">@color/alerce_musgo</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:statusBarColor">@color/alerce_musgo</item>
+        <item name="android:navigationBarColor">@color/alerce_musgo</item>
+    </style>
+</resources>

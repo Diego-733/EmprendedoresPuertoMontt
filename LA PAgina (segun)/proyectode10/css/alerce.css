@@ -539,3 +539,19 @@ fieldset.guia-paso-actual { border-color: var(--musgo); }
 /* Imagen que no cargó: recuadro neutro del mismo tamaño. */
 .foto-no-disponible { display: flex; align-items: center; justify-content: center; background: var(--gris-chip, #EAEFEB);
   color: var(--tinta-suave); font-size: 1.5rem; }
+
+/* ---------- Marca: pin de feria junto al nombre ---------- */
+.logo-marca-enlace { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; border-radius: 10px; }
+.logo-marca-enlace:hover .logo-alerce { color: var(--musgo); }
+.logo-textos { display: flex; flex-direction: column; min-width: 0; }
+.logo-simbolo { display: block; height: 44px; width: auto; flex-shrink: 0; }
+.logo-titulo-grupo { display: flex; align-items: baseline; gap: 4px; }
+.pie-marca { align-items: center; gap: 8px; margin-bottom: 6px; }
+.pie-marca .logo-simbolo { height: 36px; }
+@media (max-width: 480px) {
+  /* En el celular, marca y botones caben en una fila (390 px) */
+  .logo-simbolo { height: 32px; }
+  .logo-marca-enlace { gap: 6px; }
+  .encabezado-fila { gap: 8px; }
+  .logo-alerce { letter-spacing: 2px; }
+}

@@ -97,7 +97,8 @@ object AvisosCelular {
         val pendiente = PendingIntent.getActivity(context, avisoId.hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(context, CANAL)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notificacion)   // silueta de un color (el ícono a color se veía como un cuadrado)
+            .setColor(0xFF1F5C46.toInt())
             .setContentTitle(titulo)
             .setContentText(cuerpo)
             .setStyle(NotificationCompat.BigTextStyle().bigText(cuerpo))

@@ -3,14 +3,21 @@ package com.example.trabajodea10.ui.auth
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Login
@@ -28,11 +35,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import com.example.trabajodea10.R
 import com.example.trabajodea10.data.NavegacionAnonima
 import com.example.trabajodea10.data.Rol
 import com.example.trabajodea10.data.SesionManager
@@ -43,6 +54,7 @@ import com.example.trabajodea10.ui.componentes.BotonPrimario
 import com.example.trabajodea10.ui.componentes.BotonSecundario
 import com.example.trabajodea10.ui.navegacion.AccesoApp
 import com.example.trabajodea10.ui.navegacion.ControladorNavegacion
+import com.example.trabajodea10.ui.theme.Musgo
 import com.example.trabajodea10.ui.theme.NegroApple
 import com.example.trabajodea10.ui.theme.RojoAlerce
 import com.example.trabajodea10.ui.theme.TextoSecundario
@@ -84,10 +96,55 @@ fun PantallaAcceso(nav: ControladorNavegacion) {
     }
 }
 
+/**
+ * Contenido centrado en la pantalla que se puede desplazar si no cabe (letra del celular
+ * ampliada o pantallas bajas). Ancho máximo cómodo en tablets.
+ */
+@Composable
+private fun ContenidoCentrado(contenido: @Composable ColumnScope.() -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight)
+                .widthIn(max = 480.dp)
+                .fillMaxWidth()
+                // Más aire abajo que arriba: el grupo queda en el centro óptico (algo sobre el centro geométrico).
+                .padding(start = 28.dp, end = 28.dp, top = 32.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = contenido
+        )
+    }
+}
+
+/**
+ * Marca de Alerce: el pin de feria (calado, deja ver el fondo) sobre el nombre y su bajada.
+ * El logo es decorativo para TalkBack: el nombre «ALERCE» ya lo dice.
+ */
+@Composable
+private fun MarcaAlerce() {
+    Image(
+        painter = painterResource(R.drawable.logo_alerce),
+        contentDescription = null,
+        modifier = Modifier.height(112.dp)
+    )
+    Spacer(Modifier.height(20.dp))
+    Text(
+        "ALERCE", fontSize = 34.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp, color = NegroApple,
+        modifier = Modifier.semantics { heading() }
+    )
+    Spacer(Modifier.height(2.dp))
+    Text("Vitrina de emprendedoras de Alerce", color = TextoSecundario, textAlign = TextAlign.Center)
+}
+
 @Composable
 private fun Cargando(texto: String) {
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        CircularProgressIndicator(color = NegroApple)
+    // Continúa la pantalla de arranque: el mismo logo mientras se lee la configuración.
+    ContenidoCentrado {
+        Image(painter = painterResource(R.drawable.logo_alerce), contentDescription = null, modifier = Modifier.height(88.dp))
+        Spacer(Modifier.height(24.dp))
+        CircularProgressIndicator(color = Musgo)
         Spacer(Modifier.height(12.dp))
         Text(texto, color = TextoSecundario)
     }
@@ -96,14 +153,9 @@ private fun Cargando(texto: String) {
 @Composable
 private fun Invitacion(nav: ControladorNavegacion, obligar: Boolean) {
     val contexto = LocalContext.current
-    Column(
-        Modifier.fillMaxSize().padding(28.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("ALERCE", fontSize = 34.sp, fontWeight = FontWeight.Black, color = NegroApple)
-        Text("Vitrina de emprendedoras de Alerce", color = TextoSecundario)
-        Spacer(Modifier.height(28.dp))
+    ContenidoCentrado {
+        MarcaAlerce()
+        Spacer(Modifier.height(36.dp))
         Text(
             if (obligar) "Para usar la app, ingresa con tu cuenta de Google."
             else "Ingresa con Google para guardar tus datos y escribir a las tiendas más rápido.",
@@ -138,14 +190,9 @@ private fun Invitacion(nav: ControladorNavegacion, obligar: Boolean) {
 /** Entrega 8 (RF-ACC-05): con la navegación sin cuenta permitida, elegir entre comprar o vender. */
 @Composable
 private fun EleccionDeModo(nav: ControladorNavegacion) {
-    Column(
-        Modifier.fillMaxSize().padding(28.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("ALERCE", fontSize = 34.sp, fontWeight = FontWeight.Black, color = NegroApple)
-        Text("Vitrina de emprendedoras de Alerce", color = TextoSecundario)
-        Spacer(Modifier.height(28.dp))
+    ContenidoCentrado {
+        MarcaAlerce()
+        Spacer(Modifier.height(40.dp))
         Text("¿Cómo quieres usar la app?", style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(20.dp))

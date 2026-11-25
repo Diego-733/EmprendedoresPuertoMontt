@@ -322,7 +322,7 @@
         avisosMostrados[a.id] = true;
         var mostrada = false;
         try {
-          var n = new Notification(a.titulo, { body: a.cuerpo || "", tag: a.id });
+          var n = new Notification(a.titulo, { body: a.cuerpo || "", tag: a.id, icon: "img/icon-192.png" });
           n.onclick = function () {
             ctx.servicio.confirmarAviso(a.id, destino, "ABIERTO");
             window.focus(); if (a.feria_id) window.AlerceVitrina6.abrirFeria(a.feria_id);

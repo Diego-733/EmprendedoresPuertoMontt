@@ -222,6 +222,13 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                     .padding(top = 44.dp, bottom = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Marca: el pin de feria calado sobre el nombre (decorativo para TalkBack).
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(com.example.trabajodea10.R.drawable.logo_alerce),
+                    contentDescription = null,
+                    modifier = Modifier.height(64.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = "ALERCE",

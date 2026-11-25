@@ -15,6 +15,23 @@
   <meta name="color-scheme" content="only light">
   <meta name="theme-color" content="#1F5C46">
   <title>ALERCE · Vitrina y Marketplace de Emprendedores de Puerto Montt</title>
+  <!-- Marca: favicon (SVG con respaldo PNG), acceso directo en iOS y Android, y vista previa al compartir -->
+  <meta name="description" content="Compra directo a las emprendedoras de Alerce, Puerto Montt: productos con precio, tiendas, ferias y pedidos por WhatsApp.">
+  <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="application-name" content="Alerce">
+  <meta name="apple-mobile-web-app-title" content="Alerce">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Alerce">
+  <meta property="og:title" content="Alerce · Emprendedoras de Alerce, Puerto Montt">
+  <meta property="og:description" content="Productos con precio, tiendas, ferias y pedidos por WhatsApp a cada emprendedora.">
+  <meta property="og:image" content="https://diego-733.github.io/EmprendedoresPuertoMontt/img/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:alt" content="Logo de Alerce: un pin de ubicación con un puesto de feria">
+  <meta name="twitter:card" content="summary">
   <!-- Tipografías Sans-Serif y fuentes populares de flyers (Bebas Neue, Montserrat, Playfair, Open Sans, Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,11 +73,17 @@
 
     <div class="contenedor encabezado-fila">
       <div class="logo-marca">
-        <a href="#vitrina" class="logo-titulo-grupo" aria-label="Alerce, ir al inicio">
-          <span class="logo-alerce">ALERCE</span>
-          <span class="punto-rojo" aria-hidden="true"></span>
+        <!-- Marca: pin de feria (SVG calado, sin fondo) junto al nombre; todo el bloque lleva al inicio -->
+        <a href="#vitrina" class="logo-marca-enlace" aria-label="Alerce, ir al inicio">
+          <img class="logo-simbolo" src="img/alerce-simbolo.svg" alt="" width="36" height="45">
+          <span class="logo-textos">
+            <span class="logo-titulo-grupo">
+              <span class="logo-alerce">ALERCE</span>
+              <span class="punto-rojo" aria-hidden="true"></span>
+            </span>
+            <span class="logo-subtitulo" id="saludo-usuario-cabecera">Emprendedoras de Alerce · Puerto Montt</span>
+          </span>
         </a>
-        <span class="logo-subtitulo" id="saludo-usuario-cabecera">Emprendedoras de Alerce · Puerto Montt</span>
       </div>
 
       <!-- Acciones de cuenta. Las herramientas de la emprendedora están en su panel (no se repiten aquí). -->
@@ -604,7 +627,8 @@
   <footer class="pie-pagina">
     <div class="contenedor pie-fila">
       <div>
-        <div class="logo-titulo-grupo">
+        <div class="logo-titulo-grupo pie-marca">
+          <img class="logo-simbolo" src="img/alerce-simbolo-claro.svg" alt="" width="30" height="38">
           <span class="logo-alerce">ALERCE</span>
           <span class="punto-rojo" aria-hidden="true"></span>
         </div>

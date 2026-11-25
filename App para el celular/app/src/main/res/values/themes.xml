@@ -6,4 +6,11 @@
         <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
         <item name="android:windowBackground">@android:color/white</item>
     </style>
+
+    <!-- Arranque: solo mientras la app abre. MainActivity vuelve a Theme.TrabajoDeA10 antes de dibujar. -->
+    <style name="Theme.TrabajoDeA10.Arranque">
+        <item name="android:windowBackground">@drawable/arranque_fondo</item>
+        <item name="android:statusBarColor">@color/alerce_musgo</item>
+        <item name="android:navigationBarColor">@color/alerce_musgo</item>
+    </style>
 </resources>

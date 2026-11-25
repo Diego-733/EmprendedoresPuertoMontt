@@ -17,7 +17,7 @@ if (config.apiKey && config.projectId && config.messagingSenderId && config.appI
   messaging.onBackgroundMessage(function (payload) {
     if (payload.notification) return;
     var d = payload.data || {};
-    self.registration.showNotification(d.titulo || "Aviso de Alerce", { body: d.cuerpo || "", tag: d.aviso_id || undefined, data: d });
+    self.registration.showNotification(d.titulo || "Aviso de Alerce", { body: d.cuerpo || "", tag: d.aviso_id || undefined, data: d, icon: "img/icon-192.png" });
   });
 }
 

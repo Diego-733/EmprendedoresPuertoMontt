@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="t">
+  <title id="t">Alerce Emprende: puesto de feria con un alerce</title>
+  <!-- Alerce Emprende. Concepto: un puesto de feria (toldo a rayas, el signo universal de feria) con un alerce alto detrás.
+       Musgo #1F5C46, blanco cálido #F4F1EA y un acento corteza #8C3B22 (el punto de ALERCE), siempre rodeado de blanco
+       para que también se distinga en escala de grises. La figura cabe en el recorte circular de Android (radio ≈ 341 de 512). -->
+  <rect width="1024" height="1024" fill="#1F5C46"/>
+  <rect x="499" y="400" width="26" height="84" rx="6" fill="#F4F1EA"/>
+  <path fill="#F4F1EA" d="M512 172 C522 190 530 204 534 220 C546 224 553 238 549 251 C562 259 568 278 561 292 C576 302 582 323 573 339 C588 351 592 374 581 390 C594 402 596 423 581 434 L443 434 C428 423 431 404 443 393 C432 377 436 356 451 346 C443 330 449 310 463 301 C456 287 463 269 476 261 C471 247 478 230 490 224 C494 206 502 188 512 172 Z"/>
+  <path fill="#F4F1EA" d="M316 500 L372 500 L347.7 582 A32.9 32.9 0 0 1 282 582 Z"/>
+  <path fill="#8C3B22" d="M372 500 L428 500 L413.4 582 A32.9 32.9 0 0 1 347.7 582 Z"/>
+  <path fill="#F4F1EA" d="M428 500 L484 500 L479.1 582 A32.9 32.9 0 0 1 413.4 582 Z"/>
+  <path fill="#8C3B22" d="M484 500 L540 500 L544.9 582 A32.9 32.9 0 0 1 479.1 582 Z"/>
+  <path fill="#F4F1EA" d="M540 500 L596 500 L610.6 582 A32.9 32.9 0 0 1 544.9 582 Z"/>
+  <path fill="#8C3B22" d="M596 500 L652 500 L676.3 582 A32.9 32.9 0 0 1 610.6 582 Z"/>
+  <path fill="#F4F1EA" d="M652 500 L708 500 L742 582 A32.9 32.9 0 0 1 676.3 582 Z"/>
+  <rect x="296" y="468" width="432" height="40" rx="20" fill="#F4F1EA"/>
+  <rect x="332" y="610" width="40" height="150" rx="8" fill="#F4F1EA"/>
+  <rect x="652" y="610" width="40" height="150" rx="8" fill="#F4F1EA"/>
+  <rect x="306" y="748" width="412" height="58" rx="29" fill="#F4F1EA"/>
+</svg>

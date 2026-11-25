@@ -49,6 +49,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.example.trabajodea10.data.Producto
 import com.example.trabajodea10.data.TramaStore
 import com.example.trabajodea10.data.Variante
@@ -141,39 +144,49 @@ fun PantallaCatalogo(
             )
         }
 
+        // Todo se desplaza junto con la lista: con la letra grande del celular, una cabecera fija
+        // (aviso, «Añadir producto», buscador y filtros) dejaba muy poco espacio para los productos.
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 0.dp, bottom = 96.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+        item(key = "cabecera") { Column {
         // Producto sin terminar (se guardó solo): se puede retomar tras cerrar la app.
         TramaStore.borrador?.let { b ->
-            Row(
+            // Texto arriba y botones debajo: con la letra grande del celular el texto no se parte letra por letra.
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .background(Color(0xFFFFF3E6), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .background(com.example.trabajodea10.ui.theme.EstadoPendFondo, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = (if (b.esNuevo) "Producto sin terminar" else "Cambios sin guardar") + ": «" + b.producto.nombre.ifBlank { "sin nombre" } + "»",
-                    modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold, color = com.example.trabajodea10.ui.theme.EstadoPendTexto,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
-                TextButton(onClick = { nav.irA(Ruta.ProductoDetalle(b.producto.id)) }, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text("Continuar", fontWeight = FontWeight.Bold)
-                }
-                TextButton(onClick = { TramaStore.descartarBorrador(); avisar("Descartado") }, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text("Descartar", color = TextoSecundario)
+                com.example.trabajodea10.ui.componentes.ContenedorChips(modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = { nav.irA(Ruta.ProductoDetalle(b.producto.id)) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Continuar", fontWeight = FontWeight.Bold)
+                    }
+                    TextButton(onClick = { TramaStore.descartarBorrador(); avisar("Descartado") }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Descartar", color = TextoSecundario)
+                    }
                 }
             }
         }
         TramaStore.avisosSync.toList().forEach { aviso ->
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .background(Color(0xFFFDECEC), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .background(com.example.trabajodea10.ui.theme.EstadoAcaboFondo, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text(aviso, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                TextButton(onClick = { TramaStore.descartarAviso(aviso) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Entendido") }
+                Text(aviso, style = MaterialTheme.typography.bodyMedium, color = com.example.trabajodea10.ui.theme.EstadoAcaboTexto, modifier = Modifier.padding(top = 4.dp))
+                TextButton(onClick = { TramaStore.descartarAviso(aviso) }, modifier = Modifier.heightIn(min = 48.dp).align(Alignment.End)) { Text("Entendido") }
             }
         }
         Sincronizador.ultimoProblema?.let { problema ->
@@ -190,7 +203,7 @@ fun PantallaCatalogo(
                     nav.irA(Ruta.ProductoDetalle(id))
                 },
             colors = androidx.compose.material3.CardDefaults.cardColors(
-                containerColor = NegroApple
+                containerColor = com.example.trabajodea10.ui.theme.Musgo
             ),
             shape = RoundedCornerShape(14.dp)
         ) {
@@ -203,7 +216,7 @@ fun PantallaCatalogo(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color(0xFF2E7D5B), RoundedCornerShape(10.dp)),
+                        .background(com.example.trabajodea10.ui.theme.MusgoOscuro, RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("➕", fontSize = 16.sp)
@@ -293,7 +306,7 @@ fun PantallaCatalogo(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Marcaste «${producto.nombre}» como agotado",
+                    text = "«${producto.nombre}» quedó como «Se acabó».",
                     color = Color.White,
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f)
@@ -312,23 +325,20 @@ fun PantallaCatalogo(
             Spacer(modifier = Modifier.height(6.dp))
         }
 
+        } }   // fin de la cabecera desplazable
+
         if (visibles.isEmpty()) {
-            Vacio(
-                titulo = "Sin productos",
-                mensaje = "Crea tu primer producto con el botón «Añadir producto» o cambia el filtro.",
-                icono = { Icon(Icons.Filled.Inventory2, contentDescription = null, tint = TextoSecundario) }
-            )
+            item(key = "vacio") {
+                Vacio(
+                    titulo = "Sin productos",
+                    mensaje = "Crea tu primer producto con el botón «Añadir producto» o cambia el filtro.",
+                    icono = { Icon(Icons.Filled.Inventory2, contentDescription = null, tint = TextoSecundario) }
+                )
+            }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
                 items(visibles, key = { it.id }) { producto ->
                     val elegido = producto.id in seleccion
-                    Tarjeta(onClick = {
+                    Tarjeta(modifier = Modifier.padding(horizontal = 16.dp), onClick = {
                         if (seleccionando) { if (elegido) seleccion.remove(producto.id) else seleccion.add(producto.id) }
                         else nav.irA(Ruta.ProductoDetalle(producto.id))
                     }) {
@@ -385,61 +395,80 @@ fun TarjetaProducto(
 
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Nombre completo (los nombres largos no se cortan con «…»).
                 Text(
                     text = producto.nombre.ifBlank { "Producto sin nombre" },
                     modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
+                    fontWeight = FontWeight.SemiBold
                 )
                 IconButton(
                     onClick = { TramaStore.toggleDestacado(producto.id) },
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = if (producto.destacado) Icons.Filled.Star else Icons.Filled.StarBorder,
-                        contentDescription = "Destacar",
+                        contentDescription = if (producto.destacado) "Quitar de destacados" else "Destacar en mi tienda",
                         tint = if (producto.destacado) NaranjaAlerta else TextoSecundario,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                ChipEstado(
-                    texto = producto.categoria.etiqueta,
-                    color = ColorEstado(SuperficieVariante, TextoSecundario)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                val estadoPublico = com.example.trabajodea10.data.ReglasCatalogo.estadoPublico(producto)
-                ChipEstado(texto = if (!producto.disponible) "No disponible" else estadoPublico.etiqueta, color = colorEstadoPublico(estadoPublico))
-                Spacer(modifier = Modifier.width(8.dp))
+            com.example.trabajodea10.ui.componentes.ContenedorChips(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = formatearMoneda(producto.precio),
-                    fontWeight = FontWeight.SemiBold,
-                    color = Berenjena
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = com.example.trabajodea10.ui.theme.Corteza
                 )
+                val estadoPublico = com.example.trabajodea10.data.ReglasCatalogo.estadoPublico(producto)
+                ChipEstado(texto = if (!producto.disponible) "No disponible" else estadoPublico.etiqueta, color = colorEstadoPublico(estadoPublico))
+                ChipEstado(texto = producto.categoria.etiqueta, color = ColorEstado(SuperficieVariante, TextoSecundario))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+
+            // «Cuántos tengo»: se cambia aquí mismo, sin entrar al producto (una mano, en la feria).
+            val unaOpcion = producto.variantes.singleOrNull()
+            val conConteo = producto.manejaStock && producto.vendidaEn == null &&
+                producto.modalidad == com.example.trabajodea10.data.Modalidad.REGULAR
+            if (conConteo && unaOpcion != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = if (unaOpcion.stock == 0) "Se acabó" else "Cuántos tengo",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (unaOpcion.stock == 0) com.example.trabajodea10.ui.theme.EstadoAcaboTexto else NegroApple,
+                        modifier = Modifier.weight(1f)
+                    )
+                    com.example.trabajodea10.ui.componentes.ContadorCantidad(
+                        cantidad = unaOpcion.stock,
+                        maximo = 9999,
+                        onCambio = { TramaStore.cambiarCuantosQuedan(producto.id, unaOpcion.id, it) }
+                    )
+                }
+            } else {
                 Text(
                     text = when {
-                        producto.modalidad == com.example.trabajodea10.data.Modalidad.A_PEDIDO -> "A pedido"
+                        producto.modalidad == com.example.trabajodea10.data.Modalidad.A_PEDIDO -> "A pedido (sin conteo)"
                         producto.vendidaEn != null -> "Pieza única vendida"
-                        !producto.manejaStock -> "Sin conteo"
-                        producto.agotado -> "Se acabó"
-                        else -> "Quedan ${producto.stockTotal}" + if (producto.variantes.size > 1) " en ${producto.variantes.size} opciones" else ""
+                        !producto.manejaStock -> "Sin conteo de unidades"
+                        producto.agotado -> "Se acabó en todas sus opciones"
+                        else -> "Quedan ${producto.stockTotal} en ${producto.variantes.size} opciones (cámbialas dentro del producto)"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = colorDeStock(producto.stockTotal)
                 )
-                Spacer(modifier = Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = if (producto.publicado) "Lo ven todos" else "Solo yo lo veo",
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = if (producto.publicado) VerdeOk else NaranjaAlerta,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
                 Switch(
                     checked = producto.publicado,
                     onCheckedChange = {
@@ -453,7 +482,8 @@ fun TarjetaProducto(
                         checkedTrackColor = Berenjena,
                         uncheckedTrackColor = SuperficieVariante,
                         uncheckedBorderColor = com.example.trabajodea10.ui.theme.LineaSuave
-                    )
+                    ),
+                    modifier = Modifier.semantics { contentDescription = "Mostrar «" + producto.nombre + "» en mi tienda" }
                 )
             }
             if (!producto.agotado) {
@@ -464,23 +494,54 @@ fun TarjetaProducto(
                 ) {
                     OutlinedButton(
                         onClick = onSeAcabo,
-                        modifier = Modifier.heightIn(min = 48.dp),
+                        modifier = Modifier.heightIn(min = 48.dp).weight(1f),
                         shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, com.example.trabajodea10.ui.theme.EstadoAcaboTexto),
                         contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
-                        Text("Se acabó", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NegroApple)
+                        Text("Se acabó", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = com.example.trabajodea10.ui.theme.EstadoAcaboTexto)
                     }
                     if (producto.vendidaEn == null) {
                         TextButton(
                             onClick = onVender,
-                            modifier = Modifier.heightIn(min = 48.dp),
+                            modifier = Modifier.heightIn(min = 48.dp).weight(1f),
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Text("Agregar a la venta", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Agregar a la venta", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
             }
+            // Si el último cambio ya llegó al servidor o quedó pendiente por falta de señal (con palabras).
+            EstadoGuardadoProducto(producto.id)
         }
     }
 }
+
+/** «Guardado», «Subiendo…», «Pendiente» o «Solo en este celular», con su explicación corta. */
+@Composable
+fun EstadoGuardadoProducto(productoId: String) {
+    val estado = Sincronizador.estadoDeProducto(productoId)
+    val colores = when (estado) {
+        com.example.trabajodea10.data.remoto.EstadoGuardado.GUARDADO -> com.example.trabajodea10.ui.theme.EstadoOkFondo to com.example.trabajodea10.ui.theme.EstadoOkTexto
+        com.example.trabajodea10.data.remoto.EstadoGuardado.SUBIENDO -> com.example.trabajodea10.ui.theme.EstadoPedidoFondo to com.example.trabajodea10.ui.theme.EstadoPedidoTexto
+        com.example.trabajodea10.data.remoto.EstadoGuardado.PENDIENTE -> com.example.trabajodea10.ui.theme.EstadoPendFondo to com.example.trabajodea10.ui.theme.EstadoPendTexto
+        com.example.trabajodea10.data.remoto.EstadoGuardado.SOLO_EN_EL_CELULAR -> SuperficieVariante to TextoSecundario
+    }
+    Row(
+        modifier = Modifier
+            .padding(top = 6.dp)
+            .background(colores.first, RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .semantics(mergeDescendants = true) { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = (if (estado == com.example.trabajodea10.data.remoto.EstadoGuardado.GUARDADO) "✓ " else "") + estado.etiqueta + ". " + estado.detalle,
+            color = colores.second,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+

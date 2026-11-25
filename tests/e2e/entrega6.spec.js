@@ -96,7 +96,7 @@ test.describe("Entrega 6 · vitrina pública", () => {
     await page.locator("#e6-filtro-asociacion").selectOption("as1");
     await expect(tarjetas).toHaveCount(2);
     await page.locator("#e6-limpiar-filtros").click();
-    await page.locator("#e6-busqueda").fill("tejidos");
+    await page.locator("#campo-busqueda-principal").fill("tejidos");   // un solo buscador (antes había otro en el directorio)
     await expect(tarjetas).toHaveCount(1);
     await page.locator("#e6-limpiar-filtros").click();
     await expect(tarjetas).toHaveCount(3);
@@ -172,7 +172,7 @@ test.describe("Entrega 6 · vitrina pública", () => {
     await page.goto(ORIGEN + "/");
     const ferias = page.locator("#grilla-ferias-container .tarjeta-feria-editorial");
     await expect(ferias).toHaveCount(1);
-    await ferias.first().locator("button", { hasText: "Ver ficha y mapa" }).click();
+    await ferias.first().locator("button", { hasText: "Ver lugar y quiénes van" }).click();
     await expect(page.locator("#modal-feria")).toHaveClass(/abierto/);
     await expect(page.locator("#mapa-ficha-feria.leaflet-container")).toBeVisible();
     await expect(page.locator("#mapa-ficha-feria .leaflet-marker-icon")).toHaveCount(1);
@@ -195,6 +195,8 @@ test.describe("Entrega 6 · vitrina pública", () => {
     await expect(page.locator("#grilla-tiendas-marketplace .tarjeta-tienda")).toHaveCount(3);
     const m = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, vista: window.innerWidth }));
     expect(m.doc).toBeLessThanOrEqual(m.vista);
+    // En el teléfono los filtros están plegados bajo un texto visible; se abren como lo haría una persona.
+    await page.locator("#filtros-tiendas > summary").click();
     const alto = await page.locator("#e6-filtro-tipo").evaluate((el) => el.getBoundingClientRect().height);
     expect(alto).toBeGreaterThanOrEqual(44);
     await page.locator("#e6-filtro-tipo").selectOption("Artesanía");
@@ -216,6 +218,7 @@ test.describe("Entrega 6 · administración", () => {
   test("W12: elige la navegación anónima y queda guardada al recargar", async ({ page }) => {
     await preparar(page, conAdmin());
     await page.goto(ORIGEN + "/");
+    await page.locator("#tab-btn-admin-app").click();   // la navegación de la app tiene su propia pestaña
     const radios = page.locator('input[name="e6-nav-anonima"]');
     await expect(radios).toHaveCount(3);
     await expect(page.locator('input[name="e6-nav-anonima"][value="PERMITIR"]')).toBeChecked();
@@ -698,6 +701,7 @@ test.describe("Entrega 6 · administración", () => {
   test("asigna una emprendedora a una asociación y aparece como integrante", async ({ page }) => {
     await preparar(page, conAdmin());
     await page.goto(ORIGEN + "/");
+    await page.locator("#tab-btn-admin-asoc6").click();   // las asociaciones tienen su propia pestaña
     const fila = page.locator("#e6-admin-lista-asoc .e6-admin-item", { hasText: "Manos del Sur" });
     await expect(fila).toContainText("2 integrantes");
     await fila.locator("select").selectOption("t_barber");

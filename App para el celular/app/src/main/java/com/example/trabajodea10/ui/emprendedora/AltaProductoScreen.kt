@@ -267,7 +267,7 @@ fun PantallaProductoDetalle(
     ) {
         BarraSuperior(
             titulo = if (esNuevo) "Nuevo producto" else "Editar producto",
-            subtitulo = "Se guarda solo en tu celular",
+            subtitulo = "Tu avance queda en este celular mientras editas",
             onVolver = { nav.volver() },
             acciones = {
                 Box {
@@ -285,6 +285,8 @@ fun PantallaProductoDetalle(
             }
         )
         IndicadorPasos(paso = paso, onIrA = { destino -> if (destino < paso) { mostrarErrores = false; paso = destino } })
+        // Producto ya guardado: si su último cambio llegó al servidor o quedó pendiente por falta de señal.
+        if (!esNuevo) Box(modifier = Modifier.padding(horizontal = 16.dp)) { EstadoGuardadoProducto(productoId) }
 
         Column(
             modifier = Modifier

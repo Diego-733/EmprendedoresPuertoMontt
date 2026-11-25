@@ -15,6 +15,8 @@ Si olvidaste la contraseña, toca **«¿Olvidaste tu contraseña?»** y abre el 
 
 Abajo tienes cinco botones: **Inicio · Productos · Venta · Ferias · Tienda**.
 
+En **Inicio** ves primero las invitaciones a ferias que esperan tu respuesta y dos botones grandes: **«Registrar una venta»** y **«Mis productos»**. En «Mis productos», cada producto tiene **«Cuántos tengo»** (− y +) y **«Se acabó»**; debajo dice si el cambio ya está **Guardado** en el servidor o quedó **Pendiente** porque no había señal (se sube solo al volver).
+
 ## 2. Tu tienda
 
 1. Toca **Tienda**. Cambia el nombre, la descripción, el logo, el tipo de emprendimiento, el sector o el contacto.

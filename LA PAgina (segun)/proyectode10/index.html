@@ -15,12 +15,14 @@
   <!-- Tipografías Sans-Serif y fuentes populares de flyers (Bebas Neue, Montserrat, Playfair, Open Sans, Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600&display=swap" rel="stylesheet">
   <!-- Mapas (Entrega 6, RF-MAP): Leaflet + OpenStreetMap, sin clave de API -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="css/vitrina6.css?v=20261119_e7">
   <link rel="stylesheet" href="css/ferias7.css?v=20261119_e7">
+  <!-- Identidad Alerce (paleta, tipografía y distribución móvil primero). Va al final: ordena lo anterior. -->
+  <link rel="stylesheet" href="css/alerce.css?v=20261125">
 </head>
 <body>
 
@@ -31,122 +33,75 @@
        CABECERA EDITORIAL (FARFETCH / APPLE STYLE)
        ============================================================ -->
   <header class="encabezado">
-    
-    <!-- Barra superior de sincronización y accesibilidad -->
+
+    <!-- Estado de la conexión y tamaño de letra: arriba, compacto -->
     <div class="barra-superior-info">
       <div class="contenedor barra-superior-flex">
         <div class="info-status">
           <span class="punto-verde" id="punto-estado-sincronizacion" aria-hidden="true"></span>
           <span id="texto-estado-sincronizacion" aria-live="polite">Conectando…</span>
         </div>
-        <div class="controles-accesibilidad">
-          <span>Accesibilidad:</span>
-          <button type="button" class="btn-acc-mini" id="btn-tamano-normal" title="Tamaño normal">A</button>
-          <button type="button" class="btn-acc-mini" id="btn-tamano-grande" title="Tamaño grande">A+</button>
-          <button type="button" class="btn-acc-mini" id="btn-tamano-muy-grande" title="Tamaño muy grande">A++</button>
-          <span>|</span>
-          <button type="button" class="btn-acc-mini" id="btn-alto-contraste" aria-pressed="false">Alto Contraste</button>
+        <div class="controles-accesibilidad" role="group" aria-label="Tamaño de letra y contraste">
+          <span class="acc-etiqueta">Letra</span>
+          <button type="button" class="btn-acc-mini" id="btn-tamano-normal" aria-label="Letra normal">A</button>
+          <button type="button" class="btn-acc-mini" id="btn-tamano-grande" aria-label="Letra grande">A+</button>
+          <button type="button" class="btn-acc-mini" id="btn-tamano-muy-grande" aria-label="Letra muy grande">A++</button>
+          <button type="button" class="btn-acc-mini" id="btn-alto-contraste" aria-pressed="false">Contraste</button>
         </div>
       </div>
     </div>
 
-    <!-- Fila principal de la cabecera -->
     <div class="contenedor encabezado-fila">
       <div class="logo-marca">
-        <a href="#vitrina" class="logo-titulo-grupo" aria-label="Alerce Trama Inicio">
+        <a href="#vitrina" class="logo-titulo-grupo" aria-label="Alerce, ir al inicio">
           <span class="logo-alerce">ALERCE</span>
-          <span class="punto-rojo"></span>
+          <span class="punto-rojo" aria-hidden="true"></span>
         </a>
-        <span class="logo-subtitulo" id="saludo-usuario-cabecera">Vitrina Comercial de Alerce · Puerto Montt</span>
+        <span class="logo-subtitulo" id="saludo-usuario-cabecera">Emprendedoras de Alerce · Puerto Montt</span>
       </div>
 
-      <!-- Buscador tipo Apple / Pinterest -->
-      <div class="buscador-central" role="search">
-        <span class="icono-lupa" aria-hidden="true">🔍</span>
-        <input type="search"
-               id="campo-busqueda-principal"
-               class="input-buscador-pill"
-               placeholder="Buscar barberías, panaderías, artesanía, repostería..."
-               autocomplete="off"
-               aria-label="Buscar en la vitrina">
-      </div>
-
-      <!-- Acciones de cabecera: Carrito, POS, Descarga y Usuario -->
+      <!-- Acciones de cuenta. Las herramientas de la emprendedora están en su panel (no se repiten aquí). -->
       <div class="header-acciones">
-        <!-- Descarga directa APK Android -->
-        <a href="https://github.com/Diego-733/EmprendedoresPuertoMontt/releases/download/apk-1.6-alerce/app-release.apk" download="AlerceEmprende.apk" class="btn-accion-pill" id="btn-descarga-apk-header" style="text-decoration: none; background: var(--gris-chip); border: 1px solid var(--gris-borde); color: var(--negro-apple); font-weight: 700; height: 36px; padding: 0 11px; gap: 5px;" title="Descargar la app para Android (v1.6)">
-          <span>📱</span>
-          <span>App Android</span>
-        </a>
-
-        <!-- Botón de Invitación para Emprendedores/as (Visible si NO hay sesión activa) -->
         <button type="button" class="btn-accion-pill" id="btn-header-admin-panel-placeholder" style="display:none;"></button>
-        <!-- Botón Panel de Administración Web (Visible para Administrador - W01-W02) -->
-        <button type="button" class="btn-accion-pill" id="btn-header-admin-panel" onclick="TramaWeb.abrirModalAdmin()" style="display: none; background: #1e1e24; color: #fff; border-color: #27272a; font-weight: 700; height: 36px; gap: 5px;" title="Panel de Administración de Plataforma (Canal Web Exclusivo)">
-          <span>👑</span>
-          <span>Panel Admin</span>
+        <button type="button" class="btn-accion-pill btn-cabecera-admin" id="btn-header-admin-panel" onclick="TramaWeb.abrirModalAdmin()" style="display: none;">
+          <span>Administración</span>
         </button>
 
         <!-- Entrega 7: avisos de la cuenta (visible con sesión) -->
-        <button type="button" class="btn-accion-pill e7-boton-avisos" id="e7-boton-avisos" style="display: none; height: 36px;" aria-label="Mis avisos" title="Mis avisos: consentimiento, lo que sigues y últimos avisos">
-          <span aria-hidden="true">🔔</span><span>Avisos</span><span id="e7-insignia-avisos" class="e7-insignia" style="display:none;"></span>
+        <button type="button" class="btn-accion-pill e7-boton-avisos" id="e7-boton-avisos" style="display: none;" aria-label="Mis avisos" title="Mis avisos: consentimiento, lo que sigues y últimos avisos">
+          <span aria-hidden="true">🔔</span><span class="texto-boton-cabecera">Avisos</span><span id="e7-insignia-avisos" class="e7-insignia" style="display:none;"></span>
         </button>
 
-        <button type="button" class="btn-accion-pill" id="btn-header-acceso-emp" onclick="TramaWeb.abrirModalRegistroEmprendedor()" style="padding: 0 11px; font-weight: 700; height: 36px; gap: 5px; border-color: var(--gris-borde);" title="Acceso para Emprendedores/as de Alerce">
-          <span>🏪</span>
-          <span>¿Eres Emprendedor/a?</span>
-        </button>
-
-        <!-- Botón Catálogo y Stock (Visible SOLO para Emprendedoras con sesión iniciada) -->
-        <button type="button" class="btn-accion-pill" id="btn-abrir-catalogo-nav" onclick="TramaWeb.abrirModalGestionCatalogo()" style="display: none; padding: 0 11px; font-weight: 700; height: 36px; gap: 5px; border-color: var(--gris-borde);" title="Gestionar catálogo y stock (CatalogoScreen)">
-          <span>📦</span>
-          <span>Mi Catálogo</span>
-        </button>
-
-        <!-- Botón Punto de Venta / POS (Visible SOLO para Emprendedoras con sesión iniciada) -->
-        <button type="button" class="btn-accion-pill" id="btn-abrir-pos-nav" onclick="TramaWeb.abrirModalPOS()" style="display: none; padding: 0 11px; font-weight: 700; height: 36px; gap: 5px; border-color: var(--gris-borde);" title="Caja rápida y registro de ventas (POS)">
-          <span>🏷️</span>
-          <span>Caja POS</span>
-        </button>
-
-        <!-- Botón de Añadir Producto (Visible SOLO para Emprendedoras con sesión iniciada) -->
-        <button type="button" class="btn-accion-pill btn-negro" id="btn-abrir-publicar-nav" onclick="TramaWeb.abrirModalPublicarProducto()" style="display: none; padding: 0 12px; font-weight: 700; height: 36px;" title="Publicar producto estilo Facebook Marketplace">
-          <span>➕</span>
-          <span>Añadir Producto</span>
-        </button>
-
-        <!-- Botón de Carrito con Contador Dinámico -->
-        <button type="button" class="btn-carrito-pill" id="btn-abrir-carrito" aria-label="Abrir carrito de compras">
-          <span>🛒</span>
-          <span>Carrito</span>
+        <!-- Pedido (carrito): cada tienda recibe su parte por WhatsApp -->
+        <button type="button" class="btn-carrito-pill" id="btn-abrir-carrito" aria-label="Abrir mi pedido">
+          <span aria-hidden="true">🧺</span>
+          <span>Mi pedido</span>
           <span class="contador-carrito" id="contador-carrito-badge">0</span>
         </button>
 
-        <!-- Indicador de Usuario y Cierre de Sesión -->
-        <div id="contenedor-usuario-header" style="display: inline-flex; align-items: center; gap: 8px;">
-          <div id="btn-mi-perfil-header" onclick="TramaWeb.gestionarClickUsuarioHeader()" style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 999px; transition: background .15s ease;" title="Ver mi perfil / Iniciar sesión">
-            <div id="avatar-usuario-header" style="display: none; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: #e2e8f0; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #1e293b; border: 1.5px solid #cbd5e1; flex-shrink: 0;">
-              <img id="avatar-img-usuario" src="" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; display: none;">
-              <span id="avatar-iniciales-usuario" style="display: inline-block;">U</span>
-            </div>
-            <span class="tag-usuario" id="tag-nombre-usuario">Inicio de Sesión / Registro</span>
-          </div>
-        
-          <button type="button" class="btn-circular" id="btn-logout" onclick="TramaWeb.cerrarSesionWeb()" title="Cerrar sesión" aria-label="Cerrar sesión" style="display: none;">
-            🚪
+        <div id="contenedor-usuario-header" class="usuario-cabecera">
+          <button type="button" id="btn-mi-perfil-header" class="btn-usuario-cabecera" onclick="TramaWeb.gestionarClickUsuarioHeader()">
+            <span id="avatar-usuario-header" class="avatar-cabecera" style="display: none;" aria-hidden="true">
+              <img id="avatar-img-usuario" src="" alt="" style="display: none;">
+              <span id="avatar-iniciales-usuario">U</span>
+            </span>
+            <span class="tag-usuario" id="tag-nombre-usuario">Entrar</span>
+          </button>
+          <button type="button" class="btn-accion-pill btn-salir-cabecera" id="btn-logout" onclick="TramaWeb.cerrarSesionWeb()" style="display: none;">
+            Salir
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Pestañas de navegación de secciones -->
-    <nav class="navegacion-principal" aria-label="Navegación principal">
+    <!-- Secciones de la página -->
+    <nav class="navegacion-principal" aria-label="Secciones">
       <ul class="contenedor menu-navegacion">
-        <li><a href="#vitrina" class="enlace-seccion activo" data-nav="vitrina">Vitrina y Tiendas</a></li>
-        <li><a href="#ferias" class="enlace-seccion" data-nav="ferias">Próximas Ferias</a></li>
-        <li><a href="#directorio" class="enlace-seccion" data-nav="directorio">Directorio y Asociaciones</a></li>
-        <li><a href="#ayuda" class="enlace-seccion" data-nav="ayuda">Ayuda y Contacto</a></li>
-        <li id="item-nav-admin" style="display: none;"><a href="#admin-dashboard" class="enlace-seccion" id="link-nav-admin" data-nav="admin-dashboard" style="color: #1e40af; font-weight: 800; background: #eff6ff; border-radius: 6px; padding: 6px 14px; border: 1px solid #bfdbfe;">🛡️ Panel Admin</a></li>
+        <li><a href="#vitrina" class="enlace-seccion activo" data-nav="vitrina">Productos y tiendas</a></li>
+        <li><a href="#ferias" class="enlace-seccion" data-nav="ferias">Ferias</a></li>
+        <li><a href="#titulo-tiendas" class="enlace-seccion" data-nav="asociaciones" onclick="if (window.AlerceVitrina6) AlerceVitrina6.verDirectorio('asociaciones');">Asociaciones</a></li>
+        <li><a href="#ayuda" class="enlace-seccion" data-nav="ayuda">Ayuda</a></li>
+        <li id="item-nav-admin" style="display: none;"><a href="#admin-dashboard" class="enlace-seccion enlace-admin" id="link-nav-admin" data-nav="admin-dashboard">Administración</a></li>
       </ul>
     </nav>
   </header>
@@ -168,180 +123,136 @@
     <!-- ============================================================
          SECCIÓN 1: VITRINA Y MARKETPLACE DE TIENDAS
          ============================================================ -->
-    <section id="vitrina" class="seccion-hero" aria-labelledby="titulo-vitrina">
-      
-      
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <a href="https://github.com/Diego-733/EmprendedoresPuertoMontt/releases/download/apk-1.6-alerce/app-release.apk" download="AlerceEmprende.apk" class="btn-accion-pill" style="background: var(--rojo-alerce); color: #fff; border: none; font-weight: 800; height: 40px; padding: 0 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);">
-            <span>📥</span>
-            <span>Descargar app Android (v1.6)</span>
-          </a>
-        </div>
-      </div>
+    <section id="vitrina" class="seccion-hero" aria-labelledby="portada-titulo">
 
-      <!-- Banner de Invitación para Emprendedoras (Visible si NO hay sesión activa) -->
-      <aside class="banner-invitacion-emprendedora" id="banner-invitacion-emprendedora" style="background: #fafafa; border: 1px dashed var(--gris-borde); border-radius: 16px; padding: 14px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 26px;">🏪</span>
+      <!-- Panel de la emprendedora (solo con su sesión): lo primero que ve al entrar -->
+      <aside class="panel-emprendedora" id="banner-emprendedoras-cta" style="display: none;" aria-labelledby="dashboard-emp-saludo">
+        <div class="panel-emp-cabecera">
           <div>
-            <strong style="font-size: 13.5px; color: var(--negro-apple); display: block;">¿Tienes un negocio o emprendimiento en Alerce?</strong>
-            <span style="font-size: 12px; color: var(--gris-texto);">Gestiona tu catálogo, cobra con Caja POS, diseña afiches comerciales e inscríbete en ferias comunales.</span>
+            <p class="panel-emp-tienda" id="dashboard-emp-tienda-badge">Tu tienda</p>
+            <h2 class="panel-emp-saludo" id="dashboard-emp-saludo">Hola</h2>
+            <p class="panel-emp-sub" id="dashboard-emp-subtitulo"></p>
           </div>
         </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="button" class="btn-accion-pill" style="height: 38px; font-size: 12px; padding: 0 14px; background: #ffffff;" onclick="TramaWeb.abrirModalAuthEmprendedora()">
-            Acceso con otra cuenta
+
+        <!-- Invitaciones a ferias que esperan respuesta (se llena desde el servidor) -->
+        <div class="aviso-estado aviso-pendiente" id="panel-emp-invitaciones" role="status" style="display: none;">
+          <span id="panel-emp-invitaciones-texto">Tienes invitaciones por responder</span>
+          <button type="button" class="btn-accion-pill btn-secundario" onclick="TramaWeb.abrirModalMisFerias()">Responder</button>
+        </div>
+
+        <!-- Lo que más se hace: vender y ver los productos -->
+        <div class="panel-emp-acciones">
+          <button type="button" class="accion-grande accion-principal" id="btn-abrir-pos-nav" onclick="TramaWeb.abrirModalPOS()" style="display: none;">
+            <span class="accion-icono" aria-hidden="true">🧾</span>
+            <span><strong>Registrar una venta</strong><small>Descuenta lo que vendiste</small></span>
+          </button>
+          <button type="button" class="accion-grande" id="btn-abrir-catalogo-nav" onclick="TramaWeb.abrirModalGestionCatalogo()" style="display: none;">
+            <span class="accion-icono" aria-hidden="true">📦</span>
+            <span><strong>Mis productos</strong><small>Cuántos tengo, Se acabó, quién los ve</small></span>
+          </button>
+          <button type="button" class="accion-grande" id="btn-abrir-publicar-nav" onclick="TramaWeb.abrirModalPublicarProducto()" style="display: none;">
+            <span class="accion-icono" aria-hidden="true">➕</span>
+            <span><strong>Añadir producto</strong><small>Foto, precio y cuántos tienes</small></span>
           </button>
         </div>
+
+        <div class="aviso-estado aviso-pocos" id="dashboard-alerta-stock">
+          <span id="texto-alerta-stock">Revisando tus productos…</span>
+          <button type="button" class="btn-accion-pill btn-secundario" onclick="TramaWeb.abrirModalGestionCatalogo()">Ver mis productos</button>
+        </div>
+
+        <details class="panel-emp-mas">
+          <summary>Más herramientas y resumen del mes</summary>
+          <div class="panel-emp-metricas">
+            <div class="metrica"><span>Ventas del mes</span><strong id="metrica-ventas-mes">—</strong></div>
+            <div class="metrica"><span>Productos a la vista</span><strong id="metrica-prods-activos">—</strong></div>
+            <div class="metrica"><span>Unidades disponibles</span><strong id="metrica-stock-total">—</strong></div>
+            <div class="metrica"><span>Seguidores</span><strong id="metrica-seguidores">—</strong><small id="metrica-sub-seguidores"></small></div>
+          </div>
+          <p class="panel-emp-feria"><span id="texto-proxima-feria">Ferias</span></p>
+          <div class="panel-emp-secundarias">
+            <button type="button" class="btn-accion-pill" onclick="TramaWeb.abrirModalMisFerias()">📅 Mis ferias</button>
+            <button type="button" class="btn-accion-pill" onclick="TramaWeb.abrirModalEditarTienda()">🏪 Mi tienda: datos y contacto</button>
+            <button type="button" class="btn-accion-pill" onclick="TramaWeb.abrirQRTiendaActual()">📱 Código QR y enlace de mi tienda</button>
+            <button type="button" class="btn-accion-pill" onclick="TramaWeb.abrirModalEstudioFlyer()">🎨 Hacer un afiche</button>
+          </div>
+        </details>
       </aside>
 
-      <!-- Panel de Control y Herramientas para Emprendedoras (Matching DashboardScreen.kt) -->
-      <aside class="banner-emprendedoras-cta" id="banner-emprendedoras-cta" style="display: none; flex-direction: column; gap: 16px;">
-        <!-- Cabecera del Panel con Saludo y Accesos Rápidos -->
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--gris-borde); padding-bottom: 12px;">
-          <div>
-            <div class="badge-emprendedora-pulsante">
-              <span class="punto-verde-latido"></span>
-              <span id="dashboard-emp-tienda-badge">Modo Emprendedor/a Activo</span>
+      <!-- Portada pública: buscar primero; la próxima feria al lado -->
+      <div class="portada" id="portada-publica">
+        <div class="portada-texto">
+          <h1 id="portada-titulo" class="portada-titulo">Compra directo a las emprendedoras de Alerce</h1>
+          <p class="portada-bajada">Pan, tejidos, repostería y servicios del barrio. Tu pedido le llega por WhatsApp a cada tienda.</p>
+          <div class="buscador-portada" role="search">
+            <label for="campo-busqueda-principal" class="buscador-etiqueta">¿Qué buscas?</label>
+            <div class="buscador-campo">
+              <span class="icono-lupa" aria-hidden="true">🔍</span>
+              <input type="search" id="campo-busqueda-principal" class="input-buscador-pill" placeholder="Ej: pan amasado, chal, kuchen" autocomplete="off" enterkeyhint="search">
             </div>
-            <h3 class="banner-emprendedoras-titulo" id="dashboard-emp-saludo">Hola, Emprendedor/a 👋</h3>
-            <p class="banner-emprendedoras-desc" id="dashboard-emp-subtitulo">Panel comercial con todas las funciones de la app Android (Dashboard, Catálogo, POS, Ferias y Tienda).</p>
           </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn-accion-pill" style="height: 34px; font-size: 11.5px;" onclick="TramaWeb.abrirModalEditarTienda()" title="Configuración de la tienda (TiendaScreen)">
-              ⚙️ Mi Tienda
-            </button>
-            <button type="button" class="btn-accion-pill" style="height: 34px; font-size: 11.5px;" onclick="TramaWeb.abrirQRTiendaActual()" title="Código QR de la tienda (TiendaQRScreen)">
-              📱 Mi Código QR
-            </button>
-            <button type="button" class="btn-accion-pill" style="height: 34px; font-size: 11.5px; border-color: #fca5a5; color: #dc2626;" onclick="TramaWeb.cerrarSesionWeb()" title="Cerrar sesión activa">
-              🚪 Salir
-            </button>
-          </div>
+          <div class="portada-atajos" id="portada-atajos" aria-label="Buscar por tipo de tienda"></div>
         </div>
-
-        <!-- 4 Tarjetas de Métricas en Vivo (Matching DashboardScreen.kt) -->
-        <div class="dashboard-metricas-grid">
-          <div class="tarjeta-metrica-editorial">
-            <div class="metrica-icono-circulo" style="background: #ecfdf5; color: #059669;">🏷️</div>
-            <div class="metrica-datos">
-              <span class="metrica-label">Ventas del Mes</span>
-              <strong class="metrica-valor" id="metrica-ventas-mes">$ 148.500</strong>
-              <span class="metrica-sub">Caja POS + Web</span>
-            </div>
-          </div>
-          <div class="tarjeta-metrica-editorial">
-            <div class="metrica-icono-circulo" style="background: #eff6ff; color: #2563eb;">📦</div>
-            <div class="metrica-datos">
-              <span class="metrica-label">Productos Publicados</span>
-              <strong class="metrica-valor" id="metrica-prods-activos">4 activos</strong>
-              <span class="metrica-sub">Visibles en vitrina</span>
-            </div>
-          </div>
-          <div class="tarjeta-metrica-editorial">
-            <div class="metrica-icono-circulo" style="background: #fff7ed; color: #ea580c;">📊</div>
-            <div class="metrica-datos">
-              <span class="metrica-label">Stock Total</span>
-              <strong class="metrica-valor" id="metrica-stock-total">58 un.</strong>
-              <span class="metrica-sub">Unidades disponibles</span>
-            </div>
-          </div>
-          <div class="tarjeta-metrica-editorial">
-            <div class="metrica-icono-circulo" style="background: #fdf2f8; color: #db2777;">👥</div>
-            <div class="metrica-datos">
-              <span class="metrica-label">Clientes / Vecinos</span>
-              <strong class="metrica-valor" id="metrica-seguidores">34 vecinos</strong>
-              <span class="metrica-sub" id="metrica-sub-seguidores">Alerce Histórico</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Alerta de Stock Bajo y Próxima Feria en Alerce -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; width: 100%;">
-          <div id="dashboard-alerta-stock" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 18px;">⚠️</span>
-              <span style="font-size: 12px; color: #92400e; font-weight: 600;" id="texto-alerta-stock">Miel de Ulmo: Quedan 8 unidades disponibles en stock.</span>
-            </div>
-            <button type="button" class="btn-accion-pill" style="height: 28px; font-size: 11px; padding: 0 10px; background: #ffffff;" onclick="TramaWeb.abrirModalGestionCatalogo()">Ajustar Stock</button>
-          </div>
-
-          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 18px;">🎪</span>
-              <span style="font-size: 12px; color: #166534; font-weight: 600;" id="texto-proxima-feria">Próxima feria: Feria de Emprendedoras del Valle · Estado: Inscrita</span>
-            </div>
-            <button type="button" class="btn-accion-pill" style="height: 28px; font-size: 11px; padding: 0 10px; background: #ffffff;" onclick="TramaWeb.abrirModalMisFerias()">Ver Ferias</button>
-          </div>
-        </div>
-
-        <!-- Barra de Herramientas de la Emprendedora -->
-        <div class="banner-emprendedoras-botones" style="width: 100%; border-top: 1px solid var(--gris-borde); padding-top: 12px;">
-          <button type="button" class="btn-publicar-cta" onclick="TramaWeb.abrirModalPOS()" style="background: #18181b;" title="Punto de Venta POS (PosScreen.kt)">
-            <span style="font-size: 18px;">🏷️</span>
-            <span>Caja Rápida POS</span>
-          </button>
-          <button type="button" class="btn-publicar-cta" onclick="TramaWeb.abrirModalGestionCatalogo()" style="background: #27272a;" title="Gestión de Catálogo y Stock (CatalogoScreen.kt)">
-            <span style="font-size: 18px;">📦</span>
-            <span>Mi Catálogo y Stock</span>
-          </button>
-          <button type="button" class="btn-publicar-cta" onclick="TramaWeb.abrirModalPublicarProducto()" title="Añadir Producto estilo Marketplace">
-            <span style="font-size: 18px;">➕</span>
-            <span>Añadir Producto</span>
-          </button>
-          <button type="button" class="btn-flyer-cta" onclick="TramaWeb.abrirModalEstudioFlyer()" title="Diseño interactivo de afiches publicitarios">
-            <span style="font-size: 18px;">🎨</span>
-            <span>Estudio de Afiches</span>
-          </button>
-          <button type="button" class="btn-flyer-cta" onclick="TramaWeb.abrirModalMisFerias()" title="Mis Ferias Comunales (MisFeriasScreen.kt)">
-            <span style="font-size: 18px;">📅</span>
-            <span>Mis Ferias</span>
-          </button>
-          <button type="button" class="btn-flyer-cta" onclick="TramaWeb.abrirModalEditarTienda()" title="Configuración de Tienda (TiendaScreen.kt)">
-            <span style="font-size: 18px;">⚙️</span>
-            <span>Mi Tienda</span>
-          </button>
-        </div>
-      </aside>
-
-      <!-- Encabezado de la lista -->
-      <h2 id="titulo-vitrina" class="titulo-seccion-editorial">
-        <span>Tiendas y Emprendimientos de Alerce</span>
-      </h2>
-      <p class="subtitulo-seccion" id="subtitulo-conteo-tiendas">Explora las vitrinas, haz consultas en el muro comunitario o pide directo por WhatsApp y Carrito.</p>
-
-      <!-- Entrega 6 (RF-CMP-01): directorio de emprendedoras y asociaciones con búsqueda y filtros -->
-      <div class="e6-directorio-tabs" role="tablist" aria-label="Directorio">
-        <button type="button" class="e6-tab activo" role="tab" aria-selected="true" id="e6-tab-emprendedoras" onclick="AlerceVitrina6.verDirectorio('emprendedoras')">👩‍🌾 Emprendedoras</button>
-        <button type="button" class="e6-tab" role="tab" aria-selected="false" id="e6-tab-asociaciones" onclick="AlerceVitrina6.verDirectorio('asociaciones')">🤝 Asociaciones</button>
+        <aside class="portada-feria" id="portada-proxima-feria" aria-label="Próxima feria">
+          <p class="portada-feria-cargando">Buscando la próxima feria…</p>
+        </aside>
       </div>
-      <div class="e6-filtros" id="e6-filtros" role="search" aria-label="Filtros del directorio">
-        <label class="e6-filtro e6-filtro-busqueda">
-          <span>Buscar</span>
-          <input type="search" id="e6-busqueda" placeholder="Nombre, rubro o sector…" autocomplete="off">
-        </label>
-        <label class="e6-filtro">
-          <span>Tipo de emprendimiento</span>
-          <select id="e6-filtro-tipo"><option value="">Todos</option></select>
-        </label>
-        <label class="e6-filtro">
-          <span>Sector</span>
-          <select id="e6-filtro-sector"><option value="">Todos</option></select>
-        </label>
-        <label class="e6-filtro">
-          <span>Asociación</span>
-          <select id="e6-filtro-asociacion"><option value="">Todas</option></select>
-        </label>
-        <button type="button" class="btn-accion-pill e6-limpiar" id="e6-limpiar-filtros">Limpiar</button>
+
+      <!-- Productos: precio y tienda a la vista; se filtran con el buscador -->
+      <section class="bloque-productos" aria-labelledby="titulo-productos">
+        <div class="bloque-encabezado">
+          <h2 id="titulo-productos" class="titulo-seccion-editorial"><span>Productos</span></h2>
+          <p class="subtitulo-seccion" id="subtitulo-productos" role="status">Cargando productos…</p>
+        </div>
+        <div class="grilla-productos" id="grilla-productos-portada" aria-live="polite"></div>
+        <button type="button" class="btn-accion-pill btn-ver-mas" id="btn-ver-mas-productos" style="display: none;">Ver todos los productos</button>
+      </section>
+
+      <!-- Tiendas y asociaciones (directorio con filtros, Entrega 6 RF-CMP-01) -->
+      <h2 id="titulo-tiendas" class="titulo-seccion-editorial"><span id="titulo-vitrina">Tiendas</span></h2>
+      <p class="subtitulo-seccion" id="subtitulo-conteo-tiendas">Cargando tiendas…</p>
+
+      <div class="e6-directorio-tabs" role="tablist" aria-label="Ver tiendas o asociaciones">
+        <button type="button" class="e6-tab activo" role="tab" aria-selected="true" id="e6-tab-emprendedoras" onclick="AlerceVitrina6.verDirectorio('emprendedoras')">Tiendas</button>
+        <button type="button" class="e6-tab" role="tab" aria-selected="false" id="e6-tab-asociaciones" onclick="AlerceVitrina6.verDirectorio('asociaciones')">Asociaciones</button>
       </div>
+      <details class="filtros-plegables" id="filtros-tiendas">
+        <summary>Filtrar por tipo, sector o asociación</summary>
+        <div class="e6-filtros" id="e6-filtros" role="group" aria-label="Filtros de tiendas">
+          <label class="e6-filtro">
+            <span>Tipo de emprendimiento</span>
+            <select id="e6-filtro-tipo"><option value="">Todos</option></select>
+          </label>
+          <label class="e6-filtro">
+            <span>Sector</span>
+            <select id="e6-filtro-sector"><option value="">Todos</option></select>
+          </label>
+          <label class="e6-filtro">
+            <span>Asociación</span>
+            <select id="e6-filtro-asociacion"><option value="">Todas</option></select>
+          </label>
+          <button type="button" class="btn-accion-pill e6-limpiar" id="e6-limpiar-filtros">Quitar filtros</button>
+        </div>
+      </details>
       <div id="e6-lista-asociaciones-directorio" class="grilla-tarjetas" style="display:none;" aria-live="polite"></div>
 
-      <!-- Grilla de Tarjetas de Tiendas (Renderizado dinámico con JS) -->
       <div id="estado-datos-vitrina" class="estado-datos" role="status" style="display: none;"></div>
-      <div class="grilla-tarjetas" id="grilla-tiendas-marketplace" role="region" aria-live="polite">
-        <!-- Renderizado dinámico desde main.js -->
-      </div>
-      <p id="aviso-sin-tiendas" class="subtitulo-seccion" style="display:none; text-align:center; padding: 40px 0;">No encontramos tiendas que coincidan con la búsqueda.</p>
+      <div class="grilla-tarjetas" id="grilla-tiendas-marketplace" role="region" aria-label="Tiendas" aria-live="polite"></div>
+      <p id="aviso-sin-tiendas" class="subtitulo-seccion aviso-vacio" style="display:none;">No encontramos tiendas que coincidan con la búsqueda.</p>
+
+      <!-- Para quien vende: entrar o crear su tienda; la app Android va aquí, no arriba -->
+      <aside class="franja-vender" id="banner-invitacion-emprendedora" aria-labelledby="titulo-franja-vender">
+        <div>
+          <h2 id="titulo-franja-vender">¿Vendes en Alerce?</h2>
+          <p>Con tu tienda en Alerce registras ventas, marcas «Se acabó» desde la feria y compartes tu enlace por WhatsApp.</p>
+        </div>
+        <div class="franja-vender-acciones">
+          <button type="button" class="btn-accion-pill btn-negro" id="btn-header-acceso-emp" onclick="TramaWeb.abrirModalRegistroEmprendedor()">Crear mi tienda</button>
+          <button type="button" class="btn-accion-pill" onclick="TramaWeb.abrirModalAuthEmprendedora()">Ya tengo cuenta: entrar</button>
+          <a href="https://github.com/Diego-733/EmprendedoresPuertoMontt/releases/download/apk-1.6-alerce/app-release.apk" download="AlerceEmprende.apk" class="btn-accion-pill" id="btn-descarga-apk-header">📱 Descargar la app Android (v1.6)</a>
+        </div>
+      </aside>
     </section>
 
     <!-- ============================================================
@@ -359,19 +270,6 @@
       </div>
     </section>
 
-    <!-- ============================================================
-         SECCIÓN 3: DIRECTORIO DE ASOCIACIONES
-         ============================================================ -->
-    <section id="directorio" class="seccion-ferias" aria-labelledby="titulo-directorio">
-      <h2 id="titulo-directorio" class="titulo-seccion-editorial">
-        <span>🤝 Asociaciones y Redes de Emprendimiento</span>
-      </h2>
-      <p class="subtitulo-seccion">Agrupaciones de Puerto Montt que colaboran y fomentan el comercio local.</p>
-
-      <div class="grilla-tarjetas" id="grilla-asociaciones-container">
-        <!-- Renderizado dinámico de asociaciones -->
-      </div>
-    </section>
 
     <!-- ============================================================
          SECCIÓN 4: CONTACTO Y AYUDA
@@ -387,7 +285,7 @@
       <div class="tarjeta-tienda" id="ayuda-como-contactar" style="padding: 24px; max-width: 600px;">
         <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 8px;">¿Cómo pido o pregunto por un producto?</h3>
         <p style="font-size: 13.5px; color: var(--gris-texto); margin-bottom: 12px;">
-          Abre la tienda en la vitrina y usa su botón de WhatsApp o «Enviar un mensaje». Tu pedido le llega directo a esa emprendedora. Desde el carrito, cada tienda recibe solo sus productos.
+          Abre la tienda en la vitrina y usa su botón de WhatsApp o «Enviar un mensaje». Tu pedido le llega directo a esa emprendedora. Desde «Mi pedido», cada tienda recibe solo sus productos.
         </p>
         <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 8px;">¿Buscas una feria?</h3>
         <p style="font-size: 13.5px; color: var(--gris-texto); margin-bottom: 16px;">En «Próximas ferias» ves la fecha, el lugar y cómo llegar.</p>
@@ -403,85 +301,47 @@
          SECCIÓN: PANEL DE ADMINISTRACIÓN Y DASHBOARD (W01 a W24, WA3-WA6)
          Pestaña desbloqueada exclusivamente para el Administrador de Plataforma
          ============================================================ -->
-    <section id="admin-dashboard" class="seccion-ferias" style="display: none; padding-top: 32px; margin-top: 32px; border-top: 2px solid #2563eb; background: #f8fafc; border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.04);" aria-labelledby="modal-admin-titulo">
-      <div style="max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column;">
-        
-      
-      <!-- Cabecera del Panel Admin -->
-      <div class="modal-cabecera" style="border-bottom: 1px solid var(--gris-borde); padding-bottom: 14px;">
+    <section id="admin-dashboard" class="panel-admin" style="display: none;" aria-labelledby="modal-admin-titulo">
+      <div class="panel-admin-interior">
+
+      <div class="panel-admin-cabecera">
         <div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="background: #111; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; letter-spacing: 1px;">ADMINISTRACIÓN</span>
-            <span id="badge-admin-usuario" style="font-size: 11.5px; color: #059669; font-weight: 700;">👑 admin@alerce.app</span>
-          </div>
-          <h2 id="modal-admin-titulo" style="font-size: 20px; font-weight: 900; color: var(--negro-apple); margin: 4px 0 0 0;">
-            Administración de Plataforma · Alerce
-          </h2>
-          <p style="font-size: 12px; color: var(--gris-texto); margin: 2px 0 0 0;">
-            Cuentas, asociaciones, ferias, navegación de la app y bitácora de la plataforma.
-          </p>
+          <p class="panel-admin-cuenta" id="badge-admin-usuario">admin@alerce.app</p>
+          <h2 id="modal-admin-titulo" class="panel-admin-titulo">Administración de Alerce</h2>
+          <p class="panel-admin-sub">Elige qué quieres organizar.</p>
         </div>
-        <div style="display: flex; gap: 8px; align-items: center;">
-            <button type="button" class="btn-accion-pill" style="height: 32px; font-size: 11px; padding: 0 12px; background: #ffffff; border: 1px solid var(--gris-borde);" onclick="TramaWeb.cerrarSesionWeb()" title="Cerrar sesión de administrador">
-              🚪 Salir
-            </button>
-            <button type="button" class="btn-accion-pill" style="height: 32px; font-size: 11px; padding: 0 12px; background: #1e40af; color: #fff; border-color: #1e40af;" onclick="document.querySelector('[data-nav=\'vitrina\']').click();" title="Ir a la vitrina">
-              🛍️ Ver Vitrina
-            </button>
-          </div>
-      </div>
-
-      <!-- Barra de Estadísticas Rápidas (KPIs) -->
-      <div id="admin-kpis" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--gris-borde);">
-        <div style="background: #f8fafc; border: 1px solid var(--gris-borde); border-radius: 10px; padding: 10px;">
-          <span style="font-size: 11px; color: var(--gris-texto); display: block;">Emprendedoras</span>
-          <strong id="kpi-admin-total-emp" style="font-size: 18px; font-weight: 900; color: var(--negro-apple);">0</strong>
-        </div>
-        <div style="background: #f8fafc; border: 1px solid var(--gris-borde); border-radius: 10px; padding: 10px;">
-          <span style="font-size: 11px; color: var(--gris-texto); display: block;">Asociaciones</span>
-          <strong id="kpi-admin-total-asoc" style="font-size: 18px; font-weight: 900; color: #059669;">0</strong>
-        </div>
-        <div style="background: #f8fafc; border: 1px solid var(--gris-borde); border-radius: 10px; padding: 10px;">
-          <span style="font-size: 11px; color: var(--gris-texto); display: block;">Categorías</span>
-          <strong id="kpi-admin-total-cat" style="font-size: 18px; font-weight: 900; color: #2563eb;">0</strong>
-        </div>
-        <div style="background: #f8fafc; border: 1px solid var(--gris-borde); border-radius: 10px; padding: 10px;">
-          <span style="font-size: 11px; color: var(--gris-texto); display: block;">Bitácora Acciones</span>
-          <strong id="kpi-admin-total-log" style="font-size: 18px; font-weight: 900; color: #7c3aed;">0</strong>
+        <div class="panel-admin-cabecera-acciones">
+          <button type="button" class="btn-accion-pill btn-terciario" onclick="TramaWeb.irAVitrinaDesdeAdmin()">Ver la vitrina pública</button>
         </div>
       </div>
 
-      <!-- Pestañas Principales del Panel Admin -->
-      <div style="display: flex; gap: 6px; overflow-x: auto; padding: 10px 0; border-bottom: 1px solid var(--gris-borde);">
-        <button type="button" id="tab-btn-admin-e6" class="btn-accion-pill btn-negro" style="height: 34px; font-size: 12px; white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('e6')">
-          🎪 Ferias, asociaciones y app
-        </button>
-        <button type="button" id="tab-btn-admin-emp" class="btn-accion-pill" style="height: 34px; font-size: 12px; background: transparent; border: 1px solid var(--gris-borde); white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('emp')">
-          👥 Cuentas Emprendedoras (W04–W09)
-        </button>
-        <button type="button" id="tab-btn-admin-asoc" class="btn-accion-pill" style="height: 34px; font-size: 12px; background: transparent; border: 1px solid var(--gris-borde); white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('asoc')">
-          🏛️ Asociaciones (W10–W19)
-        </button>
-        <button type="button" id="tab-btn-admin-cat" class="btn-accion-pill" style="height: 34px; font-size: 12px; background: transparent; border: 1px solid var(--gris-borde); white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('cat')">
-          🏷️ Catálogos y Rubros (W20–W22)
-        </button>
-        <button type="button" id="tab-btn-admin-adm" class="btn-accion-pill" style="height: 34px; font-size: 12px; background: transparent; border: 1px solid var(--gris-borde); white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('adm')">
-          🛡️ Administradores (W23)
-        </button>
-        <button type="button" id="tab-btn-admin-log" class="btn-accion-pill" style="height: 34px; font-size: 12px; background: transparent; border: 1px solid var(--gris-borde); white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('log')">
-          📋 Bitácora (WA3)
-        </button>
+      <!-- Contadores de los ejemplos locales (solo sin servidor; con servidor se ocultan) -->
+      <div id="admin-kpis" class="admin-kpis">
+        <div><span>Emprendedoras</span><strong id="kpi-admin-total-emp">0</strong></div>
+        <div><span>Asociaciones</span><strong id="kpi-admin-total-asoc">0</strong></div>
+        <div><span>Categorías</span><strong id="kpi-admin-total-cat">0</strong></div>
+        <div><span>Bitácora</span><strong id="kpi-admin-total-log">0</strong></div>
       </div>
 
-      <!-- Contenedor del Cuerpo con Scroll -->
-      <div class="modal-cuerpo" style="flex: 1; overflow-y: auto; padding: 16px 0; gap: 16px;">
+      <!-- Secciones del panel: todas a la vista (se ordenan en filas en pantallas angostas, sin desplazamiento lateral) -->
+      <div class="admin-pestanas" id="admin-pestanas" role="tablist" aria-label="Secciones de administración">
+        <button type="button" id="tab-btn-admin-e6" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('e6')">Ferias</button>
+        <button type="button" id="tab-btn-admin-asoc6" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('asoc6')">Asociaciones</button>
+        <button type="button" id="tab-btn-admin-emp" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('emp')">Cuentas emprendedoras</button>
+        <button type="button" id="tab-btn-admin-cat" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('cat')">Tipos de producto</button>
+        <button type="button" id="tab-btn-admin-adm" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('adm')">Administradores</button>
+        <button type="button" id="tab-btn-admin-log" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('log')">Bitácora</button>
+        <button type="button" id="tab-btn-admin-app" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('app')">App sin cuenta</button>
+        <button type="button" id="tab-btn-admin-asoc" class="admin-pestana" role="tab" onclick="TramaWeb.seleccionarTabAdmin('asoc')">Asociaciones (ejemplo local)</button>
+      </div>
 
-        <!-- ENTREGA 6: navegación anónima de la app, ferias con mapa y asociaciones (datos del servidor).
-             Es una pestaña más: antes estaba siempre visible y dejaba las otras pestañas muy abajo. -->
-        <div id="admin-sec-e6"><div id="admin-e6"></div></div>
+      <div class="modal-cuerpo panel-admin-cuerpo" id="panel-admin-cuerpo" tabindex="-1">
+
+        <!-- ENTREGA 6/7: ferias, asociaciones y navegación de la app (datos del servidor), cada una en su pestaña. -->
+        <div id="admin-sec-e6"><div id="admin-e6"><div id="admin-e6-ferias"></div><div id="admin-e6-asoc"></div><div id="admin-e6-app"></div></div></div>
         
         <!-- ==========================================
-             SECCIÓN 1: CUENTAS DE EMPRENDEDORAS (W04-W09)
+             SECCIÓN 1: CUENTAS DE EMPRENDEDORAS
              ========================================== -->
         <div id="admin-sec-emp" style="display: none; flex-direction: column; gap: 14px;">
           <!-- Barra de Búsqueda y Botón Crear -->
@@ -502,9 +362,9 @@
           <!-- Cuadro de Credenciales Generadas (W05 / WA5) -->
           <div id="admin-box-credenciales" style="display: none; background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 14px 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong style="color: #065f46; font-size: 13.5px;">🔑 Credenciales listas para entregar a la emprendedora (W05)</strong>
+              <strong style="color: #065f46; font-size: 13.5px;">🔑 Credenciales listas para entregar a la emprendedora</strong>
               <button type="button" class="btn-accion-pill" style="height: 30px; font-size: 11px; background: #059669; color: #fff; border: none;" onclick="TramaWeb.copiarCredencialesGeneradas()">
-                📋 Copiar credenciales (WA5)
+                📋 Copiar credenciales
               </button>
             </div>
             <div style="font-family: monospace; font-size: 13px; color: #047857; background: #fff; padding: 10px 12px; border-radius: 8px; border: 1px solid #a7f3d0;" id="admin-texto-credenciales">
@@ -537,7 +397,7 @@
                 <input type="email" id="admin-form-emp-email" class="input-fb-market" placeholder="marcela@alerce.app">
               </div>
               <div>
-                <label class="label-fb-market">Contraseña Asignada * (W05)</label>
+                <label class="label-fb-market">Contraseña Asignada *</label>
                 <div style="display: flex; gap: 6px;">
                   <input type="text" id="admin-form-emp-clave" class="input-fb-market" placeholder="Mínimo 6 caracteres" value="alerce123">
                   <button type="button" class="btn-accion-pill" style="height: 38px; font-size: 11px; padding: 0 10px; white-space: nowrap;" onclick="TramaWeb.generarClaveAleatoriaEmp()">🎲 Clave</button>
@@ -560,7 +420,7 @@
                 <input type="tel" id="admin-form-emp-tel" class="input-fb-market" placeholder="+56 9 9123 4567">
               </div>
               <div>
-                <label class="label-fb-market">Asociación (W18)</label>
+                <label class="label-fb-market">Asociación</label>
                 <select id="admin-form-emp-asoc" class="input-fb-market" style="background: #fff; height: 38px;">
                   <!-- Se llena dinámicamente -->
                 </select>
@@ -581,13 +441,13 @@
         </div>
 
         <!-- ==========================================
-             SECCIÓN 2: ASOCIACIONES (W10-W19)
+             SECCIÓN 2: ASOCIACIONES
              ========================================== -->
         <div id="admin-sec-asoc" style="display: none; flex-direction: column; gap: 14px;">
           <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
             <input type="text" id="admin-busq-asoc" class="input-fb-market" placeholder="🔍 Buscar asociación..." oninput="TramaWeb.filtrarAdminAsociaciones()" style="height: 38px; max-width: 380px;">
             <button type="button" class="btn-accion-pill btn-negro" style="height: 38px; font-size: 12.5px; background: #2563eb; border-color: #2563eb;" onclick="TramaWeb.abrirFormCrearAsociacion()">
-              + Crear Asociación (W10)
+              + Crear Asociación
             </button>
           </div>
 
@@ -595,33 +455,33 @@
           <div id="admin-form-asoc-panel" style="display: none; background: #f8fafc; border: 1px solid var(--gris-borde); border-radius: 14px; padding: 16px; flex-direction: column; gap: 12px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <h3 id="admin-form-asoc-titulo" style="font-size: 15px; font-weight: 800; margin: 0; color: var(--negro-apple);">
-                Crear Nueva Asociación (W10-W15)
+                Crear Nueva Asociación
               </h3>
               <button type="button" style="background: none; border: none; font-size: 16px; cursor: pointer;" onclick="TramaWeb.cerrarFormAsociacion()">✕</button>
             </div>
             <input type="hidden" id="admin-form-asoc-id">
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div>
-                <label class="label-fb-market">Nombre de la Asociación * (W11)</label>
+                <label class="label-fb-market">Nombre de la Asociación *</label>
                 <input type="text" id="admin-form-asoc-nombre" class="input-fb-market" placeholder="Ej: Manos del Sur">
               </div>
               <div>
-                <label class="label-fb-market">Sector / Localidad * (W14)</label>
+                <label class="label-fb-market">Sector / Localidad *</label>
                 <input type="text" id="admin-form-asoc-sector" class="input-fb-market" placeholder="Ej: Alerce Histórico / Puerto Montt">
               </div>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div>
-                <label class="label-fb-market">Contacto (Email / Teléfono) * (W15)</label>
+                <label class="label-fb-market">Contacto (Email / Teléfono) *</label>
                 <input type="text" id="admin-form-asoc-contacto" class="input-fb-market" placeholder="contacto@asociacion.cl">
               </div>
               <div>
-                <label class="label-fb-market">URL del Logo o Insignia (W12)</label>
+                <label class="label-fb-market">URL del Logo o Insignia</label>
                 <input type="url" id="admin-form-asoc-logo" class="input-fb-market" placeholder="https://... o dejar por defecto">
               </div>
             </div>
             <div>
-              <label class="label-fb-market">Descripción de la Asociación * (W13)</label>
+              <label class="label-fb-market">Descripción de la Asociación *</label>
               <textarea id="admin-form-asoc-desc" class="input-fb-market" rows="2" placeholder="Objetivos y rubros de la agrupación comunitaria..."></textarea>
             </div>
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
@@ -639,36 +499,36 @@
         </div>
 
         <!-- ==========================================
-             SECCIÓN 3: CATÁLOGOS Y RUBROS (W20-W22)
+             SECCIÓN 3: CATÁLOGOS Y RUBROS
              ========================================== -->
         <div id="admin-sec-cat" style="display: none; flex-direction: column; gap: 16px;">
           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #166534;">
-            🏷️ <strong>Mantenimiento de Catálogos (W20–W22):</strong> Define los rubros de emprendimiento, tipos de producto y categorías comerciales disponibles en toda la plataforma.
+            🏷️ <strong>Mantenimiento de Catálogos:</strong> Define los rubros de emprendimiento, tipos de producto y categorías comerciales disponibles en toda la plataforma.
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px;">
-            <!-- Columna 1: Tipos de Emprendimiento (W20) -->
+            <!-- Columna 1: Tipos de Emprendimiento -->
             <div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 14px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <strong style="font-size: 13.5px; color: var(--negro-apple);">🏪 Tipos de Emprendimiento (W20)</strong>
+                <strong style="font-size: 13.5px; color: var(--negro-apple);">🏪 Tipos de Emprendimiento</strong>
                 <button type="button" class="btn-accion-pill" style="height: 28px; font-size: 11px; padding: 0 8px;" onclick="TramaWeb.agregarCatalogoItem('tipoEmp')">+ Añadir</button>
               </div>
               <ul id="admin-lista-tipo-emp" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;"></ul>
             </div>
 
-            <!-- Columna 2: Tipos de Producto (W21) -->
+            <!-- Columna 2: Tipos de Producto -->
             <div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 14px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <strong style="font-size: 13.5px; color: var(--negro-apple);">📦 Tipos de Producto (W21)</strong>
+                <strong style="font-size: 13.5px; color: var(--negro-apple);">📦 Tipos de Producto</strong>
                 <button type="button" class="btn-accion-pill" style="height: 28px; font-size: 11px; padding: 0 8px;" onclick="TramaWeb.agregarCatalogoItem('tipoProd')">+ Añadir</button>
               </div>
               <ul id="admin-lista-tipo-prod" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;"></ul>
             </div>
 
-            <!-- Columna 3: Categorías Oficiales (W22) -->
+            <!-- Columna 3: Categorías Oficiales -->
             <div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 14px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <strong style="font-size: 13.5px; color: var(--negro-apple);">🏷️ Categorías (W22)</strong>
+                <strong style="font-size: 13.5px; color: var(--negro-apple);">🏷️ Categorías</strong>
                 <button type="button" class="btn-accion-pill" style="height: 28px; font-size: 11px; padding: 0 8px;" onclick="TramaWeb.agregarCatalogoItem('categoria')">+ Añadir</button>
               </div>
               <ul id="admin-lista-categorias" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;"></ul>
@@ -677,7 +537,7 @@
         </div>
 
         <!-- ==========================================
-             SECCIÓN 4: ADMINISTRADORES (W23)
+             SECCIÓN 4: ADMINISTRADORES
              ========================================== -->
         <div id="admin-sec-adm" style="display: none; flex-direction: column; gap: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -693,7 +553,7 @@
         </div>
 
         <!-- ==========================================
-             SECCIÓN 5: BITÁCORA DE AUDITORÍA (WA3)
+             SECCIÓN 5: BITÁCORA DE AUDITORÍA
              ========================================== -->
         <div id="admin-sec-log" style="display: none; flex-direction: column; gap: 12px;">
           <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #6b21a8;">
@@ -723,9 +583,9 @@
   <!-- ============================================================
        BOTÓN FLOTANTE DEL CARRITO DE COMPRAS (Bottom Right)
        ============================================================ -->
-  <button type="button" class="btn-carrito-flotante" id="btn-flotante-carrito" aria-label="Abrir carrito flotante">
-    <span>🛒</span>
-    <span>Ver Carrito</span>
+  <button type="button" class="btn-carrito-flotante" id="btn-flotante-carrito" aria-label="Ver mi pedido">
+    <span aria-hidden="true">🧺</span>
+    <span>Ver mi pedido</span>
     <span class="contador-carrito" id="contador-carrito-flotante">0</span>
     <span id="total-carrito-flotante" style="font-weight: 800;">$ 0</span>
   </button>
@@ -736,15 +596,16 @@
   <footer class="pie-pagina">
     <div class="contenedor pie-fila">
       <div>
-        <div class="logo-titulo-grupo" style="margin-bottom: 4px;">
-          <span class="logo-alerce" style="font-size: 18px;">ALERCE</span>
-          <span class="punto-rojo"></span>
+        <div class="logo-titulo-grupo">
+          <span class="logo-alerce">ALERCE</span>
+          <span class="punto-rojo" aria-hidden="true"></span>
         </div>
-        <p>Plataforma oficial de vinculación con el medio para ferias y emprendimientos de Puerto Montt.</p>
+        <p>Vitrina de emprendedoras y ferias de Alerce, Puerto Montt. Proyecto de vinculación con el medio.</p>
       </div>
-      <div>
-        <p>© 2026 Alerce Emprende · Puerto Montt.</p>
-        <p><button type="button" id="btn-aviso-privacidad" style="background: none; border: none; padding: 8px 0; min-height: 44px; color: inherit; text-decoration: underline; cursor: pointer; font: inherit;" onclick="TramaWeb.abrirModal('modal-privacidad')">Aviso de privacidad y datos personales</button></p>
+      <div class="pie-enlaces">
+        <a href="https://github.com/Diego-733/EmprendedoresPuertoMontt/releases/download/apk-1.6-alerce/app-release.apk" download="AlerceEmprende.apk" class="pie-enlace">App Android para emprendedoras (v1.6)</a>
+        <button type="button" id="btn-aviso-privacidad" class="pie-enlace" onclick="TramaWeb.abrirModal('modal-privacidad')">Aviso de privacidad y datos personales</button>
+        <p>© 2026 Alerce Emprende · Puerto Montt</p>
       </div>
     </div>
   </footer>
@@ -784,104 +645,85 @@
     </div>
   </div>
 
-  <!-- 1. MODAL DETALLE DE TIENDA / VITRINA Y FORO -->
-  <div class="modal-overlay" id="modal-tienda-vitrina" role="dialog" aria-modal="true" aria-labelledby="modal-tienda-titulo">
-    <div class="modal-panel-editorial">
-      <div class="modal-cabecera">
-        <div class="modal-perfil-info">
-          <div class="avatar-circulo" id="modal-tienda-avatar" style="background: #111;">T</div>
-          <div>
-            <h2 id="modal-tienda-titulo" style="font-size: 18px; font-weight: 900; line-height: 1.2;">Tienda</h2>
-            <p id="modal-tienda-rubro-sector" style="font-size: 12px; color: var(--gris-texto);">Rubro · Sector</p>
-          </div>
-        </div>
-        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-tienda-vitrina')" aria-label="Cerrar modal">✕</button>
+  <!-- 1. FICHA DE TIENDA (se abre también con ?tienda=ID desde WhatsApp o QR). En el celular ocupa toda la pantalla. -->
+  <div class="modal-overlay ficha-tienda-overlay" id="modal-tienda-vitrina" role="dialog" aria-modal="true" aria-labelledby="modal-tienda-titulo">
+    <div class="modal-panel-editorial ficha-tienda">
+      <div class="modal-cabecera ficha-barra">
+        <button type="button" class="btn-volver" onclick="TramaWeb.cerrarModal('modal-tienda-vitrina')"><span aria-hidden="true">←</span> Volver</button>
+        <span class="ficha-barra-nombre" id="ficha-barra-nombre" aria-hidden="true"></span>
+        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-tienda-vitrina')" aria-label="Cerrar la tienda">✕</button>
       </div>
 
-      <div class="modal-cuerpo">
-        <!-- Bio de la tienda -->
-        <p id="modal-tienda-bio" style="font-size: 13px; color: var(--gris-texto); line-height: 1.5;"></p>
-
-        <!-- Bloque destacado de agendamiento si aplica -->
-        <div id="modal-tienda-banner-agenda" style="display: none; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px 16px; cursor: pointer;" onclick="TramaWeb.abrirAgendamientoActual()">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 20px;">📅</span>
-              <div>
-                <strong style="font-size: 13.5px; color: var(--azul-agenda);">Agendar Cita de Atención</strong>
-                <p style="font-size: 11.5px; color: var(--gris-texto);">Turnos en las próximas 2 semanas</p>
-              </div>
+      <div class="modal-cuerpo ficha-cuerpo">
+        <div class="ficha-columna-tienda">
+          <header class="ficha-identidad" id="ficha-identidad">
+            <div class="avatar-circulo ficha-logo" id="modal-tienda-avatar">T</div>
+            <div class="ficha-identidad-texto">
+              <h2 id="modal-tienda-titulo" class="ficha-nombre">Tienda</h2>
+              <p id="modal-tienda-rubro-sector" class="ficha-rubro">Rubro · Sector</p>
             </div>
-            <span style="font-size: 12px; font-weight: 800; color: var(--azul-agenda);">Agendar ➔</span>
-          </div>
-        </div>
+          </header>
+          <p id="modal-tienda-bio" class="ficha-bio"></p>
 
-        <hr class="divisor-sutil">
-
-        <!-- Selector de Pestañas: Catálogo vs Muro y Foro -->
-        <div class="tabs-segmentadas" role="tablist">
-          <button type="button" class="tab-segmento activo" id="tab-modal-catalogo" role="tab" onclick="TramaWeb.cambiarTabModal(0)">
-            Catálogo (<span id="conteo-tab-catalogo">0</span>)
-          </button>
-          <button type="button" class="tab-segmento" id="tab-modal-foro" role="tab" onclick="TramaWeb.cambiarTabModal(1)">
-            Muro y Foro (<span id="conteo-tab-foro">0</span>)
-          </button>
-        </div>
-
-        <!-- CONTENIDO PESTAÑA 0: CATÁLOGO -->
-        <div id="contenido-tab-catalogo">
-          <div class="lista-productos-modal" id="lista-productos-tienda-modal">
-            <!-- Productos cargados con JS -->
-          </div>
-        </div>
-
-        <!-- CONTENIDO PESTAÑA 1: MURO Y FORO EN VIVO -->
-        <div id="contenido-tab-foro" style="display: none;">
-          <div class="cabecera-foro-vivo" style="margin-bottom: 12px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="color: var(--rojo-alerce);">💬</span>
-              <strong style="font-size: 14px;">Muro Comunitario & Consultas</strong>
+          <!-- Contacto con la dueña: a quién le llega el mensaje, antes de abrir WhatsApp. En el celular queda fijo abajo. -->
+          <div class="ficha-contacto" id="ficha-contacto">
+            <p class="ficha-destinatario" id="ficha-destinatario"></p>
+            <div class="ficha-contacto-botones">
+              <a id="btn-modal-tienda-whatsapp" href="#" target="_blank" rel="noopener" class="btn-accion-pill btn-whatsapp-grande">
+                Escribir por WhatsApp
+              </a>
+              <button type="button" class="btn-accion-pill btn-secundario" id="btn-modal-tienda-formulario" onclick="TramaWeb.abrirFormularioContactoActual()">
+                Enviar un mensaje
+              </button>
+              <button type="button" class="btn-accion-pill btn-secundario btn-ficha-pedido" id="btn-ficha-ver-pedido" style="display: none;" onclick="TramaWeb.abrirCarrito()">
+                Mi pedido (<span id="ficha-contador-pedido">0</span>)
+              </button>
             </div>
-            <span class="insignia-live" style="background: var(--rosado-contenedor); color: var(--rosado-foro);">Solo en este navegador</span>
+            <p id="modal-tienda-sin-whatsapp" role="status" class="ficha-sin-whatsapp" style="display: none;"></p>
           </div>
 
-          <!-- Lista de mensajes del muro -->
-          <div class="lista-mensajes-foro" id="lista-mensajes-muro-tienda">
-            <!-- Mensajes y respuestas -->
+          <!-- Agendar hora (si la tienda lo usa) -->
+          <div id="modal-tienda-banner-agenda" class="ficha-agenda" style="display: none;">
+            <button type="button" class="btn-accion-pill btn-secundario" onclick="TramaWeb.abrirAgendamientoActual()">📅 Pedir una hora</button>
           </div>
 
-          <hr class="divisor-sutil" style="margin: 16px 0;">
+          <!-- Entrega 6: asociación, punto de venta o retiro (RF-MAP-04) -->
+          <div id="modal-tienda-extras"></div>
 
-          <!-- Caja para publicar consulta en el muro -->
-          <div class="caja-publicar-muro">
-            <strong style="font-size: 12px; color: var(--negro-apple);" id="label-pregunta-muro">Pregúntale a la tienda en el Muro:</strong>
-            <textarea id="input-pregunta-muro" class="textarea-muro" placeholder="Ej: ¿Vecina, tiene stock disponible hoy o atiende por la tarde?"></textarea>
-            <button type="button" class="btn-accion-pill btn-negro" style="height: 38px; align-self: flex-start; padding: 0 20px;" onclick="TramaWeb.publicarPreguntaEnMuro()">
-              Publicar Consulta en el Muro
+          <div class="ficha-compartir">
+            <button type="button" class="btn-accion-pill btn-terciario" id="btn-modal-tienda-compartir" onclick="TramaWeb.compartirTiendaActual()">🔗 Compartir esta tienda</button>
+            <button type="button" class="btn-accion-pill btn-terciario" id="btn-modal-tienda-qr" onclick="TramaWeb.abrirQRTiendaActual()">Código QR</button>
+          </div>
+        </div>
+
+        <div class="ficha-columna-productos">
+          <!-- Productos o preguntas (el muro se guarda solo en este navegador) -->
+          <div class="tabs-segmentadas" role="tablist" aria-label="Contenido de la tienda">
+            <button type="button" class="tab-segmento activo" id="tab-modal-catalogo" role="tab" onclick="TramaWeb.cambiarTabModal(0)">
+              Productos (<span id="conteo-tab-catalogo">0</span>)
+            </button>
+            <button type="button" class="tab-segmento" id="tab-modal-foro" role="tab" onclick="TramaWeb.cambiarTabModal(1)">
+              Preguntas (<span id="conteo-tab-foro">0</span>)
             </button>
           </div>
+
+          <div id="contenido-tab-catalogo">
+            <div class="lista-productos-modal" id="lista-productos-tienda-modal"></div>
+          </div>
+
+          <div id="contenido-tab-foro" style="display: none;">
+            <div class="cabecera-foro-vivo">
+              <strong>Preguntas a la tienda</strong>
+              <span class="insignia-live">Solo en este navegador</span>
+            </div>
+            <div class="lista-mensajes-foro" id="lista-mensajes-muro-tienda"></div>
+            <div class="caja-publicar-muro">
+              <label for="input-pregunta-muro" id="label-pregunta-muro">Escribe tu pregunta:</label>
+              <textarea id="input-pregunta-muro" class="textarea-muro" placeholder="Ej: ¿Atiende hoy por la tarde?"></textarea>
+              <button type="button" class="btn-accion-pill btn-negro" onclick="TramaWeb.publicarPreguntaEnMuro()">Publicar pregunta</button>
+            </div>
+          </div>
         </div>
-
-        <!-- Entrega 6: asociación, punto de venta o retiro (RF-MAP-04) -->
-        <div id="modal-tienda-extras"></div>
-
-        <!-- Acciones inferiores del modal: contacto según configuración (RF-CMP-05) -->
-        <div class="e6-acciones-tienda">
-          <a id="btn-modal-tienda-whatsapp" href="#" target="_blank" rel="noopener" class="btn-accion-pill btn-negro">
-            Contactar por WhatsApp
-          </a>
-          <button type="button" class="btn-accion-pill btn-negro" id="btn-modal-tienda-formulario" onclick="TramaWeb.abrirFormularioContactoActual()">
-            ✉️ Enviar un mensaje
-          </button>
-          <p id="modal-tienda-sin-whatsapp" role="status" style="display: none; flex-basis: 100%; font-size: 12.5px; color: var(--gris-texto); margin: 4px 0 0;"></p>
-          <button type="button" class="btn-accion-pill" id="btn-modal-tienda-compartir" onclick="TramaWeb.compartirTiendaActual()">
-            🔗 Compartir
-          </button>
-          <button type="button" class="btn-accion-pill" id="btn-modal-tienda-qr" onclick="TramaWeb.abrirQRTiendaActual()">
-            Compartir QR
-          </button>
-        </div>
-
       </div>
     </div>
   </div>
@@ -936,19 +778,19 @@
     <div class="modal-panel-editorial" style="max-width: 540px;">
       <div class="modal-cabecera">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 20px;">🛒</span>
-          <h2 id="modal-carrito-titulo" style="font-size: 18px; font-weight: 900;">Carrito de Compras</h2>
+          <span style="font-size: 20px;" aria-hidden="true">🧺</span>
+          <h2 id="modal-carrito-titulo" style="font-size: 18px; font-weight: 900;">Mi pedido</h2>
         </div>
-        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-carrito')" aria-label="Cerrar carrito">✕</button>
+        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-carrito')" aria-label="Cerrar mi pedido">✕</button>
       </div>
 
       <div class="modal-cuerpo">
         <div id="carrito-vacio-aviso" style="text-align: center; padding: 36px 12px; display: none;">
           <span style="font-size: 46px;">🧺</span>
-          <p style="font-size: 15px; font-weight: 700; color: var(--negro-apple); margin: 12px 0 4px 0;">Tu carrito está vacío</p>
-          <p style="font-size: 12.5px; color: var(--gris-texto); margin-bottom: 16px;">Explora las vitrinas de los emprendedores de Alerce y añade productos a tu compra.</p>
+          <p style="font-size: 15px; font-weight: 700; color: var(--negro-apple); margin: 12px 0 4px 0;">Tu pedido está vacío</p>
+          <p style="font-size: 12.5px; color: var(--gris-texto); margin-bottom: 16px;">Abre una tienda y toca «Agregar al pedido». Después envías el pedido por WhatsApp a cada tienda.</p>
           <button type="button" class="btn-accion-pill btn-negro" onclick="TramaWeb.cerrarModal('modal-carrito'); location.hash = '#vitrina';" style="padding: 0 20px; height: 38px;">
-            Explorar Vitrina y Tiendas
+            Ver productos
           </button>
         </div>
 
@@ -966,12 +808,12 @@
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <span style="font-size: 13px; color: var(--gris-texto);">Entrega:</span>
+            <span style="font-size: 13px; color: var(--gris-texto);">Entrega y pago:</span>
             <span style="font-size: 12px; font-weight: 600; color: var(--verde-ok);">Coordinar con la tienda</span>
           </div>
 
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 10px 14px; background: var(--gris-chip); border-radius: 8px;">
-            <strong style="font-size: 15px;">Total a pagar:</strong>
+            <strong style="font-size: 15px;">Total:</strong>
             <strong id="carrito-total-texto" style="font-size: 18px; color: var(--rojo-alerce);">$ 0</strong>
           </div>
 
@@ -1013,7 +855,7 @@
           </button>
 
           <button type="button" style="display: block; width: 100%; text-align: center; font-size: 11.5px; color: var(--gris-texto); margin-top: 10px; cursor: pointer; background: none; border: none;" onclick="TramaWeb.vaciarCarrito()">
-            Vaciar Carrito
+            Vaciar mi pedido
           </button>
         </div>
       </div>
@@ -1838,7 +1680,7 @@
             Continuar con Google
           </button>
 
-          <!-- Recuperación de Contraseña (W27) -->
+          <!-- Recuperación de Contraseña -->
           <div style="text-align: center; margin-top: 4px;">
             <button type="button" style="background: none; border: none; font-size: 11.5px; color: #2563eb; cursor: pointer; text-decoration: underline;" onclick="TramaWeb.recuperarContrasenaWeb()">
               ¿Olvidaste tu contraseña? Recupérala aquí
@@ -1905,7 +1747,7 @@
 
 
   <!-- ============================================================
-       MODAL: RECUPERACIÓN DE CONTRASEÑA (W27)
+       MODAL: RECUPERACIÓN DE CONTRASEÑA
        ============================================================ -->
   <div class="modal-overlay" id="modal-recuperar-contrasena" role="dialog" aria-modal="true" aria-labelledby="modal-recuperar-titulo" style="display: none;">
     <div class="modal-panel-editorial" style="max-width: 420px; width: 92%;">

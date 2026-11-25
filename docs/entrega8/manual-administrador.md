@@ -15,13 +15,13 @@ Para la persona que administra Alerce Emprende desde un computador (por ejemplo,
 1. Abre la vitrina web.
 2. Arriba a la derecha, toca **«Inicio de Sesión / Registro»**.
 3. Escribe tu correo y contraseña y toca **«Iniciar sesión»**.
-4. En el menú aparece **«🛡️ Panel Admin»** y la página baja sola hasta el panel.
+4. El panel de **Administración** aparece arriba, bajo la cabecera, abierto en **«Ferias»**. Las secciones son: Ferias, Asociaciones, Cuentas emprendedoras, Tipos de producto, Administradores, Bitácora y App sin cuenta. Cada una muestra su lista y el botón para crear.
 
 Si olvidaste la contraseña: en la misma ventana toca **«¿Olvidaste tu contraseña?»**, escribe tu correo y abre el enlace que llega. Revisa también la carpeta de spam.
 
 ## 2. Publicar una feria
 
-1. En el Panel Admin, busca el bloque **«Ferias»** y toca **«➕ Nueva feria»**.
+1. En el panel, sección **«Ferias»**, toca **«➕ Nueva feria»**.
 2. Completa:
    - **Nombre**, **Descripción** e **Imagen**;
    - **Lugar (texto)**;
@@ -34,7 +34,7 @@ Si olvidaste la contraseña: en la misma ventana toca **«¿Olvidaste tu contras
 
 ## 3. Cancelar una feria
 
-1. En la lista de ferias del Panel Admin, junto a la feria, toca **«Cancelar feria»**.
+1. En la sección «Ferias» del panel, junto a la feria, toca **«Cancelar feria»**.
 2. Escribe el motivo (ej.: «Lluvia intensa») y acepta.
 3. **Resultado:** aparece cuántas personas serán avisadas. La feria deja de verse como activa y su ficha dice que fue cancelada. Las invitadas y confirmadas reciben un aviso.
 
@@ -57,7 +57,7 @@ Los avisos llegan al celular cuando el **servicio de envío** está encendido. D
 
 ## 5. Asociaciones
 
-En el bloque **«Asociaciones»** del panel puedes:
+En la sección **«Asociaciones»** del panel puedes (el formulario se abre con **«➕ Crear asociación»**; la lista queda a la vista debajo):
 - crear una asociación (nombre, sector, descripción y contacto);
 - editarla o desactivarla;
 - con **«Agregar emprendedora…»**, sumar una tienda; también puedes quitarla.
@@ -66,7 +66,7 @@ Una tienda puede estar en varias asociaciones.
 
 ## 6. Cuentas emprendedoras
 
-1. Pestaña **«👥 Cuentas emprendedoras»** → **«+ Autorizar cuenta de emprendedora»**.
+1. Sección **«Cuentas emprendedoras»** → **«+ Autorizar cuenta de emprendedora»**.
 2. Escribe su nombre, el de su tienda y su correo, y guarda.
 3. **Resultado:** aparece como **«Pendiente: debe registrarse con este correo»**. La emprendedora se registra en la app o en la web con ese correo y su propia contraseña. Entonces aparece como **«Activa»** con su tienda.
 4. **«Editar»** cambia su nombre y el de su tienda.
@@ -75,7 +75,7 @@ Una tienda puede estar en varias asociaciones.
 
 ## 6b. Tipos de producto
 
-Pestaña **«🏷️ Tipos de producto»**: son los tipos que las emprendedoras eligen al crear un producto.
+Sección **«Tipos de producto»**: son los tipos que las emprendedoras eligen al crear un producto.
 - **«+ Nuevo tipo de producto»**: escribe el nombre y elige la categoría con su número.
 - **«Editar»** cambia el nombre o la categoría.
 - **«Desactivar»** hace que deje de ofrecerse. Los productos que ya lo usan lo conservan.
@@ -83,18 +83,18 @@ Pestaña **«🏷️ Tipos de producto»**: son los tipos que las emprendedoras 
 
 ## 7. Otras cuentas de administración
 
-1. Pestaña **«🛡️ Administradores»**.
+1. Sección **«Administradores»**.
 2. **«+ Crear administradora o administrador»**: escribe el nombre y el correo. Esa persona debe **registrarse en la web con ese correo**; mientras tanto se ve «Debe registrarse con este correo».
 3. **«Editar nombre»** cambia el nombre. **«Desactivar»** le quita el acceso de administración sin borrar su cuenta. **«Reactivar»** se lo devuelve.
 4. No puedes desactivar tu propia cuenta ni dejar la plataforma sin administradores.
 
 ## 8. Bitácora
 
-Pestaña **«📋 Bitácora»**: muestra la fecha y hora, quién hizo la acción, qué hizo (crear, publicar, cancelar o editar una feria, invitar, asistencia, asociaciones, cuentas emprendedoras y de administración, tipos de producto, configuración) y sobre qué. Nadie puede editarla ni borrarla.
+Sección **«Bitácora»**: muestra la fecha y hora, quién hizo la acción, qué hizo (crear, publicar, cancelar o editar una feria, invitar, asistencia, asociaciones, cuentas emprendedoras y de administración, tipos de producto, configuración) y sobre qué. Nadie puede editarla ni borrarla.
 
 ## 9. Navegación de la app sin cuenta
 
-En el bloque **«Navegación anónima de la app»** elige una opción y guarda:
+En la sección **«App sin cuenta»** elige qué ve quien abre la app Android sin haber entrado, y guarda:
 - **Permitir:** se puede mirar sin cuenta.
 - **Invitar:** se sugiere entrar con Google, con «Omitir».
 - **Obligar:** hay que entrar con Google.

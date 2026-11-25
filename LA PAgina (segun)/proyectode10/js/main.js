@@ -665,7 +665,7 @@
 
     guardarCarritoEnStorage();
     renderizarCarrito();
-    mostrarToast("«" + prod.nombre + "» agregado al carrito", "Ver carrito", function () {
+    mostrarToast("«" + prod.nombre + "» agregado a tu pedido de " + (tienda ? tienda.nombre : "la tienda"), "Ver mi pedido", function () {
       renderizarCarrito();
       abrirModal("modal-carrito");
     });
@@ -687,16 +687,16 @@
     estado.carrito = estado.carrito.filter(function (i) { return i.id !== itemId; });
     guardarCarritoEnStorage();
     renderizarCarrito();
-    mostrarToast("Producto quitado del carrito");
+    mostrarToast("Producto quitado de tu pedido");
   }
 
   function vaciarCarrito() {
     if (estado.carrito.length === 0) return;
-    if (confirm("¿Deseas vaciar todos los productos del carrito?")) {
+    if (confirm("¿Vaciar tu pedido? Se quitan todos los productos.")) {
       estado.carrito = [];
       guardarCarritoEnStorage();
       renderizarCarrito();
-      mostrarToast("Carrito vaciado");
+      mostrarToast("Pedido vaciado");
     }
   }
 
@@ -716,6 +716,7 @@
     if (btnFlotante) {
       btnFlotante.style.display = totalArticulos > 0 ? "flex" : "none";
     }
+    actualizarPedidoEnFicha();
   }
 
   function renderizarCarrito() {
@@ -799,7 +800,7 @@
     var avisoVarias = document.getElementById("aviso-carrito-varias-tiendas");
     if (avisoVarias) {
       avisoVarias.style.display = grupos.length > 1 ? "" : "none";
-      avisoVarias.textContent = grupos.length > 1 ? "Tu carrito tiene productos de " + grupos.length + " tiendas: envía cada pedido con su botón. Cada tienda recibe solo sus productos." : "";
+      avisoVarias.textContent = grupos.length > 1 ? "Tu pedido tiene productos de " + grupos.length + " tiendas: envía cada pedido con su botón. Cada tienda recibe solo sus productos." : "";
     }
 
     listaContainer.innerHTML = html;
@@ -895,10 +896,10 @@
    * su pedido sigue ahí.
    */
   function finalizarPedidoWhatsApp(tiendaIdFiltro) {
-    if (estado.carrito.length === 0) { mostrarToast("Tu carrito está vacío."); return; }
+    if (estado.carrito.length === 0) { mostrarToast("Tu pedido está vacío."); return; }
     var grupos = Cat.agruparPedido(estado.carrito, TIENDAS);
     var grupo = tiendaIdFiltro ? grupos.find(function (g) { return g.tiendaId === tiendaIdFiltro; }) : (grupos.length === 1 ? grupos[0] : null);
-    if (!grupo) { mostrarToast("Tu carrito tiene productos de varias tiendas: envía cada pedido con su botón."); return; }
+    if (!grupo) { mostrarToast("Tu pedido tiene productos de varias tiendas: envía cada pedido con su botón."); return; }
     if (!grupo.numero) {
       mostrarToast(Cat.SIN_WHATSAPP + (grupo.formulario ? ". Puedes usar «Enviar un mensaje»." : "."));
       renderizarCarrito();
@@ -907,7 +908,7 @@
     var url = Cat.enlaceWhatsapp(grupo.numero, Cat.textoPedido(grupo, datosPedido(grupo)));
     estado.ultimoPedidoEnviado = { tiendaId: grupo.tiendaId, url: url };
     window.open(url, "_blank", "noopener");
-    mostrarToast("Abriendo WhatsApp para enviar tu pedido a " + grupo.nombre + ". Tu carrito se mantiene.");
+    mostrarToast("Abriendo WhatsApp para enviar tu pedido a " + grupo.nombre + ". Tu pedido se mantiene aquí.");
   }
 
   /** Sin WhatsApp: el mismo pedido va por el formulario de la tienda (si lo acepta). */
@@ -938,7 +939,9 @@
         t.nombre.toLowerCase().indexOf(texto) !== -1 ||
         t.rubro.toLowerCase().indexOf(texto) !== -1 ||
         t.sector.toLowerCase().indexOf(texto) !== -1 ||
-        (t.bio || "").toLowerCase().indexOf(texto) !== -1;
+        (t.bio || "").toLowerCase().indexOf(texto) !== -1 ||
+        // Quien busca «pan» o «chal» también encuentra la tienda que lo vende.
+        productosPublicosDeTienda(t.id).some(function (p) { return normalizarBusqueda(p.nombre).indexOf(normalizarBusqueda(texto)) !== -1; });
       var coincideTipo = !estado.filtroTipo || t.rubro === estado.filtroTipo;
       var coincideSector = !estado.filtroSector || t.sector === estado.filtroSector;
       // Entrega 7: una tienda puede pertenecer a varias asociaciones (RN-05).
@@ -968,53 +971,47 @@
     tiendasFiltradas.forEach(function (tienda) {
       var esFav = !!estado.favoritos[tienda.id];
       var nec = tienda.necesidades || {};
+      // Rasgos que ayudan a elegir (sin jerga: nada de «stock»).
       var badges = [];
-      if (nec.tieneStock) badges.push(h("span", { class: "badge-necesidad badge-stock", text: "📦 Stock" }));
-      if (nec.tieneProductosAPedido) badges.push(h("span", { class: "badge-necesidad badge-pedido", text: "✂️ A pedido" }));
-      if (nec.participaEnFerias) badges.push(h("span", { class: "badge-necesidad badge-ferias", text: "🎪 Ferias" }));
-      if (nec.tieneForoComunidad) badges.push(h("span", { class: "badge-necesidad badge-foro", text: "💬 Muro y foro" }));
-      if (nec.tieneAgendamiento) badges.push(h("span", { class: "badge-necesidad badge-agenda", text: "📅 Agenda horas" }));
+      var nProductos = productosPublicosDeTienda(tienda.id).length;
+      if (nProductos) badges.push(h("span", { class: "badge-necesidad badge-conteo", text: nProductos + (nProductos === 1 ? " producto" : " productos") }));
+      if (nec.tieneProductosAPedido) badges.push(h("span", { class: "badge-necesidad badge-pedido", text: "Hace encargos" }));
+      if (nec.participaEnFerias) badges.push(h("span", { class: "badge-necesidad badge-ferias", text: "Va a ferias" }));
+      if (nec.tieneAgendamiento) badges.push(h("span", { class: "badge-necesidad badge-agenda", text: "Atiende con hora" }));
 
       var logo = imagenSegura(tienda.logoUrl, "", "avatar-circulo", "object-fit: cover;") ||
         h("div", { class: "avatar-circulo", style: "background-color: " + Cat.colorHex(tienda.colorLogo, "#2B6CB0") + ";", "aria-hidden": "true", text: tienda.nombre.charAt(0).toUpperCase() });
 
-      var accionPrincipal = nec.tieneAgendamiento
-        ? h("button", { type: "button", class: "btn-accion-pill btn-agenda", text: "Agendar cita", onclick: function () { abrirAgendamientoDirecto(tienda.id); } })
-        : h("button", { type: "button", class: "btn-accion-pill btn-negro", text: nec.tieneForoComunidad ? "Vitrina y foro" : "Ver vitrina", onclick: function () { abrirVitrinaTienda(tienda.id); } });
+      // Una acción principal por tarjeta: ver la tienda (allí están los productos, el contacto y el QR).
+      var accionPrincipal = h("button", { type: "button", class: "btn-accion-pill btn-negro", text: "Ver productos y contacto",
+        "aria-label": "Ver productos y contacto de " + tienda.nombre, onclick: function () { abrirVitrinaTienda(tienda.id); } });
       var vias = Cat.viasContacto(tienda);
       var urlWsp = vias.whatsapp ? enlaceWhatsapp(tienda.whatsapp, "Hola " + tienda.nombre + "! Vi tu tienda en Alerce Emprende y me gustaría hacer una consulta.") : null;
       var asocTienda = window.AlerceVitrina6 ? window.AlerceVitrina6.nombreAsociacion(tienda.asociacionId) : "";
 
-      contenedor.appendChild(h("article", { class: "tarjeta-tienda" }, [
-        h("div", { class: "tarjeta-franja-color", style: "background-color: " + Cat.colorHex(tienda.colorPortada, "#1A202C") + ";" }, [
-          h("span", { class: "franja-rubro", text: tienda.rubro }),
-          h("div", { class: "franja-lado-derecho" }, [
-            h("span", { class: "franja-sector-chip", text: tienda.sector }),
+      contenedor.appendChild(h("article", { class: "tarjeta-tienda", style: "--color-tienda: " + Cat.colorHex(tienda.colorPortada, "#1F5C46") + ";" }, [
+        h("div", { class: "tarjeta-cuerpo" }, [
+          h("div", { class: "tarjeta-perfil-fila" }, [
+            logo,
+            h("div", { class: "tarjeta-titulos" }, [
+              h("h3", { class: "tarjeta-nombre" }, [h("button", { type: "button", class: "enlace-tienda", text: tienda.nombre, onclick: function () { abrirVitrinaTienda(tienda.id); } })]),
+              h("p", { class: "tarjeta-sub", text: [tienda.rubro, tienda.sector].filter(Boolean).join(" · ") }),
+              asocTienda ? h("p", { class: "tarjeta-sub tarjeta-asociacion", text: "Asociación " + asocTienda }) : null
+            ]),
             h("button", {
               type: "button", class: "btn-favorito-corazon" + (esFav ? " activo" : ""), "aria-pressed": esFav ? "true" : "false",
               "aria-label": (esFav ? "Quitar de favoritos: " : "Agregar a favoritos: ") + tienda.nombre, text: esFav ? "❤️" : "🤍",
               onclick: function () { toggleFavorito(tienda.id); }
             })
-          ])
-        ]),
-        h("div", { class: "tarjeta-cuerpo" }, [
-          h("div", { class: "tarjeta-perfil-fila" }, [
-            logo,
-            h("div", { class: "tarjeta-titulos" }, [
-              h("h3", { class: "tarjeta-nombre", text: tienda.nombre }),
-              h("p", { class: "tarjeta-sub", text: [tienda.rubro, tienda.sector].filter(Boolean).join(" · ") }),
-              asocTienda ? h("p", { class: "tarjeta-sub tarjeta-asociacion", text: "🤝 " + asocTienda }) : null
-            ])
           ]),
-          h("p", { class: "tarjeta-descripcion", text: tienda.bio }),
-          h("div", { class: "tarjeta-badges-wrap" }, badges),
-          h("hr", { class: "divisor-sutil" }),
+          tienda.bio ? h("p", { class: "tarjeta-descripcion", text: tienda.bio }) : null,
+          badges.length ? h("div", { class: "tarjeta-badges-wrap" }, badges) : null,
           h("div", { class: "tarjeta-acciones-fila" }, [
             accionPrincipal,
-            urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-accion-pill", text: "WhatsApp" }) : null,
-            vias.formulario ? h("button", { type: "button", class: "btn-accion-pill", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tienda.id); } }) : null,
-            vias.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", style: "flex-basis: 100%; font-size: 12px; color: var(--gris-texto);", text: Cat.SIN_WHATSAPP }) : null,
-            h("button", { type: "button", class: "btn-qr-icon", "aria-label": "Código QR de " + tienda.nombre, title: "Código QR de la tienda", text: "▦", onclick: function () { abrirQRTienda(tienda.id); } })
+            urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-accion-pill btn-secundario", text: "WhatsApp",
+              "aria-label": "Escribir por WhatsApp a " + tienda.nombre }) : null,
+            vias.formulario && !vias.whatsapp ? h("button", { type: "button", class: "btn-accion-pill btn-secundario", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tienda.id); } }) : null,
+            vias.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", text: Cat.SIN_WHATSAPP }) : null
           ])
         ])
       ]));
@@ -1058,14 +1055,33 @@
       else avatar.textContent = tienda.nombre.charAt(0).toUpperCase();
     }
     if (titulo) titulo.textContent = tienda.nombre;
-    if (rubroSector) rubroSector.textContent = [tienda.rubro, tienda.sector].filter(Boolean).join(" · ");
-    if (bio) bio.textContent = tienda.bio;
+    var barraNombre = document.getElementById("ficha-barra-nombre");
+    if (barraNombre) barraNombre.textContent = tienda.nombre;
+    var identidad = document.getElementById("ficha-identidad");
+    if (identidad) identidad.style.setProperty("--color-tienda", Cat.colorHex(tienda.colorPortada, "#1F5C46"));
+    if (rubroSector) rubroSector.textContent = [tienda.rubro, tienda.sector ? "en " + tienda.sector : ""].filter(Boolean).join(" ");
+    if (bio) { bio.textContent = tienda.bio; bio.style.display = tienda.bio ? "" : "none"; }
     if (bannerAgenda) bannerAgenda.style.display = tienda.necesidades.tieneAgendamiento ? "block" : "none";
     var viasModal = Cat.viasContacto(tienda);
+    // Como en WhatsApp: antes de escribir se ve a quién le llega (nombre de la tienda y su número).
+    var destinatario = document.getElementById("ficha-destinatario");
+    if (destinatario) {
+      destinatario.textContent = "";
+      if (viasModal.whatsapp) {
+        destinatario.appendChild(document.createTextNode("Tu mensaje le llega a "));
+        destinatario.appendChild(h("strong", { text: tienda.nombre }));
+        destinatario.appendChild(h("span", { class: "ficha-numero", text: " · WhatsApp " + Cat.formatearWhatsapp(tienda.whatsapp) }));
+      }
+      destinatario.style.display = viasModal.whatsapp ? "" : "none";
+    }
     if (btnWhatsapp) {
       var url = viasModal.whatsapp ? enlaceWhatsapp(tienda.whatsapp, "Hola " + tienda.nombre + "! Vi tu vitrina en Alerce Emprende.") : null;
-      if (url) { btnWhatsapp.href = url; btnWhatsapp.style.display = ""; } else { btnWhatsapp.removeAttribute("href"); btnWhatsapp.style.display = "none"; }
+      if (url) {
+        btnWhatsapp.href = url; btnWhatsapp.style.display = "";
+        btnWhatsapp.setAttribute("aria-label", "Escribir por WhatsApp a " + tienda.nombre + ", número " + Cat.formatearWhatsapp(tienda.whatsapp));
+      } else { btnWhatsapp.removeAttribute("href"); btnWhatsapp.style.display = "none"; }
     }
+    actualizarPedidoEnFicha();
     var btnFormulario = document.getElementById("btn-modal-tienda-formulario");
     if (btnFormulario) btnFormulario.style.display = viasModal.formulario ? "" : "none";
     var avisoSinWsp = document.getElementById("modal-tienda-sin-whatsapp");
@@ -1084,6 +1100,8 @@
     var contCat = document.getElementById("contenido-tab-catalogo");
     var contForo = document.getElementById("contenido-tab-foro");
 
+    if (tabCat) tabCat.setAttribute("aria-selected", String(indice === 0));
+    if (tabForo) tabForo.setAttribute("aria-selected", String(indice !== 0));
     if (indice === 0) {
       if (tabCat) tabCat.classList.add("activo");
       if (tabForo) tabForo.classList.remove("activo", "activo-foro");
@@ -1153,7 +1171,7 @@
       p.variantes.find(function (v) { return Cat.opcionVendible(p, v); }) || p.variantes[0] || null;
   }
 
-  function tarjetaProductoVitrina(p) {
+  function tarjetaProductoVitrina(p, opciones) {
     var estadoP = Cat.estadoPublico(p);
     var opcion = opcionElegida(p);
     var precio = Cat.precioDeOpcion(p, opcion);
@@ -1176,11 +1194,12 @@
             type: "button", class: "chip-variante" + (opcion && v.id === opcion.id ? " activa" : "") + (agotada ? " agotada" : ""),
             "aria-pressed": opcion && v.id === opcion.id ? "true" : "false",
             text: v.nombre + (agotada ? " (agotada)" : ""),
-            onclick: function () {
+            onclick: function (ev) {
               seleccionOpcion[p.id] = v.id;
-              var actual = document.querySelector('[data-producto-vitrina="' + CSS.escape(p.id) + '"]');
+              var actual = (ev && ev.currentTarget && ev.currentTarget.closest && ev.currentTarget.closest("[data-producto-vitrina]")) ||
+                document.querySelector('[data-producto-vitrina="' + CSS.escape(p.id) + '"]');
               if (actual) {
-                var nueva = tarjetaProductoVitrina(p);
+                var nueva = tarjetaProductoVitrina(p, opciones);
                 actual.replaceWith(nueva);
                 var boton = nueva.querySelector('.chip-variante[aria-pressed="true"]');
                 if (boton) boton.focus();
@@ -1197,34 +1216,128 @@
       "Hola " + tiendaP.nombre + "! Me interesa «" + p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "") +
       "»" + (preciosVisibles ? " (" + formatearMoneda(precio) + ")" : "") + " que vi en tu vitrina de Alerce.") : null;
 
-    return h("article", { class: "producto-fila-card", "data-producto-vitrina": p.id }, [
+    var nombreOpcion = p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "");
+    // En la ficha de la tienda, la foto y el nombre abren el detalle; al cerrarlo se vuelve al mismo punto de la lista.
+    var abreDetalle = !(opciones && opciones.enDetalle) && window.AlerceVitrina6;
+    var abrirDetalle = function () { window.AlerceVitrina6.abrirProducto(p.id); };
+
+    return h("article", { class: "producto-fila-card", "data-producto-vitrina": p.id, "data-estado": estadoP }, [
       h("div", { class: "producto-card-top" }, [
+        abreDetalle ? h("button", { type: "button", class: "prod-foto-boton", "aria-label": "Ver detalle de " + p.nombre, onclick: abrirDetalle }, [imagen]) : imagen,
         h("div", { class: "producto-card-info" }, [
-          imagen,
-          h("div", null, [
-            h("h4", { class: "prod-nombre", text: p.nombre }),
-            Cat.etiquetaCategoria(p) ? h("p", { class: "prod-categoria", text: Cat.etiquetaCategoria(p) }) : null,
-            p.descripcion ? h("p", { class: "prod-descripcion", text: p.descripcion }) : null
-          ])
-        ]),
-        h("div", { class: "producto-card-precio" }, [
-          h("span", { class: "prod-precio" + (preciosVisibles ? "" : " prod-precio-consultar"), "data-precio-opcion": opcion ? opcion.id : "", text: Cat.textoPrecio(tiendaP, precio, formatearMoneda) }),
-          h("div", null, [h("span", { class: "badge-necesidad " + claseEstado, text: Cat.etiquetaEstado(estadoP) })]),
-          detalleUnidades ? h("small", { class: "prod-unidades", text: detalleUnidades }) : null
+          h("h4", { class: "prod-nombre" }, abreDetalle ? [h("button", { type: "button", class: "enlace-producto", text: p.nombre, onclick: abrirDetalle })] : [document.createTextNode(p.nombre)]),
+          h("div", { class: "producto-card-precio" }, [
+            h("span", { class: "prod-precio" + (preciosVisibles ? "" : " prod-precio-consultar"), "data-precio-opcion": opcion ? opcion.id : "", text: Cat.textoPrecio(tiendaP, precio, formatearMoneda) }),
+            h("span", { class: "badge-necesidad " + claseEstado, text: Cat.etiquetaEstado(estadoP) }),
+            detalleUnidades ? h("small", { class: "prod-unidades", text: detalleUnidades }) : null
+          ]),
+          Cat.etiquetaCategoria(p) ? h("p", { class: "prod-categoria", text: Cat.etiquetaCategoria(p) }) : null,
+          p.descripcion ? h("p", { class: "prod-descripcion", text: p.descripcion }) : null
         ])
       ]),
       chips,
       h("div", { class: "producto-botones-fila" }, [
         preciosVisibles ? h("button", {
           type: "button", class: "btn-anadir-carrito", disabled: !vendible,
-          text: !vendible ? "Agotado" : (estadoP === "A_PEDIDO" ? "🛒 Encargar" : "🛒 Agregar al carrito"),
+          text: !vendible ? "Se acabó" : (estadoP === "A_PEDIDO" ? "Encargar" : "Agregar al pedido"),
           onclick: function () { agregarAlCarrito(p.id, opcion ? opcion.id : null); }
         }) : null,
-        urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-whatsapp-prod", text: preciosVisibles ? "Pedir por WhatsApp" : "Consultar por WhatsApp" }) : null,
-        viasP.formulario && tiendaP ? h("button", { type: "button", class: "btn-accion-pill", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tiendaP.id, p.id, p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "")); } }) : null,
-        viasP.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", style: "flex-basis: 100%; font-size: 12px; color: var(--gris-texto);", text: Cat.SIN_WHATSAPP }) : null
+        urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-whatsapp-prod", text: preciosVisibles ? "Pedir por WhatsApp" : "Consultar por WhatsApp",
+          "aria-label": (preciosVisibles ? "Pedir «" : "Consultar «") + nombreOpcion + "» por WhatsApp a " + tiendaP.nombre }) : null,
+        // Sin WhatsApp, el mensaje va por el formulario de la tienda (con WhatsApp no se repite: está en la ficha).
+        viasP.formulario && tiendaP && !viasP.whatsapp ? h("button", { type: "button", class: "btn-accion-pill btn-secundario", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tiendaP.id, p.id, nombreOpcion); } }) : null,
+        viasP.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", text: Cat.SIN_WHATSAPP }) : null
       ])
     ]);
+  }
+
+  /** Búsqueda sin tildes ni mayúsculas: «panaderia» encuentra «Panadería». */
+  function normalizarBusqueda(texto) {
+    var t = String(texto || "").toLowerCase();
+    return t.normalize ? t.normalize("NFD").replace(/[̀-ͯ]/g, "") : t;
+  }
+
+  /** Contador del pedido dentro de la ficha (se ve sin salir de la tienda). */
+  function actualizarPedidoEnFicha() {
+    var total = estado.carrito.reduce(function (acc, i) { return acc + i.cantidad; }, 0);
+    var b = document.getElementById("btn-ficha-ver-pedido"), c = document.getElementById("ficha-contador-pedido");
+    if (c) c.textContent = total;
+    if (b) b.style.display = total > 0 ? "" : "none";
+  }
+
+  // ============================================================
+  // PORTADA: productos con precio y tienda, atajos por tipo
+  // ============================================================
+  var PRODUCTOS_PORTADA_INICIAL = 8;
+  var verTodosProductos = false;
+
+  function tarjetaProductoPortada(p) {
+    var tienda = TIENDAS.find(function (t) { return t.id === p.tiendaId; });
+    var estadoP = Cat.estadoPublico(p);
+    var opcion = opcionElegida(p);
+    var foto = Cat.fotoDeOpcion(p, opcion);
+    var imagen = imagenSegura(foto, "", "portada-prod-foto") ||
+      h("div", { class: "portada-prod-foto prod-foto-vacia", "aria-hidden": "true", text: obtenerIconoProducto(p.nombre) });
+    var claseEstado = { DISPONIBLE: "badge-stock", AGOTADO: "badge-agotado", A_PEDIDO: "badge-pedido" }[estadoP] || "";
+    return h("article", { class: "portada-prod", "data-producto-portada": p.id }, [
+      h("button", { type: "button", class: "portada-prod-boton", onclick: function () { if (window.AlerceVitrina6) window.AlerceVitrina6.abrirProducto(p.id); } }, [
+        imagen,
+        h("span", { class: "portada-prod-texto" }, [
+          h("span", { class: "portada-prod-nombre", text: p.nombre }),
+          h("span", { class: "portada-prod-precio", text: Cat.textoPrecio(tienda, Cat.precioDeOpcion(p, opcion), formatearMoneda) }),
+          h("span", { class: "badge-necesidad " + claseEstado, text: Cat.etiquetaEstado(estadoP) }),
+          tienda ? h("span", { class: "portada-prod-tienda", text: "Vende: " + tienda.nombre }) : null
+        ])
+      ])
+    ]);
+  }
+
+  function renderizarProductosPortada() {
+    var cont = document.getElementById("grilla-productos-portada");
+    var sub = document.getElementById("subtitulo-productos");
+    var masBtn = document.getElementById("btn-ver-mas-productos");
+    if (!cont) return;
+    cont.textContent = "";
+    if (estadoCatalogo.cargando && !estadoCatalogo.cargado) { if (sub) sub.textContent = "Cargando productos…"; if (masBtn) masBtn.style.display = "none"; return; }
+    var texto = normalizarBusqueda(estado.textoBusqueda.trim());
+    var activas = {};
+    TIENDAS.forEach(function (t) { activas[t.id] = t; });
+    var orden = { DISPONIBLE: 0, A_PEDIDO: 1, AGOTADO: 2 };
+    var lista = PRODUCTOS.filter(function (p) {
+      if (!activas[p.tiendaId] || Cat.estadoPublico(p) === "OCULTO") return false;
+      if (!texto) return true;
+      var t = activas[p.tiendaId];
+      return [p.nombre, p.descripcion, Cat.etiquetaCategoria(p), t.nombre, t.rubro].some(function (x) { return normalizarBusqueda(x).indexOf(texto) !== -1; });
+    }).sort(function (a, b) {
+      return (orden[Cat.estadoPublico(a)] - orden[Cat.estadoPublico(b)]) || ((b.destacado ? 1 : 0) - (a.destacado ? 1 : 0));
+    });
+    var visibles = (texto || verTodosProductos) ? lista : lista.slice(0, PRODUCTOS_PORTADA_INICIAL);
+    visibles.forEach(function (p) { cont.appendChild(tarjetaProductoPortada(p)); });
+    if (sub) {
+      sub.textContent = !lista.length
+        ? (texto ? "Ningún producto coincide con «" + estado.textoBusqueda.trim() + "». Prueba con otra palabra o revisa las tiendas." : (estadoCatalogo.error ? "No pudimos mostrar los productos. Revisa el aviso de arriba." : "Aún no hay productos a la vista."))
+        : (texto ? lista.length + (lista.length === 1 ? " producto coincide" : " productos coinciden") + " con «" + estado.textoBusqueda.trim() + "»" : "Toca un producto para ver su precio, quién lo vende y cómo pedirlo.");
+    }
+    if (masBtn) {
+      masBtn.style.display = !texto && !verTodosProductos && lista.length > PRODUCTOS_PORTADA_INICIAL ? "" : "none";
+      masBtn.textContent = "Ver los " + lista.length + " productos";
+    }
+  }
+
+  /** Atajos por tipo de tienda (de los rubros reales): llenan el buscador. */
+  function pintarAtajosPortada() {
+    var c = document.getElementById("portada-atajos");
+    if (!c) return;
+    c.textContent = "";
+    var rubros = [];
+    TIENDAS.forEach(function (t) { if (t.rubro && rubros.indexOf(t.rubro) < 0) rubros.push(t.rubro); });
+    rubros.slice(0, 6).forEach(function (r) {
+      c.appendChild(h("button", { type: "button", class: "atajo", "aria-pressed": normalizarBusqueda(estado.textoBusqueda) === normalizarBusqueda(r) ? "true" : "false", text: r, onclick: function () {
+        var campo = document.getElementById("campo-busqueda-principal");
+        var nuevo = normalizarBusqueda(estado.textoBusqueda) === normalizarBusqueda(r) ? "" : r;
+        if (campo) { campo.value = nuevo; campo.dispatchEvent(new Event("input")); }
+      } }));
+    });
   }
 
   // ============================================================
@@ -1588,10 +1701,44 @@
       function (el) { return el.offsetParent !== null || el === document.activeElement; });
   }
 
+  // El botón «atrás» del celular cierra la ficha de tienda, el producto o el pedido en vez de salir de la
+  // página (quien llegó desde WhatsApp vuelve a la tienda, no al chat). La dirección refleja lo abierto
+  // (?tienda=ID, ?producto=ID): se puede recargar o compartir sin perder el lugar.
+  var MODALES_CON_HISTORIAL = { "modal-tienda-vitrina": "tienda", "modal-producto": "producto", "modal-carrito": null, "modal-feria": "feria", "modal-asociacion": "asociacion" };
+  var pilaHistorial = [];
+  var popsIgnorados = 0;
+  function urlConParametro(clave, valor) {
+    try {
+      var u = new URL(window.location.href);
+      ["tienda", "producto", "feria", "asociacion"].forEach(function (k) { u.searchParams.delete(k); });
+      if (clave && valor) u.searchParams.set(clave, valor);
+      return u.pathname + u.search + u.hash;
+    } catch (e) { return null; }
+  }
+  function idDeModal(modalId) {
+    if (modalId === "modal-tienda-vitrina") return estado.tiendaSeleccionada && estado.tiendaSeleccionada.id;
+    var m = document.getElementById(modalId);
+    return m ? m.getAttribute("data-id") : null;
+  }
+  // Lo que se abre al llegar por un enlace (?tienda=ID) no agrega un paso: «atrás» vuelve a donde estaba la persona.
+  var abriendoDesdeEnlace = false;
+  function registrarEnHistorial(modalId) {
+    if (!(modalId in MODALES_CON_HISTORIAL) || !window.history || !history.pushState) return;
+    if (abriendoDesdeEnlace) { abriendoDesdeEnlace = false; return; }
+    var clave = MODALES_CON_HISTORIAL[modalId], valor = idDeModal(modalId);
+    var url = clave && valor ? urlConParametro(clave, valor) : null;
+    try { history.pushState({ alerceModal: modalId }, "", url || window.location.href); pilaHistorial.push(modalId); } catch (e) { /* sin historial */ }
+  }
+  window.addEventListener("popstate", function () {
+    if (popsIgnorados > 0) { popsIgnorados--; return; }
+    var id = pilaHistorial.pop();
+    if (id) cerrarModal(id, true);
+  });
+
   function abrirModal(modalId) {
     var m = document.getElementById(modalId);
     if (!m) return;
-    if (!m.classList.contains("abierto")) focoAntesDeModal.push(document.activeElement);
+    if (!m.classList.contains("abierto")) { focoAntesDeModal.push(document.activeElement); registrarEnHistorial(modalId); }
     m.classList.add("abierto");
     m.style.display = "flex";
     document.body.style.overflow = "hidden";
@@ -1606,10 +1753,22 @@
     setTimeout(enfocar, 320);
   }
 
-  function cerrarModal(modalId) {
+  function cerrarModal(modalId, desdeHistorial) {
     var m = document.getElementById(modalId);
     if (!m) return;
     var estabaAbierto = m.classList.contains("abierto");
+    if (estabaAbierto && !desdeHistorial) {
+      var pos = pilaHistorial.lastIndexOf(modalId);
+      if (pos >= 0 && pos === pilaHistorial.length - 1) {
+        // Se cierra con la X o «Volver»: se deshace también su paso en el historial.
+        pilaHistorial.pop(); popsIgnorados++;
+        try { history.back(); } catch (e) { popsIgnorados--; }
+      } else if (pos < 0 && modalId in MODALES_CON_HISTORIAL && window.history && history.replaceState) {
+        // Se abrió desde un enlace (?tienda=ID): al cerrarla, la dirección vuelve a la vitrina.
+        var limpia = urlConParametro(null, null);
+        if (limpia) try { history.replaceState(history.state, "", limpia); } catch (e) { /* sin historial */ }
+      }
+    }
     m.classList.remove("abierto");
     m.style.display = "none";
     if (!document.querySelector(".modal-overlay.abierto, .modal-fondo.abierto")) document.body.style.overflow = "";
@@ -2716,12 +2875,19 @@
   // ============================================================
 
   function inicializar() {
+    // En escritorio los filtros de tiendas se ven abiertos (hay espacio para comparar); en el celular, plegados.
+    var filtros = document.getElementById("filtros-tiendas");
+    if (filtros && window.matchMedia && window.matchMedia("(min-width: 900px)").matches) filtros.open = true;
+    var verMas = document.getElementById("btn-ver-mas-productos");
+    if (verMas) verMas.addEventListener("click", function () { verTodosProductos = true; renderizarProductosPortada(); });
     // Buscador
     var inputBusqueda = document.getElementById("campo-busqueda-principal");
     if (inputBusqueda) {
       inputBusqueda.addEventListener("input", function (e) {
         estado.textoBusqueda = e.target.value;
         renderizarTiendasMarketplace();
+        renderizarProductosPortada();
+        pintarAtajosPortada();
       });
     }
 
@@ -2768,7 +2934,7 @@
       btnHeaderAdmin.style.display = (rol === "Administrador" || rol === "ADMIN") ? "inline-flex" : "none";
     }
           if (tag) tag.textContent = "Visitante";
-          if (saludo) saludo.textContent = "Bienvenido a la Vitrina de Alerce";
+          if (saludo) saludo.textContent = "Emprendedoras de Alerce · Puerto Montt";
           mostrarToast("Sesión cerrada");
         }
       });
@@ -2796,7 +2962,8 @@
         usuario: function () { return estado.usuario; },
         esAdmin: function () { return esUsuarioAdmin(); },
         abrirVitrinaTienda: abrirVitrinaTienda,
-        tarjetaProducto: function (p) { return tarjetaProductoVitrina(p); },
+        alPintarAdmin: function () { if (ESTADO_ADMIN.tabActual in PARTE_E6) mostrarParteE6(ESTADO_ADMIN.tabActual); },
+        tarjetaProducto: function (p) { return tarjetaProductoVitrina(p, { enDetalle: true }); },
         promesaCatalogo: function () { return promesaCatalogo; },
         fijarFiltros: function (f) {
           estado.filtroTipo = f.tipo || ""; estado.filtroSector = f.sector || ""; estado.filtroAsociacion = f.asociacion || "";
@@ -2834,6 +3001,8 @@
     // Render inicial
     actualizarBadgesCarrito();
     renderizarTiendasMarketplace();
+    renderizarProductosPortada();
+    pintarAtajosPortada();
     renderizarAsociaciones();
     configurarDomEntrega5();
     cargarCatalogoPublico();
@@ -3211,6 +3380,8 @@
   function refrescarVistasCatalogo() {
     if (window.AlerceVitrina6) window.AlerceVitrina6.alActualizarCatalogo();
     renderizarTiendasMarketplace();
+    renderizarProductosPortada();
+    pintarAtajosPortada();
     var modal = document.getElementById("modal-tienda-vitrina");
     if (modal && modal.classList.contains("abierto") && estado.tabModalActiva === 0) renderizarProductosModal();
     actualizarContadorTabsModal();
@@ -3890,16 +4061,16 @@
     var saludo = document.getElementById("saludo-usuario-cabecera");
     if (tag) {
       if (nombre && nombre !== "Visitante") {
-        tag.textContent = nombre + " (" + rol + ")";
+        tag.textContent = nombre;
       } else {
-        tag.textContent = "Inicio de Sesión / Registro";
+        tag.textContent = "Entrar";
       }
     }
     if (saludo) {
       if (nombre && nombre !== "Visitante") {
-        saludo.textContent = "Bienvenido(a), " + nombre + " · Vitrina de Alerce";
+        saludo.textContent = "Hola, " + String(nombre).split(" ")[0];
       } else {
-        saludo.textContent = "Vitrina Comercial de Alerce · Puerto Montt";
+        saludo.textContent = "Emprendedoras de Alerce · Puerto Montt";
       }
     }
     actualizarUIControlesSegunRol();
@@ -3928,6 +4099,9 @@
     if (window.AlerceFerias7) window.AlerceFerias7.alCambiarSesion(null);
     aplicarUsuarioLocal("Visitante", "Visitante", "");
     actualizarUIControlesSegunRol();
+    // Sin sesión no queda a la vista el panel de administración.
+    ["admin-dashboard", "item-nav-admin", "btn-header-admin-panel"].forEach(function (id) { var x = document.getElementById(id); if (x) x.style.display = "none"; });
+    document.body.classList.remove("modo-admin");
     // La lista pública se vuelve a pedir sin sesión: lo que solo veía la dueña desaparece.
     cargarCatalogoPublico();
   }
@@ -4000,9 +4174,10 @@
 
     function texto(id, valor) { var el = document.getElementById(id); if (el) el.textContent = valor; }
     var nombreSaludo = (estado.usuario && estado.usuario.nombre && estado.usuario.nombre !== "Visitante") ? estado.usuario.nombre : tienda.nombre;
-    texto("dashboard-emp-saludo", "Hola, " + nombreSaludo + " 👋");
-    texto("dashboard-emp-tienda-badge", "Emprendedor/a · " + tienda.nombre);
-    texto("dashboard-emp-subtitulo", "Panel de " + tienda.nombre + (tienda.sector ? " (" + tienda.sector + ")" : "") + ".");
+    texto("dashboard-emp-saludo", "Hola, " + String(nombreSaludo).split(" ")[0]);
+    texto("dashboard-emp-tienda-badge", tienda.nombre);
+    texto("dashboard-emp-subtitulo", "¿Qué necesitas hacer?");
+    pintarInvitacionesPendientes();
     texto("subtitulo-gestion-catalogo", tienda.nombre + (tienda.sector ? " · " + tienda.sector : ""));
     texto("subtitulo-mis-ferias", "Ferias de " + tienda.nombre + " (las inscripciones de esta sección aún se guardan solo en este navegador)");
     texto("metrica-prods-activos", publicos.length + " a la vista");
@@ -4013,9 +4188,11 @@
 
     var agotados = prodsTienda.filter(function (p) { return Cat.estadoPublico(p) === "AGOTADO"; });
     var bajos = prodsTienda.filter(function (p) { return p.manejaStock && p.modalidad === "REGULAR" && Cat.unidadesVendibles(p) > 0 && Cat.unidadesVendibles(p) <= 3; });
-    texto("texto-alerta-stock", !prodsTienda.length ? "Aún no has agregado productos." :
-      (agotados.length ? agotados.length + " producto(s) agotado(s): " + agotados.map(function (p) { return p.nombre; }).slice(0, 3).join(", ") :
-      (bajos.length ? bajos[0].nombre + ": quedan " + Cat.unidadesVendibles(bajos[0]) + " unidades." : "Todos tus productos con conteo tienen unidades.")));
+    texto("texto-alerta-stock", !prodsTienda.length ? "Aún no tienes productos. Empieza con «Añadir producto»." :
+      (agotados.length ? "Se acabó: " + agotados.map(function (p) { return p.nombre; }).slice(0, 3).join(", ") + (agotados.length > 3 ? "…" : "") :
+      (bajos.length ? "Quedan pocos: " + bajos[0].nombre + " (" + Cat.unidadesVendibles(bajos[0]) + ")" : "Todos tus productos con conteo tienen unidades.")));
+    var alerta = document.getElementById("dashboard-alerta-stock");
+    if (alerta) alerta.className = "aviso-estado " + (agotados.length ? "aviso-acabo" : (bajos.length ? "aviso-pocos" : "aviso-guardado"));
     texto("texto-proxima-feria", FERIAS_SERVIDOR.length ? FERIAS_SERVIDOR.length + " ferias registradas en la plataforma." : "Sin ferias registradas en la plataforma.");
 
     if (servicio && resumenVentasMes.tiendaId !== tienda.id && !resumenVentasMes.cargando) {
@@ -4028,6 +4205,21 @@
       });
     }
     texto("metrica-ventas-mes", resumenVentasMes.total === null ? (resumenVentasMes.cargando ? "Cargando…" : "Sin datos") : formatearMoneda(resumenVentasMes.total));
+  }
+
+  /** Invitaciones a ferias que esperan respuesta (del servidor): se muestran arriba del panel. */
+  var consultaInvitaciones = 0;
+  function pintarInvitacionesPendientes() {
+    var caja = document.getElementById("panel-emp-invitaciones");
+    if (!caja || !servicio || !servicio.misFerias || Date.now() - consultaInvitaciones < 15000) return;
+    consultaInvitaciones = Date.now();
+    servicio.misFerias().then(function (r) {
+      var hoy = Cat.fechaSantiago();
+      var pendientes = r.ok ? (r.datos || []).filter(function (f) { return f.invitacion === "PENDIENTE" && Cat.feriaActiva({ estado: f.estado, fechaInicio: f.fecha_inicio, fechaFin: f.fecha_fin || f.fecha_inicio }, hoy); }) : [];
+      var t = document.getElementById("panel-emp-invitaciones-texto");
+      if (t) t.textContent = pendientes.length === 1 ? "Te invitaron a «" + pendientes[0].nombre + "». Falta tu respuesta." : "Tienes " + pendientes.length + " invitaciones a ferias por responder.";
+      caja.style.display = pendientes.length ? "" : "none";
+    });
   }
 
   function abrirModalGestionCatalogo() {
@@ -4589,16 +4781,15 @@
       mostrarToast("🔒 Acceso exclusivo para Administradores de Plataforma (W01).");
       return;
     }
-    actualizarKPIsAdmin();
-    seleccionarTabAdmin(ESTADO_ADMIN.tabActual || "emp");
-    abrirModal("modal-admin-plataforma");
+    // El panel vive en la página (no hay otro modal de administración): se muestra arriba.
+    entrarModoAdmin();
   }
 
   function esUsuarioAdmin() {
     return estado.usuario && (estado.usuario.rol === "Administrador" || estado.usuario.rol === "ADMIN");
   }
 
-    function entrarModoAdmin() {
+  function entrarModoAdmin() {
     if (!esUsuarioAdmin()) {
       mostrarToast("Inicia sesión con una cuenta administradora autorizada.");
       return;
@@ -4610,87 +4801,91 @@
     estado.usuario.rol = "Administrador";
     estado.usuario.email = correoAdmin;
     var badgeAdmin = document.getElementById("badge-admin-usuario");
-    if (badgeAdmin) badgeAdmin.textContent = "👑 " + correoAdmin;
+    if (badgeAdmin) badgeAdmin.textContent = "Entraste como " + correoAdmin;
     cerrarModal("modal-auth-web");
     cerrarModal("modal-registro-emprendedor");
 
-    // Desbloquear pestaña y sección en la página (sin modal emergente automático)
     var navAdmin = document.getElementById("item-nav-admin");
     if (navAdmin) navAdmin.style.display = "inline-block";
     var secAdmin = document.getElementById("admin-dashboard");
-    if (secAdmin) secAdmin.style.display = "block";
+    if (secAdmin) {
+      // Quien administra entra a trabajar: el panel va primero, bajo la cabecera, sin tener que bajar a buscarlo.
+      var principal = document.getElementById("contenido-principal");
+      if (principal && principal.firstElementChild !== secAdmin) principal.insertBefore(secAdmin, principal.firstElementChild);
+      secAdmin.style.display = "block";
+      document.body.classList.add("modo-admin");
+    }
 
     actualizarKPIsAdmin();
     ajustarPanelAdminReal();
-    // Se abre con la pestaña de ferias, asociaciones y app (o la última usada en esta visita).
-    var tabsValidas = ["e6", "emp", "cat", "adm", "log"].concat(servicio ? [] : ["asoc"]);
-    seleccionarTabAdmin(tabsValidas.indexOf(ESTADO_ADMIN.tabActual) >= 0 && ESTADO_ADMIN.tabActual !== "emp" ? ESTADO_ADMIN.tabActual : "e6");
+    // Se abre en Ferias (o en la última sección usada en esta visita).
+    var tabsValidas = ["e6", "asoc6", "app", "emp", "cat", "adm", "log"].concat(servicio ? [] : ["asoc"]);
+    seleccionarTabAdmin(tabsValidas.indexOf(ESTADO_ADMIN.tabActual) >= 0 && ESTADO_ADMIN.tabActual !== "emp" ? ESTADO_ADMIN.tabActual : "e6", { sinDesplazar: true });
 
-    // Activar pestaña visual en el menú y desplazarse suavemente
     document.querySelectorAll(".menu-navegacion a").forEach(function (l) { l.classList.remove("activo"); });
     var linkAdmin = document.getElementById("link-nav-admin");
     if (linkAdmin) linkAdmin.classList.add("activo");
+    // Sin animación: lo que se ve al entrar es el panel, no una página a medio desplazar.
+    try { window.scrollTo(0, 0); } catch (e) { /* sin scroll */ }
+  }
 
-    mostrarToast("👑 Bienvenido, Administrador. Pestaña de administración desbloqueada.");
-
-    if (secAdmin) {
-      setTimeout(function() {
-        if (secAdmin.scrollIntoView) secAdmin.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 150);
-    }
+  function irAVitrinaDesdeAdmin() {
+    var v = document.getElementById("vitrina");
+    if (v && v.scrollIntoView) v.scrollIntoView({ block: "start" });
+    var campo = document.getElementById("campo-busqueda-principal");
+    if (campo) campo.focus({ preventScroll: true });
   }
 
   /**
    * Entrega 8: con servidor, el panel muestra SOLO datos reales. Las pestañas de la entrega 4
    * que guardaban ejemplos en el navegador (asociaciones y catálogos locales, contadores) se
-   * ocultan: las asociaciones, ferias y navegación reales están en el bloque «admin-e6».
+   * ocultan: ferias, asociaciones y la app sin cuenta vienen del servidor, cada una en su pestaña.
    */
   function ajustarPanelAdminReal() {
-    if (!servicio) return;
-    ["tab-btn-admin-asoc"].forEach(function (id) {
-      var b = document.getElementById(id);
-      if (b) b.style.display = "none";
-    });
+    var ocultar = servicio ? ["tab-btn-admin-asoc"] : ["tab-btn-admin-asoc6", "tab-btn-admin-app"];
+    ocultar.forEach(function (id) { var b = document.getElementById(id); if (b) b.style.display = "none"; });
     var kpis = document.getElementById("admin-kpis");
-    if (kpis) kpis.style.display = "none";
-    var etiquetas = { "tab-btn-admin-e6": "🎪 Ferias, asociaciones y app", "tab-btn-admin-emp": "👥 Cuentas emprendedoras", "tab-btn-admin-cat": "🏷️ Tipos de producto", "tab-btn-admin-adm": "🛡️ Administradores", "tab-btn-admin-log": "📋 Bitácora" };
-    Object.keys(etiquetas).forEach(function (id) { var b = document.getElementById(id); if (b) b.textContent = etiquetas[id]; });
-    if (ESTADO_ADMIN.tabActual === "asoc") ESTADO_ADMIN.tabActual = "e6";
+    if (kpis) kpis.style.display = servicio ? "none" : "";
+    if (servicio && ESTADO_ADMIN.tabActual === "asoc") ESTADO_ADMIN.tabActual = "asoc6";
   }
 
-  function seleccionarTabAdmin(tab) {
+  var PARTE_E6 = { e6: "admin-e6-ferias", asoc6: "admin-e6-asoc", app: "admin-e6-app" };
+  function mostrarParteE6(tab) {
+    Object.keys(PARTE_E6).forEach(function (t) { var d = document.getElementById(PARTE_E6[t]); if (d) d.style.display = t === tab ? "" : "none"; });
+  }
+
+  function seleccionarTabAdmin(tab, opciones) {
     ESTADO_ADMIN.tabActual = tab;
-    var tabs = ["e6", "emp", "asoc", "cat", "adm", "log"];
-    tabs.forEach(function(t) {
+    var esE6 = tab in PARTE_E6;
+    ["e6", "asoc6", "app", "emp", "asoc", "cat", "adm", "log"].forEach(function (t) {
       var btn = document.getElementById("tab-btn-admin-" + t);
-      var sec = document.getElementById("admin-sec-" + t);
       if (btn) {
-        if (t === tab) {
-          btn.className = "btn-accion-pill btn-negro";
-          btn.style.background = "#111";
-          btn.style.color = "#fff";
-        } else {
-          btn.className = "btn-accion-pill";
-          btn.style.background = "transparent";
-          btn.style.color = "";
-        }
+        btn.classList.toggle("activa", t === tab);
+        btn.setAttribute("aria-selected", t === tab ? "true" : "false");
+        btn.className = btn.className.replace(/btn-negro/g, "").trim();
+        btn.style.background = ""; btn.style.color = "";
       }
-      if (sec) {
-        sec.style.display = (t === tab) ? (t === "e6" ? "block" : "flex") : "none";
-      }
+      var sec = document.getElementById("admin-sec-" + t);
+      if (sec) sec.style.display = (t === tab || (t === "e6" && esE6)) ? (t === "e6" ? "block" : "flex") : "none";
     });
-    // El panel elegido queda a la vista, justo bajo las pestañas.
-    var barraTabs = document.getElementById("tab-btn-admin-" + tab);
-    if (barraTabs && barraTabs.parentElement && barraTabs.parentElement.getBoundingClientRect().top < 0 && barraTabs.parentElement.scrollIntoView) {
-      barraTabs.parentElement.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (esE6) mostrarParteE6(tab);
 
     if (tab === "emp") renderizarAdminEmprendedoras();
     else if (tab === "asoc") renderizarAdminAsociaciones();
     else if (tab === "cat") { if (servicio) renderizarTiposServidor(); else renderizarAdminCatalogos(); }
     else if (tab === "adm") renderizarAdminAdmins();
     else if (tab === "log") renderizarAdminBitacora();
-    else if (tab === "e6" && window.AlerceVitrina6) window.AlerceVitrina6.pintarAdmin();
+    else if (esE6 && window.AlerceVitrina6) { window.AlerceVitrina6.pintarAdmin(); mostrarParteE6(tab); }
+
+    // Lo elegido queda a la vista apenas se toca: si las pestañas ya no se ven arriba, se sube hasta ellas.
+    if (!(opciones && opciones.sinDesplazar)) {
+      var barra = document.getElementById("admin-pestanas");
+      if (barra && barra.getBoundingClientRect) {
+        var r = barra.getBoundingClientRect();
+        var alto = window.innerHeight || document.documentElement.clientHeight;
+        if (r.top < 0 || r.top > alto * 0.5) window.scrollTo(0, window.pageYOffset + r.top - 8);
+      }
+    }
   }
 
   /**
@@ -6170,6 +6365,8 @@
     // Módulo 11: Administración de Plataforma (W01 a W24, WA3-WA6)
     abrirModalAdmin: abrirModalAdmin,
     entrarModoAdmin: entrarModoAdmin,
+    irAVitrinaDesdeAdmin: irAVitrinaDesdeAdmin,
+    abrirCarrito: function () { var b = document.getElementById("btn-abrir-carrito"); if (b) b.click(); },
     seleccionarTabAdmin: seleccionarTabAdmin,
     filtrarAdminEmprendedoras: filtrarAdminEmprendedoras,
     abrirFormCrearEmprendedora: abrirFormCrearEmprendedora,
@@ -6234,6 +6431,11 @@
   }
 
   function arrancar() {
+    try {
+      var q0 = new URLSearchParams(window.location.search);
+      abriendoDesdeEnlace = ["tienda", "producto", "feria", "asociacion"].some(function (k) { return q0.get(k); });
+      if (abriendoDesdeEnlace) promesaCatalogo.then(function () { setTimeout(function () { abriendoDesdeEnlace = false; }, 1500); });
+    } catch (e) { abriendoDesdeEnlace = false; }
     inicializar();
     abrirTiendaDesdeEnlace();
     // Entrega 8 (W09): enlace directo al aviso de privacidad (lo usa también la app).

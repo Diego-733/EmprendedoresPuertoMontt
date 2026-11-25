@@ -6,10 +6,14 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Ensayo local con datos de prueba (sin tocar la instancia real): ./gradlew assembleDebug -PsinServidor=true
+// no lee supabase.properties ni firebase.properties, y el login ofrece las tiendas de prueba del Modo Desarrollador.
+val sinServidor = (project.findProperty("sinServidor") as String?) == "true"
+
 // Credenciales de Supabase: se leen de supabase.properties (fuera de git, RNF-SEG-03).
 val supabaseProps = Properties().apply {
     val archivo = rootProject.file("supabase.properties")
-    if (archivo.exists()) archivo.inputStream().use { load(it) }
+    if (!sinServidor && archivo.exists()) archivo.inputStream().use { load(it) }
 }
 
 // Entrega 7: Firebase Cloud Messaging (push). Identificadores PÚBLICOS de la app en
@@ -17,7 +21,7 @@ val supabaseProps = Properties().apply {
 // periódicamente; el envío lo hace servicios/notificador desde un servidor, nunca la app.
 val firebaseProps = Properties().apply {
     val archivo = rootProject.file("firebase.properties")
-    if (archivo.exists()) archivo.inputStream().use { load(it) }
+    if (!sinServidor && archivo.exists()) archivo.inputStream().use { load(it) }
 }
 
 // Entrega 8: firma del APK de entrega. La clave y sus contraseñas están en keystore.properties

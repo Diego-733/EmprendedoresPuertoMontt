@@ -14,7 +14,8 @@
     "android:probar": "cd \"App para el celular\" && gradlew testDebugUnitTest lintDebug",
     "test:reglas": "node scripts/probar-reglas.js",
     "apk:verificar": "node scripts/verificar-apk.js",
-    "test:hosting": "node scripts/ensayar-hosting.js"
+    "test:hosting": "node scripts/ensayar-hosting.js",
+    "demo": "node tests/e2e/demo_local.js"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",

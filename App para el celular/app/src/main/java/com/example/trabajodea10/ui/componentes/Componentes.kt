@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -230,14 +231,15 @@ fun ChipFiltro(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(50),
-        color = if (seleccionado) NegroApple else BlancoPuro,
-        border = BorderStroke(1.dp, if (seleccionado) NegroApple else GrisBorde),
+        color = if (seleccionado) com.example.trabajodea10.ui.theme.Musgo else BlancoPuro,
+        border = BorderStroke(1.dp, if (seleccionado) com.example.trabajodea10.ui.theme.Musgo else GrisBorde),
         onClick = onClick
     ) {
         Text(
             text = texto,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            fontSize = 13.sp,
+            // Al menos 48 dp de alto (RNF-USA-02); crece con la letra del celular.
+            modifier = Modifier.heightIn(min = 48.dp).wrapContentHeight(Alignment.CenterVertically).padding(horizontal = 14.dp, vertical = 8.dp),
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = if (seleccionado) BlancoPuro else NegroApple
         )
@@ -258,7 +260,7 @@ fun BotonPrimario(
         enabled = enabled,
         shape = RoundedCornerShape(50.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = NegroApple,
+            containerColor = com.example.trabajodea10.ui.theme.Musgo,
             contentColor = BlancoPuro,
             disabledContainerColor = GrisChip,
             disabledContentColor = GrisTexto
@@ -284,10 +286,10 @@ fun BotonSecundario(
         modifier = modifier.fillMaxWidth().heightIn(min = 48.dp),   // Entrega 8: crece con la letra grande (RNF-USA-03)
         enabled = enabled,
         shape = RoundedCornerShape(50.dp),
-        border = BorderStroke(1.dp, GrisBorde),
+        border = BorderStroke(1.5.dp, com.example.trabajodea10.ui.theme.Musgo),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = BlancoPuro,
-            contentColor = NegroApple,
+            contentColor = com.example.trabajodea10.ui.theme.Musgo,
             disabledContainerColor = GrisChip,
             disabledContentColor = GrisTexto
         ),
@@ -295,7 +297,7 @@ fun BotonSecundario(
     ) {
         icono?.invoke()
         if (icono != null) Spacer(modifier = Modifier.width(8.dp))
-        Text(texto, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = NegroApple, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(texto, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = com.example.trabajodea10.ui.theme.Musgo, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -568,7 +570,7 @@ fun TituloSeccion(
             ) {
                 Text(
                     text = accion,
-                    color = RojoAlerce,
+                    color = com.example.trabajodea10.ui.theme.Musgo,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )

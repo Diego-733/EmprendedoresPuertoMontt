@@ -661,6 +661,19 @@ object TramaStore {
         }
     }
 
+    /**
+     * «Cuántos tengo» desde la lista: cambia las unidades de una opción. Conserva stockBase para que
+     * el servidor aplique solo la diferencia (si otra venta descontó entretanto, no se pisa).
+     */
+    fun cambiarCuantosQuedan(id: String, varianteId: String, cantidad: Int) {
+        val indice = productos.indexOfFirst { it.id == id && it.tiendaId == tienda.id }
+        if (indice < 0) return
+        val producto = productos[indice]
+        productos[indice] = producto.copy(variantes = producto.variantes.map { if (it.id == varianteId) it.copy(stock = cantidad.coerceIn(0, 9999)) else it })
+        persistir()
+        Sincronizador.productoCambiado(id)
+    }
+
     /** Deshace "Se acabó" devolviendo las unidades que tenía cada opción. */
     fun restaurarVariantes(id: String, variantes: List<Variante>) {
         val indice = productos.indexOfFirst { it.id == id }

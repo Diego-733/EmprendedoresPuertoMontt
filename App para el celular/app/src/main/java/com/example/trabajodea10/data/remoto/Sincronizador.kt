@@ -129,8 +129,18 @@ object Sincronizador {
     }
 
     private fun actualizarConteo() {
-        pendientes = leer(PRODUCTOS).size + leer(ELIMINADOS).size + leer(VENTAS).size + leer(TIENDA).size
+        val productos = leer(PRODUCTOS)
+        pendientes = productos.size + leer(ELIMINADOS).size + leer(VENTAS).size + leer(TIENDA).size
+        productosPorSubir = productos
     }
+
+    /** Productos con cambios que aún no llegan al servidor (la pantalla muestra «Pendiente» en cada uno). */
+    var productosPorSubir by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    /** Cómo quedó el último cambio de un producto, para decirlo con palabras en pantalla. */
+    fun estadoDeProducto(id: String): EstadoGuardado =
+        ReglasGuardado.estado(hayCuenta, id in productosPorSubir, subiendo, EstadoConexion.conectado)
 
     /** Hay una cuenta a la que anotar cambios (aunque su sesión haya vencido). */
     private val hayCuenta: Boolean get() = cuentaActiva != null && ConfigSupabase.configurado
@@ -292,5 +302,22 @@ object Sincronizador {
             } else v
         }
         return producto.copy(variantes = variantes)
+    }
+}
+
+/** Lo que la emprendedora lee bajo cada producto después de guardar (RNF-REN-02): siempre con palabras. */
+enum class EstadoGuardado(val etiqueta: String, val detalle: String) {
+    GUARDADO("Guardado", "Ya está en el servidor: tus clientas ven el cambio."),
+    SUBIENDO("Subiendo…", "Enviando el cambio al servidor."),
+    PENDIENTE("Pendiente", "Sin señal: quedó en este celular y se sube solo cuando vuelva."),
+    SOLO_EN_EL_CELULAR("Solo en este celular", "Esta sesión no está conectada al servidor.")
+}
+
+object ReglasGuardado {
+    fun estado(hayCuenta: Boolean, pendiente: Boolean, subiendo: Boolean, conectado: Boolean): EstadoGuardado = when {
+        !hayCuenta -> EstadoGuardado.SOLO_EN_EL_CELULAR
+        !pendiente -> EstadoGuardado.GUARDADO
+        subiendo && conectado -> EstadoGuardado.SUBIENDO
+        else -> EstadoGuardado.PENDIENTE
     }
 }

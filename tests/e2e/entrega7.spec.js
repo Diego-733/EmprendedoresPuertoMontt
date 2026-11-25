@@ -386,11 +386,13 @@ test.describe("Entrega 7 · emprendedora en la web", () => {
     e.tablas.perfiles = [{ id: "u-emp", nombre: "Rosa", rol: "EMPRENDEDORA", tienda_id: "t_pan" }];
     e.sesion = { user: { id: "u-emp", email: "rosa@correo.cl", user_metadata: {} }, access_token: "falso" };
     const inv = { feria_id: "f1", nombre: "Feria de Alerce", ubicacion: "Plaza de Alerce", fecha_inicio: hoy(3), fecha_fin: hoy(3), horario: "10 a 18", estado: "PROXIMA", invitacion: "PENDIENTE", asistencia: "PENDIENTE", origen: "DIRECTA" };
-    e.respuestasRpc.mis_ferias = [{ data: [inv] }, { data: [Object.assign({}, inv, { invitacion: "CONFIRMADA" })] }];
+    // La primera respuesta la pide el panel de inicio (aviso «por responder»); las otras, la ventana Mis ferias.
+    e.respuestasRpc.mis_ferias = [{ data: [inv] }, { data: [inv] }, { data: [Object.assign({}, inv, { invitacion: "CONFIRMADA" })] }];
     e.respuestasRpc.responder_invitacion = [{ data: { feria_id: "f1", invitacion: "CONFIRMADA", cambio: true } }];
     await preparar(page, e);
     await page.goto(ORIGEN + "/");
     await expect(page.locator("#btn-abrir-catalogo-nav")).toBeVisible();
+    await expect(page.locator("#panel-emp-invitaciones")).toContainText("Feria de Alerce");
     await page.evaluate(() => window.TramaWeb.abrirModalMisFerias());
     const cont = page.locator("#lista-ferias-gestion-cuerpo");
     await expect(cont).toContainText("Feria de Alerce");

@@ -158,20 +158,9 @@ private fun FabSegunRuta(
         // Entrega 7: las ferias se crean en la web (datos del servidor), no en el celular.
         Ruta.AdminFerias -> Unit
 
-        Ruta.EmpInicio -> Fab(
-            descripcion = "Registrar venta",
-            icono = { Icon(Icons.Filled.ShoppingCart, contentDescription = "Registrar venta") },
-            onClick = { nav.seleccionarTab(Ruta.EmpVenta) }
-        )
-
-        Ruta.EmpCatalogo -> Fab(
-            descripcion = "Nuevo producto",
-            icono = { Icon(Icons.Filled.Add, contentDescription = "Nuevo producto") },
-            onClick = {
-                val id = TramaStore.crearProductoBorrador()
-                nav.irA(Ruta.ProductoDetalle(id))
-            }
-        )
+        // Inicio y Mis productos ya muestran «Registrar una venta» y «Añadir producto» con texto:
+        // un botón flotante solo con ícono repetía la misma acción y tapaba la lista.
+        Ruta.EmpInicio, Ruta.EmpCatalogo -> Unit
 
         else -> Unit
     }

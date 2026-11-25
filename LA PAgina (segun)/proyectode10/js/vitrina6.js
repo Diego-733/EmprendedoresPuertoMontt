@@ -321,7 +321,7 @@
   }
 
   function filtrarAsociaciones() {
-    var texto = (el("e6-busqueda") && el("e6-busqueda").value || "").toLowerCase().trim();
+    var texto = ((el("e6-busqueda") || el("campo-busqueda-principal")) && (el("e6-busqueda") || el("campo-busqueda-principal")).value || "").toLowerCase().trim();
     var filtroAsoc = el("e6-filtro-asociacion") ? el("e6-filtro-asociacion").value : "";
     var filtroSector = el("e6-filtro-sector") ? el("e6-filtro-sector").value : "";
     var filtroTipo = el("e6-filtro-tipo") ? el("e6-filtro-tipo").value : "";
@@ -401,6 +401,7 @@
       window.AlerceFerias7 ? window.AlerceFerias7.botonSeguir("ASOCIACION", a.id, a.nombre) : null,
       h("button", { type: "button", class: "btn-accion-pill", text: "🔗 Compartir asociación", onclick: function () { compartir("asociacion", a.id, a.nombre); } })
     ]));
+    if (el("modal-asociacion")) el("modal-asociacion").setAttribute("data-id", a.id);
     ctx.abrirModal("modal-asociacion");
     return true;
   }
@@ -493,7 +494,23 @@
     return ctx.Cat.feriasProximas(FERIAS);
   }
 
+  /** Portada: la próxima feria, con fecha y lugar, junto al buscador. */
+  function pintarPortadaFeria() {
+    var c = el("portada-proxima-feria");
+    if (!c) return;
+    c.textContent = "";
+    if (estadoFerias.cargando && !estadoFerias.cargado) { c.appendChild(h("p", { class: "portada-feria-cargando", text: "Buscando la próxima feria…" })); return; }
+    var f = feriasVisibles()[0];
+    if (!f) { c.appendChild(h("p", { class: "portada-feria-vacia", text: ctx.modo === "sin_config" || estadoFerias.error ? "No pudimos revisar las ferias ahora." : "No hay ferias próximas publicadas por ahora." })); return; }
+    c.appendChild(h("p", { class: "portada-feria-etiqueta", text: "Próxima feria" }));
+    c.appendChild(h("h2", { class: "portada-feria-nombre", text: f.nombre }));
+    c.appendChild(h("p", { class: "portada-feria-fecha", text: rangoFechas(f) + (f.horario ? ", " + f.horario : "") }));
+    c.appendChild(h("p", { class: "portada-feria-lugar", text: f.lugar || "Lugar por confirmar" }));
+    c.appendChild(h("button", { type: "button", class: "btn-accion-pill btn-secundario", text: "Ver lugar y quiénes van", onclick: function () { abrirFeria(f.id); } }));
+  }
+
   function pintarFerias() {
+    pintarPortadaFeria();
     var c = el("grilla-ferias-container");
     var estadoCaja = el("e6-ferias-estado");
     if (!c) return;
@@ -527,7 +544,7 @@
           h("p", { style: "font-size: 13px; color: var(--gris-texto);" }, [h("strong", { text: rangoFechas(f) }), f.horario ? " · " + f.horario : ""]),
           h("p", { style: "font-size: 12.5px; color: var(--gris-texto);", text: "📍 " + (f.lugar || "Lugar por confirmar") }),
           h("div", { class: "e6-acciones-feria" }, [
-            h("button", { type: "button", class: "btn-accion-pill btn-negro", text: "Ver ficha y mapa", onclick: function () { abrirFeria(f.id); } }),
+            h("button", { type: "button", class: "btn-accion-pill btn-negro", text: "Ver lugar y quiénes van", onclick: function () { abrirFeria(f.id); } }),
             botonComoLlegar(f.lat, f.lng, f.nombre)
           ])
         ])
@@ -559,6 +576,7 @@
       h("button", { type: "button", class: "btn-accion-pill", text: "🔗 Compartir feria", onclick: function () { compartir("feria", f.id, f.nombre); } })
     ]));
     if (window.AlerceFerias7) window.AlerceFerias7.pintarParticipantes(f, cuerpo);
+    if (el("modal-feria")) el("modal-feria").setAttribute("data-id", f.id);
     ctx.abrirModal("modal-feria");
     if (f.lat !== null) setTimeout(function () { crearMapa("mapa-ficha-feria", f.lat, f.lng, { etiqueta: f.nombre }); }, 60);
     return true;
@@ -577,11 +595,27 @@
     cuerpo.textContent = "";
     cuerpo.appendChild(ctx.tarjetaProducto(p));
     if (tienda) {
+      // Quién lo vende y a quién le llega el mensaje, antes de abrir WhatsApp.
+      var vias = ctx.Cat.viasContacto(tienda);
+      var fichaAbierta = el("modal-tienda-vitrina") && el("modal-tienda-vitrina").classList.contains("abierto");
+      var logo = ctx.imagenSegura(tienda.logoUrl, "", "detalle-vende-logo") ||
+        h("span", { class: "detalle-vende-logo", "aria-hidden": "true", style: "background:" + ctx.Cat.colorHex(tienda.colorLogo, "#1F5C46"), text: tienda.nombre.charAt(0).toUpperCase() });
+      cuerpo.appendChild(h("section", { class: "detalle-vende", "aria-label": "Quién lo vende" }, [
+        logo,
+        h("div", null, [
+          h("p", { class: "detalle-vende-etiqueta", text: "Lo vende" }),
+          h("p", { class: "detalle-vende-nombre", text: tienda.nombre }),
+          h("p", { class: "detalle-vende-sub", text: [tienda.rubro, tienda.sector ? "en " + tienda.sector : ""].filter(Boolean).join(" ") }),
+          vias.whatsapp ? h("p", { class: "detalle-vende-destino", text: "WhatsApp " + ctx.Cat.formatearWhatsapp(tienda.whatsapp) + ": tu mensaje le llega a esta tienda." }) : null
+        ])
+      ]));
       cuerpo.appendChild(h("div", { class: "e6-acciones-tienda" }, [
-        h("button", { type: "button", class: "btn-accion-pill btn-negro", text: "Ver la tienda " + tienda.nombre, onclick: function () { ctx.cerrarModal("modal-producto"); ctx.abrirVitrinaTienda(tienda.id); } }),
-        h("button", { type: "button", class: "btn-accion-pill", text: "🔗 Compartir", onclick: function () { compartir("producto", p.id, p.nombre); } })
+        h("button", { type: "button", class: "btn-accion-pill btn-secundario", text: fichaAbierta ? "Volver a " + tienda.nombre : "Ver todo lo que vende " + tienda.nombre,
+          onclick: function () { ctx.cerrarModal("modal-producto"); if (!fichaAbierta) setTimeout(function () { ctx.abrirVitrinaTienda(tienda.id); }, 120); } }),
+        h("button", { type: "button", class: "btn-accion-pill btn-terciario", text: "🔗 Compartir", onclick: function () { compartir("producto", p.id, p.nombre); } })
       ]));
     }
+    if (el("modal-producto")) el("modal-producto").setAttribute("data-id", p.id);
     ctx.abrirModal("modal-producto");
     return true;
   }
@@ -618,14 +652,18 @@
   function pintarAdmin() {
     var c = el("admin-e6");
     if (!c || !ctx.esAdmin()) return;
+    // Cada parte va en su pestaña del panel (Ferias, Asociaciones, App sin cuenta); sin esos espacios, todo junto.
+    var partes = ["admin-e6-ferias", "admin-e6-asoc", "admin-e6-app"].map(function (id) { return el(id) || h("div", { id: id }); });
     c.textContent = "";
+    partes.forEach(function (p) { p.textContent = ""; c.appendChild(p); });
     if (!real()) {
-      c.appendChild(h("p", { class: "e6-aviso", text: "Conecta la vitrina al servidor para administrar ferias, asociaciones y la navegación de la app." }));
+      partes[0].appendChild(h("p", { class: "e6-aviso", text: "Conecta la vitrina al servidor para administrar ferias, asociaciones y la navegación de la app." }));
       return;
     }
-    c.appendChild(adminNavegacion());
-    c.appendChild(adminFerias());
-    c.appendChild(adminAsociaciones());
+    partes[0].appendChild(adminFerias());
+    partes[1].appendChild(adminAsociaciones());
+    partes[2].appendChild(adminNavegacion());
+    if (ctx.alPintarAdmin) ctx.alPintarAdmin();
   }
 
   // ---- Navegación anónima (RF-ADM-02)
@@ -663,7 +701,7 @@
       }
     });
     leer();
-    return tarjetaAdmin("📱 Navegación anónima de la app", "Qué ve una persona que abre la app Android sin sesión.", [grupo, h("div", { class: "e6-fila" }, [boton]), estadoTxt]);
+    return tarjetaAdmin("App Android sin cuenta", "Qué ve una persona que abre la app Android sin haber entrado con su cuenta.", [grupo, h("div", { class: "e6-fila" }, [boton]), estadoTxt]);
   }
 
   // ---- Ferias con mapa (RF-FER-01, RF-MAP-01)
@@ -754,7 +792,7 @@
     var lista = h("div", { class: "e6-admin-lista", id: "e6-admin-lista-ferias" });
     var form = h("div", { id: "e6-form-feria", class: "e6-form", style: "display:none;" });
     var nueva = h("button", { type: "button", id: "e6-btn-nueva-feria", class: "btn-accion-pill btn-negro", text: "➕ Nueva feria", onclick: function () { abrirFormFeria(null); } });
-    var tarjeta = tarjetaAdmin("🎪 Ferias", "Crea y edita ferias. La ubicación se fija marcando el mapa o buscando la dirección.", [h("div", { class: "e6-fila" }, [nueva]), form, lista]);
+    var tarjeta = tarjetaAdmin("Ferias", "Crea, publica y edita ferias; invita tiendas y revisa quién confirmó. La ubicación se marca en el mapa.", [h("div", { class: "e6-fila" }, [nueva]), form, lista]);
     setTimeout(function () { pintarListaFeriasAdmin(); actualizarBotonNuevaFeria(); }, 0);
     return tarjeta;
   }
@@ -1097,9 +1135,10 @@
   // ---- Asociaciones e integrantes (para RF-ASO-03 y el filtro por asociación)
   function adminAsociaciones() {
     var cont = h("div", { class: "e6-admin-lista", id: "e6-admin-lista-asoc" });
-    var nombre = h("input", { maxlength: "120", placeholder: "Nombre de la asociación" });
-    var sector = h("input", { maxlength: "80", placeholder: "Sector (ej: Alerce)" });
-    var desc = h("input", { maxlength: "400", placeholder: "Descripción breve" });
+    var nombre = h("input", { id: "e6-asoc-nueva-nombre", maxlength: "120", autocomplete: "off" });
+    var sector = h("input", { id: "e6-asoc-nueva-sector", maxlength: "80", placeholder: "Ej: Alerce Norte" });
+    var desc = h("input", { id: "e6-asoc-nueva-desc", maxlength: "400" });
+    var campo = function (id, texto, input) { return h("label", { class: "e6-campo", for: id }, [h("span", { text: texto }), input]); };
     var aviso = h("p", { class: "e6-aviso", role: "alert" });
     var crear = h("button", { type: "button", class: "btn-accion-pill btn-negro", text: "➕ Crear asociación" });
     crear.addEventListener("click", function () {
@@ -1116,9 +1155,16 @@
       });
     });
     setTimeout(pintarAsociacionesAdmin, 0);
-    return tarjetaAdmin("🤝 Asociaciones (servidor)", "Agrega emprendedoras a cada asociación: así aparecen en su ficha pública y en el filtro.", [
-      h("div", { class: "e6-grilla-3" }, [nombre, sector, desc]), h("div", { class: "e6-fila" }, [crear]), aviso, cont
+    // Primero la acción para crear (plegada, con sus campos rotulados) y enseguida el listado.
+    var formulario = h("details", { class: "admin-crear" }, [
+      h("summary", { class: "btn-accion-pill btn-negro", text: "➕ Crear asociación" }),
+      h("div", { class: "admin-crear-cuerpo" }, [
+        h("div", { class: "e6-grilla-3" }, [campo("e6-asoc-nueva-nombre", "Nombre (obligatorio)", nombre), campo("e6-asoc-nueva-sector", "Sector", sector), campo("e6-asoc-nueva-desc", "Descripción breve", desc)]),
+        h("div", { class: "e6-fila" }, [crear]), aviso
+      ])
     ]);
+    crear.textContent = "Guardar asociación";
+    return tarjetaAdmin("Asociaciones", "Agrega emprendedoras a cada asociación: así aparecen en su ficha pública y en el filtro.", [formulario, cont]);
   }
 
   function recargarAsociacionesAdmin() {

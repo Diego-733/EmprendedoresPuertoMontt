@@ -61,7 +61,7 @@ test.describe("Vitrina pública (sin sesión)", () => {
     await expect(visible.locator(".prod-precio")).toHaveText("$ 1.000");
     await expect(visible.locator(".prod-categoria")).toHaveText("Textil · Chaleco");
     await expect(visible.locator("img.prod-foto")).toHaveAttribute("src", "https://falso.supabase.co/p/visible.jpg");
-    await expect(lista.locator('[data-producto-vitrina="agotado"] .badge-necesidad')).toHaveText("Agotado");
+    await expect(lista.locator('[data-producto-vitrina="agotado"] .badge-necesidad')).toHaveText("Se acabó");   // mismo término que la app (antes «Agotado»)
     await expect(lista.locator('[data-producto-vitrina="agotado"] .btn-anadir-carrito')).toBeDisabled();
     await expect(lista.locator('[data-producto-vitrina="pedido"] .badge-necesidad')).toHaveText("A pedido");
     for (const id of ["oculto", "no_disp", "ocultar", "pieza_vendida"]) await expect(lista.locator(`[data-producto-vitrina="${id}"]`)).toHaveCount(0);
@@ -100,7 +100,7 @@ test.describe("Vitrina pública (sin sesión)", () => {
     await page.evaluate(() => { window.__FALSO__.fallar = {}; });
     await aviso.getByRole("button", { name: "Reintentar" }).click();
     await expect(aviso).toBeHidden();
-    await page.locator("#grilla-tiendas-marketplace .tarjeta-tienda").getByRole("button", { name: "Ver vitrina" }).click();
+    await page.locator("#grilla-tiendas-marketplace .tarjeta-tienda").getByRole("button", { name: "Ver productos y contacto" }).click();
     await expect(page.locator('[data-producto-vitrina="p1"]')).toBeVisible();
   });
 
@@ -127,7 +127,7 @@ test.describe("Vitrina pública (sin sesión)", () => {
     await page.evaluate(() => window.TramaWeb.abrirModalAuthNormal());
     await page.getByRole("button", { name: "Continuar con Google" }).click();
     await expect(page.locator("#auth-aviso-error")).toContainText("aún no está habilitado");
-    await expect(page.locator("#tag-nombre-usuario")).toHaveText("Inicio de Sesión / Registro");
+    await expect(page.locator("#tag-nombre-usuario")).toHaveText("Entrar");
   });
 });
 
@@ -242,7 +242,7 @@ test.describe("Adaptación a pantallas", () => {
   test("el foco entra al modal, no se escapa con Tab y vuelve al cerrar", async ({ page }) => {
     await preparar(page, datosPublicos([producto("p1")]));
     await page.goto(ORIGEN + "/");
-    const boton = page.locator("#grilla-tiendas-marketplace .tarjeta-tienda").getByRole("button", { name: "Ver vitrina" });
+    const boton = page.locator("#grilla-tiendas-marketplace .tarjeta-tienda").getByRole("button", { name: "Ver productos y contacto" });
     await boton.focus();
     await page.keyboard.press("Enter");
     await expect(page.locator("#modal-tienda-vitrina")).toHaveClass(/abierto/);

@@ -356,7 +356,7 @@
   }
 
   function etiquetaEstado(estado) {
-    return { DISPONIBLE: "Disponible", AGOTADO: "Agotado", A_PEDIDO: "A pedido", OCULTO: "Oculto" }[estado] || "";
+    return { DISPONIBLE: "Disponible", AGOTADO: "Se acabó", A_PEDIDO: "A pedido", OCULTO: "No se muestra" }[estado] || "";
   }
 
   function etiquetaCategoria(p) {

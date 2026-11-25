@@ -98,7 +98,7 @@ test.describe("Entrega 8 · administración con datos del servidor", () => {
     await page.goto(ORIGEN + "/");
     await expect(page.locator("#admin-dashboard")).toBeVisible();
     await expect(page.locator("#tab-btn-admin-asoc")).toBeHidden();
-    await expect(page.locator("#tab-btn-admin-cat")).toHaveText("🏷️ Tipos de producto");
+    await expect(page.locator("#tab-btn-admin-cat")).toHaveText("Tipos de producto");
     await expect(page.locator("#admin-kpis")).toBeHidden();
     await page.locator("#tab-btn-admin-emp").click();
     const lista = page.locator("#admin-lista-emp-contenedor");

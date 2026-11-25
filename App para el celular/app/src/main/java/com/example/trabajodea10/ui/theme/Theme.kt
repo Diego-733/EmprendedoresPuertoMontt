@@ -12,15 +12,15 @@ import androidx.compose.ui.unit.Density
 import com.example.trabajodea10.data.TramaStore
 
 private val EsquemaClaro = lightColorScheme(
-    primary = NegroApple,
+    primary = Musgo,
     onPrimary = BlancoPuro,
-    primaryContainer = GrisChip,
-    onPrimaryContainer = NegroApple,
+    primaryContainer = MusgoClaro,
+    onPrimaryContainer = MusgoOscuro,
     secondary = RojoAlerce,
     onSecondary = BlancoPuro,
     secondaryContainer = RojoAlerceContenedor,
     onSecondaryContainer = RojoAlerceOscuro,
-    tertiary = NegroSuave,
+    tertiary = Corteza,
     onTertiary = BlancoPuro,
     tertiaryContainer = GrisChip,
     onTertiaryContainer = NegroApple,

@@ -42,8 +42,8 @@ android {
         applicationId = "com.company.ultrapp"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.6-entrega8"
+        versionCode = 8
+        versionName = "1.6.1-experiencia"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

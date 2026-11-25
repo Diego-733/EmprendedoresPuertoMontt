@@ -200,3 +200,10 @@ Para cada una: anotar dónde dudan, qué tocan primero y si terminan sin ayuda.
 - Android: `ui/theme/Color.kt`, `ui/theme/Theme.kt`, `ui/componentes/Componentes.kt`, `ui/emprendedora/DashboardScreen.kt`, `CatalogoScreen.kt`, `AltaProductoScreen.kt`, `TramaApp.kt`, `data/TramaStore.kt` (`cambiarCuantosQuedan`), `data/remoto/Sincronizador.kt` (`productosPorSubir`, `EstadoGuardado`), `app/build.gradle.kts` (`-PsinServidor`), prueba `EstadoGuardadoTest.kt`.
 - Pruebas y demo: `tests/e2e/experiencia.spec.js`, `demo_local.js`, `datos_demo.js`, `capturas_demo.js`; ajustes en `web.spec.js`, `entrega6/7/8.spec.js`; `package.json` (`npm run demo`).
 - Manuales: `docs/entrega8/manual-administrador.md` y `manual-emprendedora.md` con los nombres nuevos.
+
+## 10. APK publicado con este diseño
+
+- Versión **1.6.1-experiencia** (`versionCode 8`), firmada con la misma clave de entrega que la 1.6 (se instala como actualización, sin desinstalar).
+- SHA-256 del archivo: `7351EEE3ED56AD95A529D514CEA43D443970E9411018A32F57572A5448E3CBD1` (`npm run apk:verificar`: APTO para publicar).
+- Copia en `LA PAgina (segun)/proyectode10/app-debug.apk` y huella en `dist/hosting/apk-sha256.txt`. El APK anterior (1.6-entrega8, `38BB9641…`) quedó respaldado fuera de git en `dist/apk-anterior-1.6-entrega8.apk`.
+- Falta subirlo a mano al Release `apk-1.6-alerce` como `app-release.apk` (los botones de la web apuntan ahí).

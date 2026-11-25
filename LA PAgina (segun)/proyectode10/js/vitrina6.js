@@ -436,7 +436,7 @@
 
   var contactoActual = null;
 
-  function abrirFormulario(tiendaId, productoId, referencia) {
+  function abrirFormulario(tiendaId, productoId, referencia, mensajeInicial) {
     var tienda = ctx.tiendas().find(function (t) { return t.id === tiendaId; });
     if (!tienda) return;
     if (!ctx.Cat.viasContacto(tienda).formulario) {
@@ -447,7 +447,7 @@
     var sub = el("modal-contacto-sub");
     if (sub) sub.textContent = tienda.nombre + (referencia ? " · Sobre: " + referencia : "");
     var mensaje = el("contacto-mensaje");
-    if (mensaje) mensaje.value = referencia ? "Hola, me interesa «" + referencia + "». " : "";
+    if (mensaje) mensaje.value = mensajeInicial ? String(mensajeInicial).slice(0, 1000) : (referencia ? "Hola, me interesa «" + referencia + "». " : "");
     var u = ctx.usuario();
     var nombre = el("contacto-nombre");
     if (nombre && !nombre.value && u && u.nombre && u.nombre !== "Visitante") nombre.value = u.nombre;

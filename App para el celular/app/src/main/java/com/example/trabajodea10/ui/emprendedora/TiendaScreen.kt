@@ -169,7 +169,8 @@ fun PantallaTienda(
             rubro = rubro.trim().ifBlank { "Comercio" },
             sector = sector.trim().ifBlank { "Alerce" },
             bio = bio.trim(),
-            whatsapp = whatsapp.trim().ifBlank { "+56 9 1234 5678" },
+            // Vacío se guarda vacío (antes se reemplazaba por un número inventado); válido, con formato +56 9 XXXX XXXX.
+            whatsapp = com.example.trabajodea10.data.ContactoWhatsApp.formatear(whatsapp) ?: whatsapp.trim(),
             instagram = instagram.trim(),
             colorPortada = colorPortada,
             colorLogo = colorLogo,
@@ -394,9 +395,16 @@ fun PantallaTienda(
             )
             CampoTexto(
                 valor = whatsapp,
-                onValorChange = { whatsapp = it },
-                etiqueta = "WhatsApp de Contacto (+56 9 ...)",
+                onValorChange = { whatsapp = it.take(20) },
+                etiqueta = "WhatsApp de tu tienda",
+                placeholder = "+56 9 XXXX XXXX",
                 tipoTeclado = androidx.compose.ui.text.input.KeyboardType.Phone
+            )
+            Text(
+                text = if (whatsapp.isNotBlank() && !com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp))
+                    com.example.trabajodea10.data.ContactoWhatsApp.INVALIDO else com.example.trabajodea10.data.ContactoWhatsApp.AYUDA,
+                color = if (whatsapp.isNotBlank() && !com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp)) Color(0xFFB91C1C) else Color(0xFF6B7280),
+                fontSize = 12.sp
             )
 
             // SECCIÓN 3: PERSONALIZACIÓN VISUAL
@@ -517,6 +525,10 @@ fun PantallaTienda(
             // BOTÓN DE GUARDADO (celular + servidor)
             Button(
                 onClick = {
+                    if (whatsapp.isNotBlank() && !com.example.trabajodea10.data.ContactoWhatsApp.esValido(whatsapp)) {
+                        avisar(com.example.trabajodea10.data.ContactoWhatsApp.INVALIDO)
+                        return@Button
+                    }
                     guardando = true
                     coroutineScope.launch {
                         val exito = SesionManager.guardarTienda(tiendaActualizada)

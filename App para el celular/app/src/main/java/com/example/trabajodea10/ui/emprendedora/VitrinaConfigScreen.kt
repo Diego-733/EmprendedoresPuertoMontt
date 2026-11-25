@@ -91,7 +91,7 @@ fun PantallaConfigVitrina(nav: ControladorNavegacion, avisar: (String) -> Unit) 
     var lng by remember { mutableStateOf(actual.puntoLng) }
     var nombrePunto by remember { mutableStateOf(actual.puntoNombre ?: "") }
     var guardando by remember { mutableStateOf(false) }
-    val sinNumero = actual.whatsapp.count { it.isDigit() } < 8
+    val sinNumero = !com.example.trabajodea10.data.ContactoWhatsApp.esValido(actual.whatsapp)
 
     Column(Modifier.fillMaxSize()) {
         BarraSuperior(titulo = "Mi vitrina", subtitulo = "Precios, contacto y punto de retiro", onVolver = { nav.volver() })

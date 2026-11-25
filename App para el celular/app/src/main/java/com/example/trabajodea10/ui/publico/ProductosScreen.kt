@@ -73,11 +73,15 @@ fun PantallaVisProductos() {
             ) {
                 items(publicados, key = { it.id }) { producto ->
                     TarjetaProductoGrande(producto) {
-                        abrirWhatsApp(
-                            contexto = contexto,
-                            numero = TramaStore.tienda.whatsapp,
-                            mensaje = "Hola, me interesa el producto: ${producto.nombre}. ¿Lo tienes disponible?"
-                        )
+                        // Antes usaba TramaStore.tienda (la tienda de la sesión), no la del producto.
+                        val tiendaDelProducto = com.example.trabajodea10.data.SesionManager.tiendas.toList()
+                            .firstOrNull { it.id == producto.tiendaId }
+                        if (tiendaDelProducto != null) {
+                            contactarTiendaPorWhatsApp(contexto, tiendaDelProducto,
+                                "Hola ${tiendaDelProducto.nombre}, me interesa el producto: ${producto.nombre}. ¿Lo tienes disponible?")
+                        } else {
+                            android.widget.Toast.makeText(contexto, com.example.trabajodea10.data.ContactoWhatsApp.SIN_WHATSAPP + ".", android.widget.Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             }

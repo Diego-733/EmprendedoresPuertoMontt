@@ -382,18 +382,18 @@
       </h2>
       <p class="subtitulo-seccion">¿Tienes dudas para comprar, contactar a una tienda o saber los horarios de ferias? Te asistimos con gusto.</p>
 
-      <div class="tarjeta-tienda" style="padding: 24px; max-width: 600px;">
-        <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 8px;">Mesa Telefónica Alerce Emprende</h3>
-        <p style="font-size: 13.5px; color: var(--gris-texto); margin-bottom: 16px;">
-          Llámanos directamente sin costo. Atención de lunes a viernes de 09:00 a 18:00 hrs.
+      <!-- Entrega 8: se retiró un número fijo de «soporte» cuyo dueño no se conocía. La plataforma
+           no tiene un contacto oficial configurado: la ayuda orienta a escribir a cada tienda. -->
+      <div class="tarjeta-tienda" id="ayuda-como-contactar" style="padding: 24px; max-width: 600px;">
+        <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 8px;">¿Cómo pido o pregunto por un producto?</h3>
+        <p style="font-size: 13.5px; color: var(--gris-texto); margin-bottom: 12px;">
+          Abre la tienda en la vitrina y usa su botón de WhatsApp o «Enviar un mensaje». Tu pedido le llega directo a esa emprendedora. Desde el carrito, cada tienda recibe solo sus productos.
         </p>
+        <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 8px;">¿Buscas una feria?</h3>
+        <p style="font-size: 13.5px; color: var(--gris-texto); margin-bottom: 16px;">En «Próximas ferias» ves la fecha, el lugar y cómo llegar.</p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-          <a href="tel:+56961230000" class="btn-accion-pill btn-negro" style="max-width: 260px; height: 44px; font-size: 13px;">
-            Llamar al +56 9 6123 0000
-          </a>
-          <a href="https://wa.me/56961230000?text=Hola,%20necesito%20ayuda%20con%20la%20vitrina%20de%20Alerce" target="_blank" rel="noopener" class="btn-accion-pill" style="max-width: 220px; height: 44px; font-size: 13px;">
-            WhatsApp Soporte
-          </a>
+          <a href="#directorio" class="btn-accion-pill btn-negro" style="min-height: 44px; font-size: 13px;">Ver la vitrina</a>
+          <button type="button" class="btn-accion-pill" style="min-height: 44px; font-size: 13px;" onclick="TramaWeb.abrirModal('modal-privacidad')">Aviso de privacidad</button>
         </div>
       </div>
     </section>
@@ -453,7 +453,10 @@
 
       <!-- Pestañas Principales del Panel Admin -->
       <div style="display: flex; gap: 6px; overflow-x: auto; padding: 10px 0; border-bottom: 1px solid var(--gris-borde);">
-        <button type="button" id="tab-btn-admin-emp" class="btn-accion-pill btn-negro" style="height: 34px; font-size: 12px; white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('emp')">
+        <button type="button" id="tab-btn-admin-e6" class="btn-accion-pill btn-negro" style="height: 34px; font-size: 12px; white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('e6')">
+          🎪 Ferias, asociaciones y app
+        </button>
+        <button type="button" id="tab-btn-admin-emp" class="btn-accion-pill" style="height: 34px; font-size: 12px; background: transparent; border: 1px solid var(--gris-borde); white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('emp')">
           👥 Cuentas Emprendedoras (W04–W09)
         </button>
         <button type="button" id="tab-btn-admin-asoc" class="btn-accion-pill" style="height: 34px; font-size: 12px; background: transparent; border: 1px solid var(--gris-borde); white-space: nowrap;" onclick="TramaWeb.seleccionarTabAdmin('asoc')">
@@ -473,13 +476,14 @@
       <!-- Contenedor del Cuerpo con Scroll -->
       <div class="modal-cuerpo" style="flex: 1; overflow-y: auto; padding: 16px 0; gap: 16px;">
 
-        <!-- ENTREGA 6: navegación anónima de la app, ferias con mapa y asociaciones (datos del servidor) -->
-        <div id="admin-e6"></div>
+        <!-- ENTREGA 6: navegación anónima de la app, ferias con mapa y asociaciones (datos del servidor).
+             Es una pestaña más: antes estaba siempre visible y dejaba las otras pestañas muy abajo. -->
+        <div id="admin-sec-e6"><div id="admin-e6"></div></div>
         
         <!-- ==========================================
              SECCIÓN 1: CUENTAS DE EMPRENDEDORAS (W04-W09)
              ========================================== -->
-        <div id="admin-sec-emp" style="display: flex; flex-direction: column; gap: 14px;">
+        <div id="admin-sec-emp" style="display: none; flex-direction: column; gap: 14px;">
           <!-- Barra de Búsqueda y Botón Crear -->
           <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; align-items: center;">
             <div style="display: flex; gap: 8px; flex: 1; min-width: 260px;">
@@ -609,7 +613,7 @@
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div>
                 <label class="label-fb-market">Contacto (Email / Teléfono) * (W15)</label>
-                <input type="text" id="admin-form-asoc-contacto" class="input-fb-market" placeholder="contacto@asociacion.cl / +56 9 6123 4500">
+                <input type="text" id="admin-form-asoc-contacto" class="input-fb-market" placeholder="contacto@asociacion.cl">
               </div>
               <div>
                 <label class="label-fb-market">URL del Logo o Insignia (W12)</label>
@@ -867,8 +871,9 @@
             Contactar por WhatsApp
           </a>
           <button type="button" class="btn-accion-pill btn-negro" id="btn-modal-tienda-formulario" onclick="TramaWeb.abrirFormularioContactoActual()">
-            ✉️ Escribir un mensaje
+            ✉️ Enviar un mensaje
           </button>
+          <p id="modal-tienda-sin-whatsapp" role="status" style="display: none; flex-basis: 100%; font-size: 12.5px; color: var(--gris-texto); margin: 4px 0 0;"></p>
           <button type="button" class="btn-accion-pill" id="btn-modal-tienda-compartir" onclick="TramaWeb.compartirTiendaActual()">
             🔗 Compartir
           </button>
@@ -1000,9 +1005,11 @@
             <p style="font-size: 11px; color: var(--gris-texto);">Código generado para la orden de compra de Alerce Trama</p>
           </div>
 
-          <!-- Botón de checkout por WhatsApp -->
-          <button type="button" class="btn-accion-pill btn-negro" style="width: 100%; height: 46px; font-size: 13.5px;" onclick="TramaWeb.finalizarPedidoWhatsApp()">
-            Confirmar Pedido por WhatsApp
+          <!-- Entrega 8: el pedido va a la tienda que corresponde. Con una sola tienda, este botón dice
+               «Enviar pedido a [tienda]»; con varias, se oculta y cada tienda tiene su propio botón. -->
+          <p id="aviso-carrito-varias-tiendas" role="status" style="display: none; font-size: 12.5px; color: var(--gris-texto); margin: 0 0 8px;"></p>
+          <button type="button" id="btn-finalizar-pedido-general" class="btn-accion-pill btn-negro" style="width: 100%; min-height: 46px; font-size: 13.5px;" onclick="TramaWeb.finalizarPedidoWhatsApp()">
+            Enviar pedido
           </button>
 
           <button type="button" style="display: block; width: 100%; text-align: center; font-size: 11.5px; color: var(--gris-texto); margin-top: 10px; cursor: pointer; background: none; border: none;" onclick="TramaWeb.vaciarCarrito()">
@@ -1304,7 +1311,7 @@
 
               <div>
                 <span class="label-sub-input">WhatsApp / Contacto</span>
-                <input type="text" id="flyer-inp-mensaje" class="input-fb-market" value="+56 9 9123 4567" oninput="TramaWeb.actualizarLienzoFlyer()">
+                <input type="text" id="flyer-inp-mensaje" class="input-fb-market" value="" placeholder="Tu WhatsApp, por ejemplo +56 9 XXXX XXXX" oninput="TramaWeb.actualizarLienzoFlyer()">
               </div>
             </div>
 
@@ -1523,7 +1530,8 @@
 
         <div>
           <label for="edit-tienda-whatsapp" class="label-fb-market">WhatsApp para pedidos</label>
-          <input type="tel" id="edit-tienda-whatsapp" class="input-fb-market" placeholder="+56991234567">
+          <input type="tel" id="edit-tienda-whatsapp" class="input-fb-market" placeholder="+56 9 XXXX XXXX" aria-describedby="ayuda-edit-tienda-whatsapp" maxlength="20">
+          <small id="ayuda-edit-tienda-whatsapp" style="display: block; font-size: 11.5px; color: var(--gris-texto); margin-top: 4px;">Tus pedidos y consultas llegan a este número. Escríbelo con +56, por ejemplo +56 9 XXXX XXXX. Si lo dejas vacío, tu tienda no muestra el botón de WhatsApp.</small>
         </div>
 
         <div class="e6-config-vitrina">
@@ -1739,7 +1747,7 @@
 
         <div>
           <label class="label-fb-market">Teléfono o WhatsApp de Contacto</label>
-          <input type="tel" id="reg-emp-whatsapp" class="input-fb-market" placeholder="+56 9 9123 4567">
+          <input type="tel" id="reg-emp-whatsapp" class="input-fb-market" placeholder="+56 9 XXXX XXXX" maxlength="20">
         </div>
 
         <div>

@@ -370,9 +370,9 @@ fun PantallaMarketplace(
                         onVerDetalle = { tiendaDetalle = tienda },
                         onAgendarCita = { tiendaAgendamiento = tienda },
                         onContactarWhatsApp = {
-                            abrirWhatsApp(
-                                context,
-                                tienda.whatsapp,
+                            contactarTiendaPorWhatsApp(
+                    context,
+                    tienda,
                                 "Hola ${tienda.nombre}! Vi tu tienda en Alerce Emprende y me gustaría hacer una consulta."
                             )
                         }
@@ -396,9 +396,9 @@ fun PantallaMarketplace(
                 tiendaAgendamiento = tienda
             },
             onContactarWhatsApp = {
-                abrirWhatsApp(
+                contactarTiendaPorWhatsApp(
                     context,
-                    tienda.whatsapp,
+                    tienda,
                     "Hola ${tienda.nombre}! Vi tu tienda en Alerce Emprende y me gustaría hacer una consulta."
                 )
             }
@@ -902,9 +902,9 @@ private fun DialogoDetalleTienda(
                                         // Botón para pedir directamente este producto
                                         OutlinedButton(
                                             onClick = {
-                                                abrirWhatsApp(
-                                                    context,
-                                                    tienda.whatsapp,
+                                                contactarTiendaPorWhatsApp(
+                    context,
+                    tienda,
                                                     "Hola ${tienda.nombre}! Me interesa comprar '${producto.nombre}' (${formatearMoneda(producto.precio)}) que vi en tu vitrina de Alerce Emprende."
                                                 )
                                             },
@@ -1465,9 +1465,9 @@ fun DialogoAgendamientoTienda(
             if (reservaConfirmada) {
                 Button(
                     onClick = {
-                        abrirWhatsApp(
-                            context,
-                            tienda.whatsapp,
+                        contactarTiendaPorWhatsApp(
+                    context,
+                    tienda,
                             "Hola ${tienda.nombre}! Acabo de reservar una hora para el ${nombreDiaLegible(fechaSeleccionada)} a las ${bloqueSeleccionado?.hora ?: ""} (${servicio}) a nombre de $nombreCliente."
                         )
                         onDismiss()

@@ -407,10 +407,10 @@
     return img;
   }
 
+  // Entrega 8: el número de cada tienda se valida con la regla chilena de Cat.numeroWhatsapp
+  // (sin número de respaldo: si falta o no sirve, no hay enlace y se avisa).
   function enlaceWhatsapp(numero, texto) {
-    var digitos = String(numero || "").replace(/[^0-9]/g, "");
-    if (!digitos) return null;
-    return "https://wa.me/" + digitos + "?text=" + encodeURIComponent(texto);
+    return Cat.enlaceWhatsapp(numero, texto);
   }
 
   // El catálogo ya no se guarda en el navegador: la fuente de verdad es el servidor.
@@ -505,7 +505,7 @@
       nombre: "Manos del Sur Alerce",
       sector: "Alerce Histórico",
       descripcion: "Agrupación de artesanas y productoras locales que organizan ferias comunales y compras asociativas de insumos.",
-      whatsapp: "+56961230000",
+      whatsapp: "",   // antes un número fijo de dueño desconocido
       integrantes: 18
     },
     {
@@ -513,7 +513,7 @@
       nombre: "Red Gastronómica Tradición y Sabor",
       sector: "Alerce Norte",
       descripcion: "Red de emprendedores de cocina tradicional, panadería artesanal y repostería casera de la comuna.",
-      whatsapp: "+56961230000",
+      whatsapp: "",
       integrantes: 12
     }
   ];
@@ -737,39 +737,19 @@
     if (avisoVacio) avisoVacio.style.display = "none";
     if (seccionResumen) seccionResumen.style.display = "block";
 
-    // Agrupar items por tienda para orden y claridad
-    var tiendasMap = {};
-    var totalGlobal = 0;
-
-    estado.carrito.forEach(function (item) {
-      if (!tiendasMap[item.tiendaId]) {
-        tiendasMap[item.tiendaId] = {
-          tiendaId: item.tiendaId,
-          nombre: item.tiendaNombre,
-          whatsapp: item.tiendaWhatsapp,
-          items: [],
-          subtotal: 0
-        };
-      }
-      tiendasMap[item.tiendaId].items.push(item);
-      tiendasMap[item.tiendaId].subtotal += item.precio * item.cantidad;
-      totalGlobal += item.precio * item.cantidad;
-    });
-
-    var keysTiendas = Object.keys(tiendasMap);
+    // Entrega 8: el pedido se agrupa por el ID de cada tienda y usa su contacto ACTUAL (no el
+    // número que tenía al agregar el producto). Cada tienda recibe solo sus productos.
+    var grupos = Cat.agruparPedido(estado.carrito, TIENDAS);
+    var totalGlobal = grupos.reduce(function (acc, g) { return acc + g.total; }, 0);
     var html = "";
 
-    keysTiendas.forEach(function (tId) {
-      var grupo = tiendasMap[tId];
-      var esMultipleTienda = keysTiendas.length > 1;
-
-      if (esMultipleTienda) {
-        html += '<div class="item-carrito-grupo-tienda">';
-        html += '  <div class="item-carrito-grupo-tienda-cabecera">';
-        html += '    <strong style="font-size: 13px; color: var(--negro-apple);">🏪 ' + escaparHtml(grupo.nombre) + '</strong>';
-        html += '    <span style="font-size: 11.5px; font-weight: 700; color: var(--gris-texto);">Subtotal: ' + formatearMoneda(grupo.subtotal) + '</span>';
-        html += '  </div>';
-      }
+    grupos.forEach(function (grupo) {
+      var tId = grupo.tiendaId;
+      html += '<div class="item-carrito-grupo-tienda" data-tienda-pedido="' + escaparHtml(tId) + '">';
+      html += '  <div class="item-carrito-grupo-tienda-cabecera">';
+      html += '    <strong style="font-size: 13px; color: var(--negro-apple);">🏪 ' + escaparHtml(grupo.nombre) + '</strong>';
+      html += '    <span style="font-size: 11.5px; font-weight: 700; color: var(--gris-texto);">Subtotal: ' + formatearMoneda(grupo.total) + '</span>';
+      html += '  </div>';
 
       grupo.items.forEach(function (item) {
         var subtotalItem = item.precio * item.cantidad;
@@ -781,7 +761,7 @@
         html += '  ' + thumbHtml;
         html += '  <div class="item-carrito-info">';
         html += '    <h4 class="item-carrito-titulo">' + escaparHtml(item.nombre) + '</h4>';
-        html += '    <p class="item-carrito-tienda">' + escaparHtml(item.tiendaNombre) + (item.varianteNombre && item.varianteNombre !== "Estándar" ? ' · ' + escaparHtml(item.varianteNombre) : '') + '</p>';
+        html += '    <p class="item-carrito-tienda">' + escaparHtml(grupo.nombre) + (item.varianteNombre && item.varianteNombre !== "Estándar" ? ' · ' + escaparHtml(item.varianteNombre) : '') + '</p>';
         html += '    <p class="item-carrito-precio">' + formatearMoneda(item.precio) + ' c/u · Subtotal: <strong>' + formatearMoneda(subtotalItem) + '</strong></p>';
         html += '  </div>';
         html += '  <div class="controles-cantidad">';
@@ -793,15 +773,34 @@
         html += '</div>';
       });
 
-      if (esMultipleTienda) {
-        html += '  <div style="text-align: right; margin-top: 8px;">';
-        html += '    <button type="button" class="btn-accion-pill" style="height: 30px; font-size: 11px; padding: 0 12px;" onclick="TramaWeb.finalizarPedidoWhatsApp(\'' + tId + '\')">';
-        html += '      Pedir a ' + escaparHtml(grupo.nombre) + ' por WhatsApp ➔';
+      html += '  <div class="carrito-envio-tienda" style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; margin-top: 8px;">';
+      if (grupo.numero) {
+        html += '    <button type="button" class="btn-accion-pill btn-negro" style="min-height: 40px; font-size: 12.5px; padding: 0 14px;" onclick="TramaWeb.finalizarPedidoWhatsApp(\'' + escaparHtml(tId) + '\')">';
+        html += '      Enviar pedido a ' + escaparHtml(grupo.nombre) + ' ➔';
         html += '    </button>';
-        html += '  </div>';
-        html += '</div>';
+      } else {
+        html += '    <p class="aviso-sin-whatsapp" role="status" style="font-size: 12px; color: var(--gris-texto); margin: 0;">' +
+          (grupo.disponible ? escaparHtml(Cat.SIN_WHATSAPP) + '.' : 'Esta tienda ya no está disponible en la vitrina.') + '</p>';
+        if (grupo.formulario) {
+          html += '    <button type="button" class="btn-accion-pill" style="min-height: 40px; font-size: 12.5px; padding: 0 14px;" onclick="TramaWeb.enviarPedidoPorMensaje(\'' + escaparHtml(tId) + '\')">Enviar un mensaje</button>';
+        }
       }
+      html += '  </div>';
+      html += '</div>';
     });
+
+    // Botón general: solo si hay una sola tienda (con varias, cada una tiene su botón).
+    var btnGeneral = document.getElementById("btn-finalizar-pedido-general");
+    if (btnGeneral) {
+      var unica = grupos.length === 1 ? grupos[0] : null;
+      if (unica && unica.numero) { btnGeneral.style.display = ""; btnGeneral.textContent = "Enviar pedido a " + unica.nombre; }
+      else btnGeneral.style.display = "none";
+    }
+    var avisoVarias = document.getElementById("aviso-carrito-varias-tiendas");
+    if (avisoVarias) {
+      avisoVarias.style.display = grupos.length > 1 ? "" : "none";
+      avisoVarias.textContent = grupos.length > 1 ? "Tu carrito tiene productos de " + grupos.length + " tiendas: envía cada pedido con su botón. Cada tienda recibe solo sus productos." : "";
+    }
 
     listaContainer.innerHTML = html;
     if (subtotalTexto) subtotalTexto.textContent = formatearMoneda(totalGlobal);
@@ -879,45 +878,44 @@
     }
   }
 
+  /** Datos del pedido para el mensaje (pago y nombre), sin datos de otras tiendas. */
+  function datosPedido(grupo) {
+    var nombreCliente = (estado.usuario && estado.usuario.nombre && estado.usuario.nombre.trim() !== "" && estado.usuario.nombre !== "Visitante")
+      ? estado.usuario.nombre.trim() : "";
+    var medio = estado.medioPagoSeleccionado || "Efectivo";
+    if (medio === "Efectivo" && estado.pagoConEfectivo && estado.pagoConEfectivo >= grupo.total) {
+      medio += " (pago con " + formatearMoneda(estado.pagoConEfectivo) + ")";
+    }
+    return { formatear: formatearMoneda, medioPago: medio, cliente: nombreCliente };
+  }
+
+  /**
+   * Envía el pedido de UNA tienda por WhatsApp, a su número actual. Sin tienda indicada solo
+   * funciona si el carrito tiene una sola tienda. El carrito NO se vacía: si la persona vuelve,
+   * su pedido sigue ahí.
+   */
   function finalizarPedidoWhatsApp(tiendaIdFiltro) {
-    if (estado.carrito.length === 0) {
-      mostrarToast("Tu carrito está vacío.");
+    if (estado.carrito.length === 0) { mostrarToast("Tu carrito está vacío."); return; }
+    var grupos = Cat.agruparPedido(estado.carrito, TIENDAS);
+    var grupo = tiendaIdFiltro ? grupos.find(function (g) { return g.tiendaId === tiendaIdFiltro; }) : (grupos.length === 1 ? grupos[0] : null);
+    if (!grupo) { mostrarToast("Tu carrito tiene productos de varias tiendas: envía cada pedido con su botón."); return; }
+    if (!grupo.numero) {
+      mostrarToast(Cat.SIN_WHATSAPP + (grupo.formulario ? ". Puedes usar «Enviar un mensaje»." : "."));
+      renderizarCarrito();
       return;
     }
+    var url = Cat.enlaceWhatsapp(grupo.numero, Cat.textoPedido(grupo, datosPedido(grupo)));
+    estado.ultimoPedidoEnviado = { tiendaId: grupo.tiendaId, url: url };
+    window.open(url, "_blank", "noopener");
+    mostrarToast("Abriendo WhatsApp para enviar tu pedido a " + grupo.nombre + ". Tu carrito se mantiene.");
+  }
 
-    var itemsParaEnviar = estado.carrito;
-    if (tiendaIdFiltro) {
-      itemsParaEnviar = estado.carrito.filter(function (i) { return i.tiendaId === tiendaIdFiltro; });
-    }
-
-    if (itemsParaEnviar.length === 0) return;
-
-    var primerItem = itemsParaEnviar[0];
-    var telefono = primerItem.tiendaWhatsapp ? primerItem.tiendaWhatsapp.replace(/[^0-9]/g, "") : "56961230000";
-    var total = itemsParaEnviar.reduce(function (acc, i) { return acc + (i.precio * i.cantidad); }, 0);
-    var nombreCliente = (estado.usuario && estado.usuario.nombre && estado.usuario.nombre.trim() !== "" && estado.usuario.nombre !== "Visitante")
-      ? estado.usuario.nombre.trim()
-      : "Vecino(a) de Alerce";
-
-    var mensaje = "👋 ¡Hola *" + primerItem.tiendaNombre + "*! Quiero confirmar mi pedido desde la vitrina de *Alerce Emprende*:\n\n";
-    mensaje += "📦 *Detalle de la compra:*\n";
-    itemsParaEnviar.forEach(function (i) {
-      var variante = (i.varianteNombre && i.varianteNombre !== "Estándar") ? " (" + i.varianteNombre + ")" : "";
-      mensaje += "• " + i.cantidad + "x " + i.nombre + variante + " — " + formatearMoneda(i.precio * i.cantidad) + "\n";
-    });
-    mensaje += "\n💰 *Total a pagar:* " + formatearMoneda(total);
-    mensaje += "\n💳 *Medio de Pago:* " + (estado.medioPagoSeleccionado || "Efectivo");
-    if (estado.medioPagoSeleccionado === "Efectivo" && estado.pagoConEfectivo && estado.pagoConEfectivo >= total) {
-      var vuelto = estado.pagoConEfectivo - total;
-      mensaje += " (Paga con: " + formatearMoneda(estado.pagoConEfectivo) + " · Vuelto: " + formatearMoneda(vuelto) + ")";
-    }
-    mensaje += "\n👤 *Cliente:* " + nombreCliente;
-    mensaje += "\n📍 *Sector:* Alerce, Puerto Montt\n";
-    mensaje += "\n_Pedido coordinado mediante Trama Alerce Emprende._";
-
-    var url = "https://wa.me/" + telefono + "?text=" + encodeURIComponent(mensaje);
-    window.open(url, "_blank");
-    mostrarToast("¡Abriendo WhatsApp para confirmar tu pedido con " + primerItem.tiendaNombre + "!");
+  /** Sin WhatsApp: el mismo pedido va por el formulario de la tienda (si lo acepta). */
+  function enviarPedidoPorMensaje(tiendaId) {
+    var grupo = Cat.agruparPedido(estado.carrito, TIENDAS).find(function (g) { return g.tiendaId === tiendaId; });
+    if (!grupo || !grupo.formulario) { mostrarToast("Esta tienda no recibe mensajes por formulario."); return; }
+    cerrarModal("modal-carrito");
+    abrirFormularioContacto(tiendaId, null, "Pedido del carrito", Cat.textoPedido(grupo, datosPedido(grupo)));
   }
 
   // ============================================================
@@ -1014,7 +1012,8 @@
           h("div", { class: "tarjeta-acciones-fila" }, [
             accionPrincipal,
             urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-accion-pill", text: "WhatsApp" }) : null,
-            vias.formulario ? h("button", { type: "button", class: "btn-accion-pill", text: "Escribir", onclick: function () { abrirFormularioContacto(tienda.id); } }) : null,
+            vias.formulario ? h("button", { type: "button", class: "btn-accion-pill", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tienda.id); } }) : null,
+            vias.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", style: "flex-basis: 100%; font-size: 12px; color: var(--gris-texto);", text: Cat.SIN_WHATSAPP }) : null,
             h("button", { type: "button", class: "btn-qr-icon", "aria-label": "Código QR de " + tienda.nombre, title: "Código QR de la tienda", text: "▦", onclick: function () { abrirQRTienda(tienda.id); } })
           ])
         ])
@@ -1069,6 +1068,8 @@
     }
     var btnFormulario = document.getElementById("btn-modal-tienda-formulario");
     if (btnFormulario) btnFormulario.style.display = viasModal.formulario ? "" : "none";
+    var avisoSinWsp = document.getElementById("modal-tienda-sin-whatsapp");
+    if (avisoSinWsp) { avisoSinWsp.textContent = viasModal.faltaWhatsapp ? Cat.SIN_WHATSAPP : ""; avisoSinWsp.style.display = viasModal.faltaWhatsapp ? "" : "none"; }
     if (window.AlerceVitrina6) window.AlerceVitrina6.pintarExtrasTienda(tienda);
 
     cambiarTabModal(0);
@@ -1220,7 +1221,8 @@
           onclick: function () { agregarAlCarrito(p.id, opcion ? opcion.id : null); }
         }) : null,
         urlWsp ? h("a", { href: urlWsp, target: "_blank", rel: "noopener", class: "btn-whatsapp-prod", text: preciosVisibles ? "Pedir por WhatsApp" : "Consultar por WhatsApp" }) : null,
-        viasP.formulario && tiendaP ? h("button", { type: "button", class: "btn-accion-pill", text: "Consultar por mensaje", onclick: function () { abrirFormularioContacto(tiendaP.id, p.id, p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "")); } }) : null
+        viasP.formulario && tiendaP ? h("button", { type: "button", class: "btn-accion-pill", text: "Enviar un mensaje", onclick: function () { abrirFormularioContacto(tiendaP.id, p.id, p.nombre + (opcion && p.variantes.length > 1 ? " — " + opcion.nombre : "")); } }) : null,
+        viasP.faltaWhatsapp ? h("small", { class: "aviso-sin-whatsapp", style: "flex-basis: 100%; font-size: 12px; color: var(--gris-texto);", text: Cat.SIN_WHATSAPP }) : null
       ])
     ]);
   }
@@ -1478,8 +1480,8 @@
   }
 
   /** Formulario de contacto (RF-CMP-05): solo si la emprendedora lo activó. */
-  function abrirFormularioContacto(tiendaId, productoId, referencia) {
-    if (window.AlerceVitrina6) window.AlerceVitrina6.abrirFormulario(tiendaId, productoId || null, referencia || "");
+  function abrirFormularioContacto(tiendaId, productoId, referencia, mensajeInicial) {
+    if (window.AlerceVitrina6) window.AlerceVitrina6.abrirFormulario(tiendaId, productoId || null, referencia || "", mensajeInicial || "");
   }
 
   // ============================================================
@@ -1564,9 +1566,10 @@
       html += '  <h3 style="font-size: 17px; font-weight: 800; color: var(--negro-apple);">' + escaparHtml(aso.nombre) + '</h3>';
       html += '  <p style="font-size: 12px; color: var(--gris-texto); margin-bottom: 10px;">Sector ' + escaparHtml(aso.sector) + ' · ' + aso.integrantes + ' socias activas</p>';
       html += '  <p style="font-size: 12.5px; color: var(--gris-texto); line-height: 1.45; margin-bottom: 16px;">' + escaparHtml(aso.descripcion) + '</p>';
-      html += '  <a href="https://wa.me/' + aso.whatsapp.replace(/[^0-9]/g, "") + '?text=' + encodeURIComponent("Hola! Quisiera información sobre la asociación " + aso.nombre) + '" target="_blank" rel="noopener" class="btn-accion-pill btn-negro" style="height: 38px;">';
-      html += '    Contactar Asociación';
-      html += '  </a>';
+      var urlAso = enlaceWhatsapp(aso.whatsapp, "Hola! Quisiera información sobre la asociación " + aso.nombre);
+      if (urlAso) {
+        html += '  <a href="' + escaparHtml(urlAso) + '" target="_blank" rel="noopener" class="btn-accion-pill btn-negro" style="height: 38px;">Contactar Asociación</a>';
+      }
       html += '</article>';
     });
 
@@ -2064,6 +2067,12 @@
       return;
     }
     renderizarGaleriaFotosFlyer();
+    // Entrega 8: el afiche lleva el WhatsApp de SU tienda (no un número de ejemplo).
+    var inpContactoFlyer = document.getElementById("flyer-inp-mensaje");
+    if (inpContactoFlyer && !inpContactoFlyer.value.trim()) {
+      var tiendaFlyer = obtenerTiendaUsuarioActivo();
+      inpContactoFlyer.value = (tiendaFlyer && Cat.formatearWhatsapp(tiendaFlyer.whatsapp)) || "";
+    }
     abrirModal("modal-estudio-flyer");
     setTimeout(function () {
       actualizarLienzoFlyer();
@@ -2230,7 +2239,7 @@
       titulo: (inpTitulo ? inpTitulo.value.trim() : "") || "Producto",
       precio: (inpPrecio ? inpPrecio.value.trim() : "") || "2500",
       sello: (inpSello ? inpSello.value.trim() : "") || "EDICIÓN LIMITADA",
-      mensaje: (inpMensaje ? inpMensaje.value.trim() : "") || "+56 9 9123 4567",
+      mensaje: (inpMensaje ? inpMensaje.value.trim() : "") || "vitrina Alerce Emprende",   // sin número inventado
       sector: (inpSector ? inpSector.value.trim() : "") || "Alerce · Puerto Montt",
       fuente: estadoFlyer.fuente || "Britti Sans",
       color: estadoFlyer.color || "original",
@@ -3496,7 +3505,9 @@
     var nombre = inpNombre ? inpNombre.value.trim() : "";
     var rubro = selectRubro ? selectRubro.value : "Abarrotes y Alimentos";
     var sector = selectSector ? selectSector.value : "Alerce Histórico";
-    var whatsapp = inpWsp ? inpWsp.value.trim() : "";
+    var whatsappEscrito = inpWsp ? inpWsp.value.trim() : "";
+    // Entrega 8: opcional; si se escribe, debe ser un número chileno válido.
+    var whatsapp = whatsappEscrito ? (Cat.formatearWhatsapp(whatsappEscrito) || null) : "";
     var email = inpEmail ? inpEmail.value.trim().toLowerCase() : "";
     var pass = inpPass ? inpPass.value : "";
     var archivoAvatar = (inpAvatar && inpAvatar.files && inpAvatar.files[0]) ? inpAvatar.files[0] : null;
@@ -3512,6 +3523,7 @@
         btnSubmit.textContent = "🚀 Registrar mi Emprendimiento";
       }
     }
+    if (whatsapp === null) { mostrarErrorReg("Revisa el WhatsApp: escribe +56 9 y los 8 dígitos (ej.: +56 9 XXXX XXXX), o déjalo vacío."); return; }
 
     if (!nombre) {
       mostrarErrorReg("Por favor ingresa el nombre de tu emprendimiento o tu nombre.");
@@ -4180,11 +4192,18 @@
     if (!tienda || !servicio) { mostrarAviso("edit-tienda-aviso", "Vuelve a iniciar sesión para guardar."); return; }
     function valor(id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; }
     function marcado(id, porDefecto) { var el = document.getElementById(id); return el ? el.checked : porDefecto; }
+    // Entrega 8: WhatsApp chileno válido (se guarda como +56 9 XXXX XXXX) o vacío (sin botón).
+    var wspEscrito = valor("edit-tienda-whatsapp");
+    var wspGuardar = wspEscrito ? Cat.formatearWhatsapp(wspEscrito) : "";
+    if (wspEscrito && !wspGuardar) {
+      mostrarAviso("edit-tienda-aviso", "Revisa el WhatsApp: escribe +56 9 y los 8 dígitos de tu celular (ej.: +56 9 XXXX XXXX). Si lo dejas vacío, tu tienda no mostrará el botón.");
+      return;
+    }
     var cambios = {
       nombre: valor("edit-tienda-nombre") || tienda.nombre,
       rubro: valor("edit-tienda-rubro") || tienda.rubro,
       sector: valor("edit-tienda-sector") || tienda.sector,
-      whatsapp: valor("edit-tienda-whatsapp"),
+      whatsapp: wspGuardar,
       bio: valor("edit-tienda-bio"),
       necesidades: {
         tieneStock: marcado("check-cap-stock", true),
@@ -4603,8 +4622,9 @@
 
     actualizarKPIsAdmin();
     ajustarPanelAdminReal();
-    renderizarAdminEmprendedoras();
-    if (window.AlerceVitrina6) window.AlerceVitrina6.pintarAdmin();
+    // Se abre con la pestaña de ferias, asociaciones y app (o la última usada en esta visita).
+    var tabsValidas = ["e6", "emp", "cat", "adm", "log"].concat(servicio ? [] : ["asoc"]);
+    seleccionarTabAdmin(tabsValidas.indexOf(ESTADO_ADMIN.tabActual) >= 0 && ESTADO_ADMIN.tabActual !== "emp" ? ESTADO_ADMIN.tabActual : "e6");
 
     // Activar pestaña visual en el menú y desplazarse suavemente
     document.querySelectorAll(".menu-navegacion a").forEach(function (l) { l.classList.remove("activo"); });
@@ -4633,14 +4653,14 @@
     });
     var kpis = document.getElementById("admin-kpis");
     if (kpis) kpis.style.display = "none";
-    var etiquetas = { "tab-btn-admin-emp": "👥 Cuentas emprendedoras", "tab-btn-admin-cat": "🏷️ Tipos de producto", "tab-btn-admin-adm": "🛡️ Administradores", "tab-btn-admin-log": "📋 Bitácora" };
+    var etiquetas = { "tab-btn-admin-e6": "🎪 Ferias, asociaciones y app", "tab-btn-admin-emp": "👥 Cuentas emprendedoras", "tab-btn-admin-cat": "🏷️ Tipos de producto", "tab-btn-admin-adm": "🛡️ Administradores", "tab-btn-admin-log": "📋 Bitácora" };
     Object.keys(etiquetas).forEach(function (id) { var b = document.getElementById(id); if (b) b.textContent = etiquetas[id]; });
-    if (ESTADO_ADMIN.tabActual === "asoc") ESTADO_ADMIN.tabActual = "emp";
+    if (ESTADO_ADMIN.tabActual === "asoc") ESTADO_ADMIN.tabActual = "e6";
   }
 
   function seleccionarTabAdmin(tab) {
     ESTADO_ADMIN.tabActual = tab;
-    var tabs = ["emp", "asoc", "cat", "adm", "log"];
+    var tabs = ["e6", "emp", "asoc", "cat", "adm", "log"];
     tabs.forEach(function(t) {
       var btn = document.getElementById("tab-btn-admin-" + t);
       var sec = document.getElementById("admin-sec-" + t);
@@ -4656,15 +4676,21 @@
         }
       }
       if (sec) {
-        sec.style.display = (t === tab) ? "flex" : "none";
+        sec.style.display = (t === tab) ? (t === "e6" ? "block" : "flex") : "none";
       }
     });
+    // El panel elegido queda a la vista, justo bajo las pestañas.
+    var barraTabs = document.getElementById("tab-btn-admin-" + tab);
+    if (barraTabs && barraTabs.parentElement && barraTabs.parentElement.getBoundingClientRect().top < 0 && barraTabs.parentElement.scrollIntoView) {
+      barraTabs.parentElement.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 
     if (tab === "emp") renderizarAdminEmprendedoras();
     else if (tab === "asoc") renderizarAdminAsociaciones();
     else if (tab === "cat") { if (servicio) renderizarTiposServidor(); else renderizarAdminCatalogos(); }
     else if (tab === "adm") renderizarAdminAdmins();
     else if (tab === "log") renderizarAdminBitacora();
+    else if (tab === "e6" && window.AlerceVitrina6) window.AlerceVitrina6.pintarAdmin();
   }
 
   /**
@@ -5027,7 +5053,7 @@
         rubro: "Artesanía y Emprendimiento",
         sector: sector,
         bio: "Emprendimiento oficial registrado por la Administración de Alerce.",
-        whatsapp: tel || "+56991234567",
+        whatsapp: tel || "",
         instagram: "",
         colorPortada: "#1A202C",
         colorLogo: "#2B6CB0",
@@ -6079,6 +6105,7 @@
     seleccionarMedioPago: seleccionarMedioPago,
     calcularVueltoEfectivo: calcularVueltoEfectivo,
     finalizarPedidoWhatsApp: finalizarPedidoWhatsApp,
+    enviarPedidoPorMensaje: enviarPedidoPorMensaje,
     copiarEnlaceQR: copiarEnlaceQR,
     seleccionarHora: seleccionarHora,
     confirmarReservaCita: confirmarReservaCita,

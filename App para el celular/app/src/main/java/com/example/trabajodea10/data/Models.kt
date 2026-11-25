@@ -338,7 +338,8 @@ data class Tienda(
     val rubro: String = "Artesanía y Comercio",
     val sector: String = "Alerce",
     val bio: String = "",
-    val whatsapp: String = "+56 9 1234 5678",
+    // Sin número inventado: vacío hasta que la dueña escriba el suyo (antes venía "+56 9 1234 5678").
+    val whatsapp: String = "",
     val instagram: String = "@tienda.alerce",
     val colorPortada: Long = 0xFF5C315B,
     val colorLogo: Long = 0xFF2E7D5B,
@@ -357,8 +358,10 @@ data class Tienda(
     val calificacionesActivas: Boolean = false
 ) {
     val tienePuntoRetiro: Boolean get() = puntoLat != null && puntoLng != null
-    /** WhatsApp solo si lo eligió y dejó un número utilizable. */
-    val ofreceWhatsApp: Boolean get() = contactoModo.usaWhatsApp && whatsapp.count { it.isDigit() } >= 8
+    /** WhatsApp solo si lo eligió y dejó un número chileno válido (ContactoWhatsApp). */
+    val ofreceWhatsApp: Boolean get() = contactoModo.usaWhatsApp && ContactoWhatsApp.esValido(whatsapp)
+    /** Eligió WhatsApp, pero el número falta o no es válido: se avisa en vez de abrir un chat equivocado. */
+    val faltaWhatsApp: Boolean get() = contactoModo.usaWhatsApp && !ContactoWhatsApp.esValido(whatsapp)
     val ofreceFormulario: Boolean get() = contactoModo.usaFormulario
 
     fun toMap(): Map<String, Any> = mapOf(
@@ -385,7 +388,7 @@ data class Tienda(
                 rubro = (map["rubro"] as? String) ?: "Comercio",
                 sector = (map["sector"] as? String) ?: "Alerce",
                 bio = (map["bio"] as? String) ?: "",
-                whatsapp = (map["whatsapp"] as? String) ?: "+56 9 1234 5678",
+                whatsapp = (map["whatsapp"] as? String) ?: "",   // sin número inventado
                 instagram = (map["instagram"] as? String) ?: "",
                 colorPortada = (map["colorPortada"] as? Number)?.toLong() ?: 0xFF5C315B,
                 colorLogo = (map["colorLogo"] as? Number)?.toLong() ?: 0xFF2E7D5B,

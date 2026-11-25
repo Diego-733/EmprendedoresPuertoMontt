@@ -30,18 +30,15 @@ import com.example.trabajodea10.ui.componentes.BotonesTamanoTexto
 import com.example.trabajodea10.ui.componentes.Tarjeta
 import com.example.trabajodea10.ui.theme.VerdeOk
 
-/** Números de contacto del soporte de Red Trama (de ejemplo). */
-private const val TELEFONO_SOPORTE = "+56 9 6123 0000"
-private const val WHATSAPP_SOPORTE = "+56 9 6123 0000"
-
 /**
  * PANTALLA PARA VISITANTES: "Ayuda".
- * Si la persona se confunde, puede llamar o escribir a un humano con un solo toque.
+ * Antes ofrecía llamar o escribir a un número fijo de «soporte» cuyo dueño no se conocía:
+ * se retiró. La plataforma no tiene un contacto oficial configurado, así que la ayuda
+ * orienta a escribir a cada tienda desde su ficha (con su propio WhatsApp o su formulario).
  * También incluye los botones para agrandar el texto.
  */
 @Composable
 fun PantallaVisAyuda() {
-    val contexto = LocalContext.current
 
     Column(modifier = Modifier.fillMaxSize()) {
         BarraSuperior(
@@ -62,30 +59,15 @@ fun PantallaVisAyuda() {
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            Text(
-                text = "Toca un botón grande y te atendemos. No hace falta escribir nada.",
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            // Botón grande para llamar por teléfono.
-            BotonPrimario(
-                texto = "Llamar por teléfono",
-                onClick = { llamarTelefono(contexto, TELEFONO_SOPORTE) },
-                icono = { Icon(Icons.Filled.Phone, contentDescription = null, tint = Color.White) }
-            )
-
-            // Botón grande para abrir WhatsApp con mensaje listo.
-            BotonSecundario(
-                texto = "Escribir por WhatsApp",
-                onClick = {
-                    abrirWhatsApp(
-                        contexto = contexto,
-                        numero = WHATSAPP_SOPORTE,
-                        mensaje = "Hola, necesito ayuda con la app Trama."
-                    )
-                },
-                icono = { Icon(Icons.Filled.Chat, contentDescription = null, tint = VerdeOk) }
-            )
+            Tarjeta {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("¿Quieres comprar o preguntar por un producto?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Abre la tienda en «Vitrina» y usa «Escribir por WhatsApp» o «Enviar un mensaje». Tu consulta le llega directo a esa emprendedora.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    Text("¿Buscas una feria?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("En «Ferias» y «Mapa ferias» ves las fechas, el lugar y cómo llegar.", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 

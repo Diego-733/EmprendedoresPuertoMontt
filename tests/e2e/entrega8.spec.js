@@ -181,7 +181,8 @@ test.describe("Entrega 8 · administración con datos del servidor", () => {
     const e = datos(true);
     const fila = (estado, nombre, tienda) => ({ usuario_id: "u-marta", email: "donamarta@alerce.app", nombre, tienda_id: "t_marta", tienda_nombre: tienda, estado, creado_en: "2026-11-01T12:00:00Z" });
     const inicial = { data: [fila("ACTIVA", "Doña Marta", "Minimarket"), { usuario_id: null, email: "nueva@alerce.app", nombre: "Nueva", tienda_id: null, tienda_nombre: null, estado: "PENDIENTE_REGISTRO", creado_en: "2026-11-20T12:00:00Z" }] };
-    e.respuestasRpc.listar_emprendedoras = [inicial, inicial,
+    // Se pide al abrir la pestaña y después de cada cambio.
+    e.respuestasRpc.listar_emprendedoras = [inicial,
       { data: [fila("ACTIVA", "Marta Soto", "Minimarket Soto")] },
       { data: [fila("DESACTIVADA", "Marta Soto", "Minimarket Soto")] }];
     e.respuestasRpc.editar_emprendedora = [{ data: null }];
@@ -229,5 +230,38 @@ test.describe("Entrega 8 · administración con datos del servidor", () => {
     await expect.poll(() => llamadasRpc(page, "guardar_tipo_producto").then(x => x.length)).toBe(2);
     expect((await llamadasRpc(page, "guardar_tipo_producto"))[1]).toEqual({ p_id: "tejido", p_nombre: "Tejido a mano", p_categoria: "TEXTIL", p_orden: 1, p_campos: null, p_activo: false });
     await expect(page.locator("#toast-texto")).toContainText("los productos que lo usan lo conservan");
+  });
+
+  test("Cada pestaña del panel muestra su contenido justo debajo, a la vista (no al final de la página)", async ({ page }) => {
+    const e = datos(true);
+    e.tablas.ferias = [{ id: "f1", nombre: "Feria de Alerce", descripcion: "x", ubicacion: "Plaza", fecha_inicio: "2026-12-01", fecha_fin: "2026-12-01", horario: "10 a 18", organizador: "Muni", estado: "PROXIMA", latitud: -41.4, longitud: -72.9 }];
+    e.respuestasRpc.listar_admins = [{ data: [{ email: "admin@alerce.app", nombre: "Admin", estado: "ACTIVA", creado_en: "2026-11-01T12:00:00Z", es_yo: true }] }];
+    e.respuestasRpc.ver_bitacora = [{ data: [{ en: "2026-11-24T15:30:00Z", quien: "admin@alerce.app", accion: "Publicó feria", objeto_tipo: "feria", objeto_id: "f1", detalle: {} }] }];
+    e.respuestasRpc.listar_emprendedoras = [{ data: [] }, { data: [] }];
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await preparar(page, e);
+    await page.goto(ORIGEN + "/");
+    // Al entrar: pestaña de ferias, asociaciones y app.
+    await expect(page.locator("#admin-sec-e6")).toBeVisible();
+    await expect(page.locator("#admin-sec-adm")).toBeHidden();
+    // Administradores: su panel aparece a la vista y el bloque de ferias se oculta.
+    await page.locator("#tab-btn-admin-adm").click();
+    await expect(page.locator("#admin-sec-e6")).toBeHidden();
+    await expect(page.locator("#admin-sec-adm")).toBeInViewport();
+    await expect(page.locator("#admin-lista-admins-contenedor")).toContainText("admin@alerce.app");
+    await expect(page.locator("#admin-sec-adm button", { hasText: "Crear" })).toBeInViewport();
+    // Bitácora.
+    await page.locator("#tab-btn-admin-log").click();
+    await expect(page.locator("#admin-sec-log")).toBeInViewport();
+    await expect(page.locator("#admin-tabla-bitacora-body")).toContainText("Publicó feria");
+    // Cuentas y tipos.
+    await page.locator("#tab-btn-admin-emp").click();
+    await expect(page.locator("#admin-sec-emp")).toBeInViewport();
+    await page.locator("#tab-btn-admin-cat").click();
+    await expect(page.locator("#admin-sec-cat")).toBeInViewport();
+    // Volver a ferias.
+    await page.locator("#tab-btn-admin-e6").click();
+    await expect(page.locator("#admin-sec-e6")).toBeInViewport();
+    await expect(page.locator("#admin-sec-cat")).toBeHidden();
   });
 });

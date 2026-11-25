@@ -422,6 +422,9 @@ private fun BotonesContacto(tienda: Tienda, productoId: String?, referencia: Str
                 }
             )
         }
+        if (tienda.faltaWhatsApp) {
+            Text(com.example.trabajodea10.data.ContactoWhatsApp.SIN_WHATSAPP, color = TextoSecundario, style = MaterialTheme.typography.bodyMedium)
+        }
         if (tienda.ofreceFormulario) {
             BotonSecundario(
                 texto = "Enviar un mensaje",

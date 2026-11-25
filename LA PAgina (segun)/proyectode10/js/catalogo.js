@@ -109,14 +109,79 @@
     var a = Number(lat), b = Number(lng);
     return isFinite(a) && isFinite(b) && a >= -90 && a <= 90 && b >= -180 && b <= 180;
   }
+  // ---------- WhatsApp de cada tienda (misma regla que ContactoWhatsApp.kt en Android) ----------
+  var SIN_WHATSAPP = "Esta tienda aún no tiene un WhatsApp de contacto";
+
+  /**
+   * Número chileno para wa.me ("56912345678") o null. Acepta "+56 9 1234 5678", "56912345678",
+   * "9 1234 5678" y fijos de 11 dígitos con 56. Sin número de respaldo: si no es válido, null.
+   */
+  function numeroWhatsapp(texto) {
+    var d = String(texto == null ? "" : texto).replace(/[^0-9]/g, "");
+    if (d.indexOf("00") === 0) d = d.slice(2);
+    if (d.length === 9 && d.charAt(0) === "9") d = "56" + d;
+    if (d.length !== 11 || d.indexOf("56") !== 0) return null;
+    if (d.charAt(2) < "2" || d.charAt(2) > "9") return null;
+    return d;
+  }
+  /** "+56 9 1234 5678" (celular) o "+56 65 212 3456" (fijo); null si no es válido. */
+  function formatearWhatsapp(texto) {
+    var d = numeroWhatsapp(texto);
+    if (!d) return null;
+    return d.charAt(2) === "9" ? "+56 9 " + d.slice(3, 7) + " " + d.slice(7) : "+56 " + d.slice(2, 4) + " " + d.slice(4, 7) + " " + d.slice(7);
+  }
+  function enlaceWhatsapp(numero, texto) {
+    var d = numeroWhatsapp(numero);
+    return d ? "https://wa.me/" + d + "?text=" + encodeURIComponent(texto || "") : null;
+  }
+
   /** Qué vías de contacto ofrece la vitrina según lo que configuró la emprendedora. */
   function viasContacto(tienda) {
     var modo = modoContacto(tienda && tienda.contactoModo);
-    var tieneNumero = !!(tienda && String(tienda.whatsapp || "").replace(/[^0-9]/g, "").length >= 8);
+    var quiereWhatsapp = modo === "WHATSAPP" || modo === "AMBOS";
+    var tieneNumero = !!(tienda && numeroWhatsapp(tienda.whatsapp));
     return {
-      whatsapp: (modo === "WHATSAPP" || modo === "AMBOS") && tieneNumero,
+      whatsapp: quiereWhatsapp && tieneNumero,
+      // Eligió WhatsApp pero el número falta o no sirve: se avisa en vez de abrir otro chat.
+      faltaWhatsapp: quiereWhatsapp && !tieneNumero,
       formulario: modo === "FORMULARIO" || modo === "AMBOS"
     };
+  }
+
+  /**
+   * Pedido del carrito agrupado por tienda (por su ID) con el contacto ACTUAL de cada una:
+   * si la dueña cambió su número después de agregar un producto, se usa el nuevo. Cada grupo
+   * lleva solo sus productos. numero = null si esa tienda no tiene WhatsApp utilizable.
+   */
+  function agruparPedido(carrito, tiendas) {
+    var orden = [], grupos = {};
+    (carrito || []).forEach(function (item) {
+      if (!grupos[item.tiendaId]) {
+        var t = (tiendas || []).find(function (x) { return x.id === item.tiendaId; }) || null;
+        var vias = viasContacto(t);
+        grupos[item.tiendaId] = { tiendaId: item.tiendaId, nombre: t ? t.nombre : (item.tiendaNombre || "Tienda"),
+          numero: vias.whatsapp ? numeroWhatsapp(t.whatsapp) : null, formulario: !!(t && vias.formulario),
+          disponible: !!t, items: [], total: 0 };
+        orden.push(item.tiendaId);
+      }
+      grupos[item.tiendaId].items.push(item);
+      grupos[item.tiendaId].total += (Number(item.precio) || 0) * (Number(item.cantidad) || 0);
+    });
+    return orden.map(function (id) { return grupos[id]; });
+  }
+
+  /** Texto del pedido para UNA tienda (solo sus productos). */
+  function textoPedido(grupo, datos) {
+    var d = datos || {}, fmt = d.formatear || function (n) { return "$" + n; };
+    var lineas = ["¡Hola " + grupo.nombre + "! Quiero hacer este pedido desde la vitrina de Alerce Emprende:", ""];
+    grupo.items.forEach(function (i) {
+      var opcion = i.varianteNombre && i.varianteNombre !== "Estándar" && i.varianteNombre !== "Única" ? " (" + i.varianteNombre + ")" : "";
+      lineas.push("• " + i.cantidad + " x " + i.nombre + opcion + " — " + fmt(i.precio * i.cantidad));
+    });
+    lineas.push("", "Total: " + fmt(grupo.total));
+    if (d.medioPago) lineas.push("Medio de pago: " + d.medioPago);
+    if (d.cliente) lineas.push("Nombre: " + d.cliente);
+    return lineas.join("\n");
   }
   /** "Consultar precio" cuando la emprendedora ocultó sus precios. */
   function textoPrecio(tienda, monto, formatear) {
@@ -487,7 +552,7 @@
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(texto)) return "No hay conexión con el servidor. Revisa tu internet y vuelve a intentarlo.";
     if (/jwt expired|invalid jwt|refresh token/i.test(texto)) return "Tu sesión venció. Vuelve a iniciar sesión.";
     if (/permission denied|row-level security|42501/i.test(texto)) return "No tienes permiso para hacer esto con esta cuenta.";
-    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07 o la 09).";
+    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07, la 09 o la 10 en Supabase).";
     return "El servidor respondió con un error: " + (texto || "sin detalle") + ".";
   }
 
@@ -502,6 +567,8 @@
     aplicarRespuesta: aplicarRespuesta, productoParaGuardar: productoParaGuardar,
     ventaParaRegistrar: ventaParaRegistrar, mensajeError: mensajeError, nuevoId: nuevoId, fechaLocal: fechaLocal,
     MODOS_CONTACTO: MODOS_CONTACTO, modoContacto: modoContacto, puntoValido: puntoValido, viasContacto: viasContacto,
+    SIN_WHATSAPP: SIN_WHATSAPP, numeroWhatsapp: numeroWhatsapp, formatearWhatsapp: formatearWhatsapp, enlaceWhatsapp: enlaceWhatsapp,
+    agruparPedido: agruparPedido, textoPedido: textoPedido,
     textoPrecio: textoPrecio, normalizarFeria: normalizarFeria, feriasProximas: feriasProximas, urlComoLlegar: urlComoLlegar,
     fechaSantiago: fechaSantiago, feriaActiva: feriaActiva, calendarioFerias: calendarioFerias,
     ETIQUETA_INVITACION: ETIQUETA_INVITACION, ETIQUETA_ASISTENCIA: ETIQUETA_ASISTENCIA, etiquetaInvitacion: etiquetaInvitacion,

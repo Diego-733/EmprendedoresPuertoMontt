@@ -5,6 +5,8 @@ const { test, expect } = require("@playwright/test");
 const fs = require("fs");
 const path = require("path");
 const { RAIZ } = require("./servidor");
+// El SDK de Supabase se reemplaza por uno falso: en la copia servida a la prueba se quita su verificación SRI.
+const sinSri = (archivo) => /index.html$/.test(archivo) ? fs.readFileSync(archivo, "utf8").replace(/(supabase-js@[^"]+") integrity="[^"]+"/, "$1") : fs.readFileSync(archivo);
 
 const ORIGEN = "http://alerce.test";
 const FALSO = fs.readFileSync(path.join(__dirname, "supabase_falso.js"), "utf8");
@@ -62,7 +64,7 @@ async function preparar(page, estadoFalso) {
     }
     const archivo = path.join(RAIZ, ruta === "/" ? "index.html" : ruta);
     if (!archivo.startsWith(RAIZ) || !fs.existsSync(archivo)) return route.fulfill({ status: 404, body: "" });
-    return route.fulfill({ contentType: TIPOS[path.extname(archivo)] || "application/octet-stream", body: fs.readFileSync(archivo) });
+    return route.fulfill({ contentType: TIPOS[path.extname(archivo)] || "application/octet-stream", body: sinSri(archivo) });
   });
   await page.route("https://cdn.jsdelivr.net/npm/@supabase/**", (route) => route.fulfill({ contentType: "text/javascript", body: FALSO }));
   await page.route("https://unpkg.com/leaflet@1.9.4/dist/**", (route) => {

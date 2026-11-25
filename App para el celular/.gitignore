@@ -23,3 +23,8 @@ firebase.properties
 # Configuración personal de Android Studio y cachés de Kotlin (no se versionan)
 /.idea/
 /.kotlin/
+
+# Firma del APK de entrega (RNF-SEG-03): la clave y sus contraseñas nunca van a git
+/keystore.properties
+*.jks
+*.keystore

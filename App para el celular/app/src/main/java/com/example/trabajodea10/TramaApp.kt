@@ -3,7 +3,12 @@ package com.example.trabajodea10
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -109,13 +114,38 @@ fun TramaApp() {
             FabSegunRuta(ruta = ruta, nav = nav)
         }
     ) { innerPadding ->
-        Box(
+        androidx.compose.foundation.layout.Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            ContenidoSegunRuta(ruta = ruta, nav = nav, avisar = avisar)
+            // Arriba del contenido: así el botón flotante no la tapa.
+            AvisoSinConexion()
+            Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                ContenidoSegunRuta(ruta = ruta, nav = nav, avisar = avisar)
+            }
         }
+    }
+}
+
+/** Entrega 8 (RNF-REN-02): franja superior que aparece solo cuando el celular no tiene conexión. */
+@Composable
+private fun AvisoSinConexion() {
+    if (com.example.trabajodea10.data.remoto.EstadoConexion.conectado) return
+    val pendientes = com.example.trabajodea10.data.remoto.Sincronizador.pendientes
+    androidx.compose.material3.Surface(
+        color = Color(0xFF7C2D12),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite }
+    ) {
+        androidx.compose.material3.Text(
+            text = "Sin conexión. Lo que guardes queda en este celular y se sube solo cuando vuelva la señal." +
+                (if (pendientes > 0) " Cambios por subir: $pendientes." else ""),
+            color = Color.White,
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
     }
 }
 

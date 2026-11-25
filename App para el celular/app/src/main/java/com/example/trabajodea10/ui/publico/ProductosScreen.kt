@@ -76,7 +76,7 @@ fun PantallaVisProductos() {
                         abrirWhatsApp(
                             contexto = contexto,
                             numero = TramaStore.tienda.whatsapp,
-                            mensaje = "Hola, me interesa el producto: ${producto.nombre}. ¿Lo tenés disponible?"
+                            mensaje = "Hola, me interesa el producto: ${producto.nombre}. ¿Lo tienes disponible?"
                         )
                     }
                 }

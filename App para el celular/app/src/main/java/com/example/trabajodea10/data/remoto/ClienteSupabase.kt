@@ -203,6 +203,7 @@ object ClienteSupabase {
         "TIENDA_AJENA" to "Esa tienda no es tuya.",
         "PRODUCTO_AJENO" to "Ese producto es de otra tienda.",
         "SIN_TIENDA" to "Tu cuenta todavía no tiene tienda.",
+        "CUENTA_DESACTIVADA" to "La administración desactivó tu cuenta. Tu tienda no se muestra y no puedes hacer cambios por ahora. Lo que guardaste se conserva.",
         "CONFLICTO_STOCK" to "Mientras editabas se vendieron unidades. Revisa la cantidad.",
         "PIEZA_UNICA_UNA_UNIDAD" to "Una pieza única tiene una sola unidad en total.",
         "CANTIDAD_INVALIDA" to "Revisa las cantidades.",

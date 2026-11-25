@@ -216,10 +216,17 @@ fun BarraInferior(
             NavigationBarItem(
                 selected = seleccionado,
                 onClick = { onSeleccionar(item.ruta) },
-                icon = { Icon(item.icono, contentDescription = item.etiqueta) },
+                // La etiqueta ya nombra el botón (sin duplicarla para TalkBack).
+                icon = { Icon(item.icono, contentDescription = null) },
                 label = {
+                    // Entrega 8 (RNF-USA-03): una sola línea; con letra grande se acorta con «…»
+                    // en vez de partir la palabra («Producto / s») y empujar el ícono.
                     Text(
                         text = item.etiqueta,
+                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         fontWeight = if (seleccionado) FontWeight.SemiBold else FontWeight.Normal
                     )
                 },

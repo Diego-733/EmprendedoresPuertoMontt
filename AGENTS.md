@@ -133,6 +133,16 @@ const aArgb = hex => 0xFF000000 + parseInt(hex.replace("#", ""), 16);
 - Ferias: el servidor es la única fuente. La lista local `TramaStore.ferias`/`MockData` y `FERIAS_COMUNALES` de la web ya no se muestran a la emprendedora ni al público.
 - Avisos: los crea solo el servidor; los envía `servicios/notificador` (cuenta en la tabla `notificadores`, nunca `service_role`).
 
+## 5d. Entrega 8 (producto terminado)
+
+- Estado de los 35 criterios, matriz, informe de seguridad, manuales e IA: `docs/entrega8/`.
+- `supabase/09_administracion.sql`: otras cuentas de administración (`listar_admins`, `crear_admin`, `editar_admin`, `cambiar_estado_admin`) y bitácora por disparadores (`ver_bitacora`). Independiente de la 08.
+- App: `data/remoto/EstadoConexion.kt` (franja «Sin conexión»), `seguridad/ProteccionApp.kt` (App Check sobre Realtime Database), firma con `keystore.properties` (fuera de git), botones comunes con altura mínima de 48 dp que crece con la letra.
+- Web: aviso de privacidad (`#modal-privacidad`, `?privacidad=1`); con servidor, el panel admin no muestra datos de ejemplo; supabase-js con versión fija y SRI.
+- Firebase Hosting: `firebase.json` + `npm run hosting:preparar` (`dist/hosting`, fuera de git); ensayo con emulador: `npm run test:hosting`.
+- `supabase/10_emprendedoras_y_tipos.sql` (después de 09): `listar_emprendedoras`, `editar_emprendedora`, `cambiar_estado_emprendedora` (tiendas.activa: oculta y bloquea), `guardar_tipo_producto`, `eliminar_tipo_producto` (no si está en uso), `uso_tipos_producto`.
+- App Check: `src/debug/.../FabricaAppCheck.kt` (depuración) y `src/release/...` (Play Integrity); reglas en `firebase/database.rules.json` probadas con `npm run test:reglas`; `npm run apk:verificar` antes de publicar.
+
 ## 6. Qué falta / configuración externa
 
 1. En Supabase, seguir `docs/entrega5/administrador.md`: diagnóstico de solo lectura, respaldo, 03/04 si faltan y `05_catalogo_ventas.sql`. Para una base nueva (de prueba): 01, 02, 03, 04 y 05.

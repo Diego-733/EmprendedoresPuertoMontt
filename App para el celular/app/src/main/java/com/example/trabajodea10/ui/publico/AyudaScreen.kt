@@ -58,7 +58,7 @@ fun PantallaVisAyuda() {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "¿Necesitás una mano?",
+                text = "¿Necesitas una mano?",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )

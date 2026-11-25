@@ -456,7 +456,20 @@
     ASOCIACION_NO_EXISTE: "Una de las asociaciones ya no existe.",
     FALTA_MENSAJE: "Escribe el mensaje del aviso.",
     MODALIDAD_INVALIDA: "Elige la modalidad.",
-    AL_AGOTARSE_INVALIDO: "Elige qué pasa al agotarse."
+    AL_AGOTARSE_INVALIDO: "Elige qué pasa al agotarse.",
+    // Entrega 8 (09_administracion.sql)
+    CORREO_INVALIDO: "Escribe un correo válido.",
+    NOMBRE_INVALIDO: "Escribe el nombre (máximo 120 letras).",
+    ES_EMPRENDEDORA: "Ese correo es de una emprendedora; no puede ser administradora.",
+    YA_EXISTE: "Esa cuenta de administración ya existe.",
+    NO_PUEDES_DESACTIVARTE: "No puedes desactivar tu propia cuenta.",
+    ULTIMA_ADMIN: "Debe quedar al menos otra administradora activa.",
+    NO_EXISTE: "Esa cuenta ya no existe.",
+    CUENTA_DESACTIVADA: "La administración desactivó esta cuenta: su tienda no se muestra y no se pueden hacer cambios.",
+    NOMBRE_TIENDA_INVALIDO: "Escribe el nombre de la tienda (máximo 120 letras).",
+    CATEGORIA_INVALIDA: "Elige una categoría de la lista.",
+    TIPO_EN_USO: "Ese tipo lo usan productos: desactívalo en vez de eliminarlo (los productos lo conservan).",
+    ID_INVALIDO: "El código no es válido: usa solo minúsculas, números o guion bajo (2 a 40)."
   };
 
   /** Error de Supabase/red → mensaje en español para la emprendedora. */
@@ -474,7 +487,7 @@
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(texto)) return "No hay conexión con el servidor. Revisa tu internet y vuelve a intentarlo.";
     if (/jwt expired|invalid jwt|refresh token/i.test(texto)) return "Tu sesión venció. Vuelve a iniciar sesión.";
     if (/permission denied|row-level security|42501/i.test(texto)) return "No tienes permiso para hacer esto con esta cuenta.";
-    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07).";
+    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07 o la 09).";
     return "El servidor respondió con un error: " + (texto || "sin detalle") + ".";
   }
 

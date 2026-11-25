@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -85,7 +87,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PantallaLogin(nav: ControladorNavegacion) {
     val coroutineScope = rememberCoroutineScope()
-    val activity = LocalContext.current as? FragmentActivity
+    val activity = androidx.activity.compose.LocalActivity.current as? FragmentActivity
     val contexto = LocalContext.current
     var pestanaModo by remember { mutableIntStateOf(0) } // 0: Emprendedora, 1: Comprador
     var correo by remember { mutableStateOf("") }
@@ -241,6 +243,8 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 2.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp),
                     color = NegroApple.copy(alpha = 0.85f)
                 )
                 Text(
@@ -261,57 +265,41 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                 .background(GrisChip, RoundedCornerShape(50.dp))
                 .padding(4.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth()) {
+            // Entrega 8 (RNF-USA-03): con letra grande las dos opciones van una debajo de la otra
+            // para que «Emprendedora» no se parta en dos líneas.
+            val letraGrande = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f
+            val opcion: @Composable (Modifier, Int, androidx.compose.ui.graphics.vector.ImageVector, String) -> Unit = { mod, indice, icono, etiqueta ->
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
+                    modifier = mod
                         .clip(RoundedCornerShape(50.dp))
-                        .background(if (pestanaModo == 0) NegroApple else Color.Transparent)
-                        .clickable { pestanaModo = 0 }
-                        .padding(vertical = 10.dp),
+                        .background(if (pestanaModo == indice) NegroApple else Color.Transparent)
+                        .clickable { pestanaModo = indice }
+                        .heightIn(min = 48.dp)
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.Store,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (pestanaModo == 0) BlancoPuro else GrisTexto
-                        )
+                        Icon(icono, contentDescription = null, modifier = Modifier.size(16.dp),
+                            tint = if (pestanaModo == indice) BlancoPuro else GrisTexto)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            "Soy Emprendedora",
-                            fontWeight = if (pestanaModo == 0) FontWeight.Bold else FontWeight.Medium,
+                            etiqueta,
+                            fontWeight = if (pestanaModo == indice) FontWeight.Bold else FontWeight.Medium,
                             fontSize = 13.sp,
-                            color = if (pestanaModo == 0) BlancoPuro else GrisTexto
+                            color = if (pestanaModo == indice) BlancoPuro else GrisTexto
                         )
                     }
                 }
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(50.dp))
-                        .background(if (pestanaModo == 1) NegroApple else Color.Transparent)
-                        .clickable { pestanaModo = 1 }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Filled.ShoppingBag,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (pestanaModo == 1) BlancoPuro else GrisTexto
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            "Soy Comprador",
-                            fontWeight = if (pestanaModo == 1) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 13.sp,
-                            color = if (pestanaModo == 1) BlancoPuro else GrisTexto
-                        )
-                    }
+            }
+            if (letraGrande) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    opcion(Modifier.fillMaxWidth(), 0, Icons.Filled.Store, "Soy Emprendedora")
+                    opcion(Modifier.fillMaxWidth(), 1, Icons.Filled.ShoppingBag, "Soy Comprador")
+                }
+            } else {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    opcion(Modifier.weight(1f), 0, Icons.Filled.Store, "Soy Emprendedora")
+                    opcion(Modifier.weight(1f), 1, Icons.Filled.ShoppingBag, "Soy Comprador")
                 }
             }
         }
@@ -346,7 +334,7 @@ fun PantallaLogin(nav: ControladorNavegacion) {
 
                     Text(
                         text = if (pestanaModo == 0)
-                            "Accede a tu panel para publicar productos, crear afiches comerciales y gestionar tus pedidos online."
+                            "Accede a tu panel para publicar productos, crear afiches comerciales y gestionar tus pedidos en línea."
                         else
                             "Conéctate para comprar con carrito directo, seguir tus tiendas favoritas y recibir avisos de ferias.",
                         style = MaterialTheme.typography.bodySmall,
@@ -401,7 +389,7 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                                     },
                                     shape = RoundedCornerShape(8.dp),
                                     border = BorderStroke(1.dp, NegroApple),
-                                    modifier = Modifier.fillMaxWidth().height(32.dp)
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 32.dp)
                                 ) {
                                     Text("Usar credenciales de Doña Marta", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NegroApple)
                                 }
@@ -423,7 +411,7 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                         OutlinedButton(
                             onClick = { selectorFotoPerfil.launch("image/*") },
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         ) {
                             Text(
                                 text = if (fotoPerfilUri == null) "Elegir foto de perfil (opcional)" else "Foto de perfil elegida",
@@ -437,7 +425,7 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                             OutlinedButton(
                                 onClick = { selectorLogo.launch("image/*") },
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             ) {
                                 Text(
                                     text = if (logoNegocioUri == null) "Elegir logo del negocio (opcional)" else "Logo del negocio elegido",
@@ -581,7 +569,7 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                         enabled = !cargando,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
+                            .heightIn(min = 50.dp)
                     ) {
                         if (cargando) {
                             CircularProgressIndicator(color = BlancoPuro, modifier = Modifier.size(22.dp))
@@ -628,7 +616,7 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                             },
                             shape = RoundedCornerShape(14.dp),
                             border = BorderStroke(1.dp, NegroApple),
-                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                         ) {
                             Icon(Icons.Filled.Fingerprint, contentDescription = null, tint = NegroApple, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(8.dp))

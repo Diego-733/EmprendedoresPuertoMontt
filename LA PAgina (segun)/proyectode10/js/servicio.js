@@ -214,7 +214,44 @@
       /** Leído en la bandeja (no es una notificación mostrada). */
       marcarLeido: function (id) {
         return envolver(cliente.rpc("marcar_leido", { p_id: id }));
-      }
+      },
+
+      // ---------- Entrega 8 (supabase/09_administracion.sql) ----------
+      /** Cuentas de administración (RF-ADM-04). Solo responde a una administradora. */
+      /** Cuentas emprendedoras registradas (el administrador lee perfiles por RLS). */
+      listarEmprendedoras: function () {
+        return envolver(cliente.from("perfiles").select("email,nombre,tienda_id,creado_en").eq("rol", "EMPRENDEDORA").order("creado_en", { ascending: false }));
+      },
+      /** El administrador autoriza un correo como emprendedora (RN-01); la tienda la crea el servidor al registrarse. */
+      autorizarEmprendedora: function (email, nombre) {
+        return envolver(cliente.from("cuentas_autorizadas").upsert({ email: String(email).trim().toLowerCase(), rol: "EMPRENDEDORA", nombre: nombre }, { onConflict: "email" }).select("email")).then(function (r) {
+          if (r.ok && (!r.datos || !r.datos.length)) return { ok: false, error: { message: "permission denied: no se autorizó el correo" } };
+          return r;
+        });
+      },
+      /** Correos autorizados por el administrador (cuentas_autorizadas, solo admin). */
+      listarAutorizadas: function () { return envolver(cliente.from("cuentas_autorizadas").select("email,rol,nombre,creado_en")); },
+      listarAdmins: function () { return envolver(cliente.rpc("listar_admins")); },
+      // Entrega 8 (supabase/10_emprendedoras_y_tipos.sql): RF-ADM-01 y RF-ADM-03.
+      listarEmprendedorasServidor: function () { return envolver(cliente.rpc("listar_emprendedoras")); },
+      editarEmprendedora: function (usuarioId, nombre, tiendaNombre) {
+        return envolver(cliente.rpc("editar_emprendedora", { p_usuario: usuarioId, p_nombre: nombre, p_tienda_nombre: tiendaNombre }));
+      },
+      cambiarEstadoEmprendedora: function (usuarioId, activa) {
+        return envolver(cliente.rpc("cambiar_estado_emprendedora", { p_usuario: usuarioId, p_activa: !!activa }));
+      },
+      /** Todos los tipos (también inactivos) para la administración; listarTipos solo trae los activos. */
+      listarTiposAdmin: function () { return envolver(cliente.from("tipos_producto").select("id,categoria,nombre,activo,orden").order("orden", { ascending: true })); },
+      usoTipos: function () { return envolver(cliente.rpc("uso_tipos_producto")); },
+      guardarTipo: function (t) {
+        return envolver(cliente.rpc("guardar_tipo_producto", { p_id: t.id, p_nombre: t.nombre, p_categoria: t.categoria, p_orden: t.orden || 0, p_campos: null, p_activo: t.activo !== false }));
+      },
+      eliminarTipo: function (id) { return envolver(cliente.rpc("eliminar_tipo_producto", { p_id: id })); },
+      crearAdmin: function (email, nombre) { return envolver(cliente.rpc("crear_admin", { p_email: email, p_nombre: nombre })); },
+      editarAdmin: function (email, nombre) { return envolver(cliente.rpc("editar_admin", { p_email: email, p_nombre: nombre })); },
+      cambiarEstadoAdmin: function (email, activo) { return envolver(cliente.rpc("cambiar_estado_admin", { p_email: email, p_activo: !!activo })); },
+      /** Bitácora de acciones de administración (RNF-SEG-07): quién, qué y cuándo. */
+      verBitacora: function (limite) { return envolver(cliente.rpc("ver_bitacora", { p_limite: Math.min(Math.max(1, limite || 200), 500) })); }
     };
   }
 

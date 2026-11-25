@@ -3,17 +3,25 @@
   "private": true,
   "description": "Herramientas de desarrollo y pruebas locales (no se publica). Ver docs/desarrollo-y-pruebas.md",
   "scripts": {
-    "test": "npm run test:web && npm run test:sql",
+    "test": "npm run test:web && npm run test:sql && npm run test:reglas",
     "test:web": "node --test \"tests/web/**/*.test.js\"",
     "test:sql": "node tests/sql/ejecutar.js",
     "test:e2e": "playwright test --config tests/e2e/playwright.config.js",
     "servir": "node tests/e2e/servidor.js",
     "notificar": "node servicios/notificador/enviar.js",
-    "notificar:vigilar": "node servicios/notificador/enviar.js --vigilar 15"
+    "notificar:vigilar": "node servicios/notificador/enviar.js --vigilar 15",
+    "hosting:preparar": "node scripts/preparar-hosting.js",
+    "android:probar": "cd \"App para el celular\" && gradlew testDebugUnitTest lintDebug",
+    "test:reglas": "node scripts/probar-reglas.js",
+    "apk:verificar": "node scripts/verificar-apk.js",
+    "test:hosting": "node scripts/ensayar-hosting.js"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@playwright/test": "1.65.0",
     "embedded-postgres": "17.11.0-beta.19",
+    "firebase": "^11.10.0",
+    "firebase-tools": "^14.27.0",
     "leaflet": "1.9.4",
     "pg": "8.23.1"
   }

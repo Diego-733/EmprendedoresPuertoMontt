@@ -76,10 +76,9 @@ fun PantallaAcceso(nav: ControladorNavegacion) {
 
     when (modo) {
         null -> Cargando("Preparando la vitrina…")
-        NavegacionAnonima.PERMITIR -> {
-            Cargando("Abriendo la vitrina…")
-            LaunchedEffect(Unit) { nav.iniciarSesion(Rol.VISITANTE) }
-        }
+        // Entrega 8 (RF-ACC-05): aunque se permita navegar sin cuenta, la primera pantalla separa
+        // el modo comprador del modo emprendedora. Comprar no exige iniciar sesión.
+        NavegacionAnonima.PERMITIR -> EleccionDeModo(nav)
         NavegacionAnonima.INVITAR -> Invitacion(nav, obligar = false)
         NavegacionAnonima.OBLIGAR -> Invitacion(nav, obligar = true)
     }
@@ -133,5 +132,37 @@ private fun Invitacion(nav: ControladorNavegacion, obligar: Boolean) {
         TextButton(onClick = { AccesoApp.mostrarLogin = true }) {
             Text("Soy emprendedora o administradora · entrar con correo", textAlign = TextAlign.Center)
         }
+    }
+}
+
+/** Entrega 8 (RF-ACC-05): con la navegación sin cuenta permitida, elegir entre comprar o vender. */
+@Composable
+private fun EleccionDeModo(nav: ControladorNavegacion) {
+    Column(
+        Modifier.fillMaxSize().padding(28.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("ALERCE", fontSize = 34.sp, fontWeight = FontWeight.Black, color = NegroApple)
+        Text("Vitrina de emprendedoras de Alerce", color = TextoSecundario)
+        Spacer(Modifier.height(28.dp))
+        Text("¿Cómo quieres usar la app?", style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(20.dp))
+        BotonPrimario(
+            texto = "Quiero comprar · ver la vitrina",
+            onClick = { nav.iniciarSesion(Rol.VISITANTE) }
+        )
+        Spacer(Modifier.height(6.dp))
+        Text("No necesitas cuenta. Para seguir tiendas o calificar, podrás entrar con Google después.",
+            color = TextoSecundario, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(22.dp))
+        BotonSecundario(
+            texto = "Soy emprendedora · entrar a mi tienda",
+            onClick = { AccesoApp.mostrarLogin = true }
+        )
+        Spacer(Modifier.height(6.dp))
+        Text("También para la administración de la plataforma.",
+            color = TextoSecundario, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
     }
 }

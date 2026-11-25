@@ -14,6 +14,8 @@ class AplicacionTrama : Application() {
     override fun onCreate() {
         super.onCreate()
         ClienteSupabase.inicializar(this)
+        // Entrega 8: aviso en pantalla cuando no hay conexión (RNF-REN-02).
+        com.example.trabajodea10.data.remoto.EstadoConexion.inicializar(this)
         Sincronizador.inicializar(this)
         TramaStore.inicializar(this)
         // Entrega 6: vitrina (navegación anónima guardada) y mapas OpenStreetMap.

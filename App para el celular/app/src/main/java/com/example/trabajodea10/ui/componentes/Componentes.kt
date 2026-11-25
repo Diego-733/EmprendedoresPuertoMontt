@@ -254,7 +254,7 @@ fun BotonPrimario(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(46.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp),   // Entrega 8: crece con la letra grande (RNF-USA-03)
         enabled = enabled,
         shape = RoundedCornerShape(50.dp),
         colors = ButtonDefaults.buttonColors(
@@ -267,7 +267,7 @@ fun BotonPrimario(
     ) {
         icono?.invoke()
         if (icono != null) Spacer(modifier = Modifier.width(8.dp))
-        Text(texto, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = BlancoPuro)
+        Text(texto, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = BlancoPuro, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -281,7 +281,7 @@ fun BotonSecundario(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(46.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp),   // Entrega 8: crece con la letra grande (RNF-USA-03)
         enabled = enabled,
         shape = RoundedCornerShape(50.dp),
         border = BorderStroke(1.dp, GrisBorde),
@@ -295,7 +295,7 @@ fun BotonSecundario(
     ) {
         icono?.invoke()
         if (icono != null) Spacer(modifier = Modifier.width(8.dp))
-        Text(texto, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = NegroApple)
+        Text(texto, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = NegroApple, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 

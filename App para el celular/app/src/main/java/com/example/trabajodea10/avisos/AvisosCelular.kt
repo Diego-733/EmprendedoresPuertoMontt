@@ -136,12 +136,16 @@ object AvisosCelular {
         if (!firebaseConfigurado) return false
         return runCatching {
             if (FirebaseApp.getApps(context).isEmpty()) {
-                FirebaseApp.initializeApp(context, FirebaseOptions.Builder()
+                val opciones = FirebaseOptions.Builder()
                     .setApplicationId(BuildConfig.FIREBASE_APP_ID)
                     .setApiKey(BuildConfig.FIREBASE_API_KEY)
                     .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
                     .setGcmSenderId(BuildConfig.FIREBASE_SENDER_ID)
-                    .build())
+                // Entrega 8: Realtime Database solo para demostrar App Check (ver seguridad/ProteccionApp).
+                if (BuildConfig.FIREBASE_DATABASE_URL.isNotBlank()) opciones.setDatabaseUrl(BuildConfig.FIREBASE_DATABASE_URL)
+                FirebaseApp.initializeApp(context, opciones.build())
+                com.example.trabajodea10.seguridad.ProteccionApp.recordarContexto(context)
+                com.example.trabajodea10.seguridad.ProteccionApp.instalar()
             }
             true
         }.onFailure { Log.w(TAG, "Firebase no se pudo iniciar: ${it.message}") }.getOrDefault(false)

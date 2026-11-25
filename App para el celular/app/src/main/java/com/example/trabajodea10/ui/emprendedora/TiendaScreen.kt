@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -204,7 +205,7 @@ fun PantallaTienda(
                     onClick = { nav.irA(com.example.trabajodea10.ui.navegacion.Ruta.ConfigVitrina) },
                     colors = ButtonDefaults.buttonColors(containerColor = NegroApple),
                     shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.weight(1f).height(56.dp)
+                    modifier = Modifier.weight(1f).heightIn(min = 56.dp)
                 ) {
                     Text("Precios, contacto y punto de retiro", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
@@ -212,7 +213,7 @@ fun PantallaTienda(
                     onClick = { nav.irA(com.example.trabajodea10.ui.navegacion.Ruta.BandejaContactos) },
                     shape = RoundedCornerShape(14.dp),
                     border = BorderStroke(1.dp, NegroApple),
-                    modifier = Modifier.weight(1f).height(56.dp)
+                    modifier = Modifier.weight(1f).heightIn(min = 56.dp)
                 ) {
                     Icon(Icons.Filled.Email, contentDescription = null, tint = NegroApple, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
@@ -421,7 +422,7 @@ fun PantallaTienda(
                 enabled = !subiendoLogo,
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, NegroApple),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) {
                 if (subiendoLogo) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = NegroApple)
@@ -531,7 +532,7 @@ fun PantallaTienda(
                 shape = RoundedCornerShape(50.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
             ) {
                 if (guardando) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
@@ -550,7 +551,7 @@ fun PantallaTienda(
                 border = BorderStroke(1.dp, LineaSuave),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .heightIn(min = 48.dp)
             ) {
                 Icon(Icons.Filled.Search, contentDescription = null, tint = NegroApple)
                 Spacer(modifier = Modifier.width(8.dp))

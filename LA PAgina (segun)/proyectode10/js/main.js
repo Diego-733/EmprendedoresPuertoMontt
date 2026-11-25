@@ -4560,7 +4560,7 @@
     if (kpiEmp) kpiEmp.textContent = ESTADO_ADMIN.cuentasEmprendedoras.length;
     if (kpiAsoc) kpiAsoc.textContent = ESTADO_ADMIN.asociaciones.filter(function(a){ return a.activa; }).length;
     if (kpiCat) kpiCat.textContent = ESTADO_ADMIN.categorias.length;
-    if (kpiLog) kpiLog.textContent = ESTADO_ADMIN.bitacora.length;
+    if (kpiLog) kpiLog.textContent = servicio ? "—" : "0";   // Entrega 8: la bitácora real se cuenta al abrir su pestaña
   }
 
   function abrirModalAdmin() {
@@ -4584,10 +4584,14 @@
       mostrarToast("Inicia sesión con una cuenta administradora autorizada.");
       return;
     }
+    // Entrega 8: se conserva el correo real de quien entra (puede haber varias administradoras).
+    var correoAdmin = (estado.usuario && estado.usuario.email) || "admin@alerce.app";
     aplicarUsuarioLocal("Administración Alerce", "Administrador");
     estado.usuario = estado.usuario || {};
     estado.usuario.rol = "Administrador";
-    estado.usuario.email = "admin@alerce.app";
+    estado.usuario.email = correoAdmin;
+    var badgeAdmin = document.getElementById("badge-admin-usuario");
+    if (badgeAdmin) badgeAdmin.textContent = "👑 " + correoAdmin;
     cerrarModal("modal-auth-web");
     cerrarModal("modal-registro-emprendedor");
 
@@ -4598,6 +4602,7 @@
     if (secAdmin) secAdmin.style.display = "block";
 
     actualizarKPIsAdmin();
+    ajustarPanelAdminReal();
     renderizarAdminEmprendedoras();
     if (window.AlerceVitrina6) window.AlerceVitrina6.pintarAdmin();
 
@@ -4613,6 +4618,24 @@
         if (secAdmin.scrollIntoView) secAdmin.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 150);
     }
+  }
+
+  /**
+   * Entrega 8: con servidor, el panel muestra SOLO datos reales. Las pestañas de la entrega 4
+   * que guardaban ejemplos en el navegador (asociaciones y catálogos locales, contadores) se
+   * ocultan: las asociaciones, ferias y navegación reales están en el bloque «admin-e6».
+   */
+  function ajustarPanelAdminReal() {
+    if (!servicio) return;
+    ["tab-btn-admin-asoc"].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) b.style.display = "none";
+    });
+    var kpis = document.getElementById("admin-kpis");
+    if (kpis) kpis.style.display = "none";
+    var etiquetas = { "tab-btn-admin-emp": "👥 Cuentas emprendedoras", "tab-btn-admin-cat": "🏷️ Tipos de producto", "tab-btn-admin-adm": "🛡️ Administradores", "tab-btn-admin-log": "📋 Bitácora" };
+    Object.keys(etiquetas).forEach(function (id) { var b = document.getElementById(id); if (b) b.textContent = etiquetas[id]; });
+    if (ESTADO_ADMIN.tabActual === "asoc") ESTADO_ADMIN.tabActual = "emp";
   }
 
   function seleccionarTabAdmin(tab) {
@@ -4639,9 +4662,164 @@
 
     if (tab === "emp") renderizarAdminEmprendedoras();
     else if (tab === "asoc") renderizarAdminAsociaciones();
-    else if (tab === "cat") renderizarAdminCatalogos();
+    else if (tab === "cat") { if (servicio) renderizarTiposServidor(); else renderizarAdminCatalogos(); }
     else if (tab === "adm") renderizarAdminAdmins();
     else if (tab === "log") renderizarAdminBitacora();
+  }
+
+  /**
+   * Entrega 8: cuentas emprendedoras reales. Con la migración 10, el servidor entrega estado
+   * (activa, desactivada, pendiente) y permite editar y desactivar (RF-ADM-01). Sin la 10, se
+   * leen perfiles y cuentas autorizadas (solo lectura).
+   */
+  var EMPRENDEDORAS_SERVIDOR = [];
+  var ETIQUETA_ESTADO_EMP = { ACTIVA: "Activa", DESACTIVADA: "Desactivada", PENDIENTE_REGISTRO: "Pendiente: debe registrarse con este correo", SIN_TIENDA: "Sin tienda" };
+
+  function renderizarEmprendedorasServidor(cont, busq) {
+    cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">Cargando cuentas…</p>';
+    var filtroEl = document.getElementById("admin-filtro-estado-emp");
+    var filtro = filtroEl ? filtroEl.value : "TODAS";
+    servicio.listarEmprendedorasServidor().then(function (r) {
+      if (r.ok) return { filas: r.datos || [], gestion: true };
+      if (!/PGRST202|Could not find the function/i.test((r.error && r.error.message) || "")) return { error: r.error };
+      // Sin la migración 10: lectura simple.
+      return Promise.all([servicio.listarEmprendedoras(), servicio.listarAutorizadas()]).then(function (rs) {
+        if (!rs[0].ok) return { error: rs[0].error };
+        var correos = (rs[0].datos || []).map(function (x) { return String(x.email || "").toLowerCase(); });
+        var filas = (rs[0].datos || []).map(function (x) { return { usuario_id: null, email: x.email, nombre: x.nombre, tienda_id: x.tienda_id, tienda_nombre: x.tienda_id, estado: "ACTIVA" }; })
+          .concat((rs[1].ok ? rs[1].datos || [] : []).filter(function (a) { return a.rol === "EMPRENDEDORA" && correos.indexOf(String(a.email).toLowerCase()) < 0; })
+          .map(function (a) { return { usuario_id: null, email: a.email, nombre: a.nombre, tienda_id: null, tienda_nombre: null, estado: "PENDIENTE_REGISTRO" }; }));
+        return { filas: filas, gestion: false };
+      });
+    }).then(function (res) {
+      if (res.error) { cont.innerHTML = '<p role="alert" style="font-size: 12.5px; color: #991b1b;">' + escaparHtml(Cat.mensajeError(res.error)) + "</p>"; return; }
+      EMPRENDEDORAS_SERVIDOR = res.filas;
+      var visibles = res.filas.map(function (f, i) { return { f: f, i: i }; }).filter(function (x) {
+        var f = x.f;
+        if (filtro === "ACTIVAS" && f.estado !== "ACTIVA") return false;
+        if (filtro === "DESACTIVADAS" && f.estado !== "DESACTIVADA") return false;
+        return !busq || (String(f.nombre || "") + " " + String(f.email || "") + " " + String(f.tienda_nombre || "")).toLowerCase().indexOf(busq) >= 0;
+      });
+      if (!visibles.length) { cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">No hay cuentas que coincidan.</p>'; return; }
+      cont.innerHTML = visibles.map(function (x) {
+        var f = x.f, acciones = "";
+        if (res.gestion && f.usuario_id) {
+          acciones = '<div style="display: flex; gap: 6px; flex-wrap: wrap;">' +
+            '<button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.editarEmprendedoraServidor(' + x.i + ')">Editar</button>' +
+            (f.estado === "SIN_TIENDA" ? "" : '<button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.cambiarEstadoEmprendedoraServidor(' + x.i + ')">' + (f.estado === "DESACTIVADA" ? "Reactivar" : "Desactivar") + "</button>") +
+            "</div>";
+        }
+        return '<div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">' +
+          "<div><strong style=\"font-size: 13.5px;\">" + escaparHtml(f.nombre || f.email) + '</strong> <span style="font-size: 11px; color: ' + (f.estado === "DESACTIVADA" ? "#991b1b" : "var(--gris-texto)") + ';">· ' + escaparHtml(ETIQUETA_ESTADO_EMP[f.estado] || f.estado) + "</span><br>" +
+          '<span style="font-size: 12px; color: var(--gris-texto);">' + escaparHtml(f.email) + (f.tienda_nombre ? " · Tienda: " + escaparHtml(f.tienda_nombre) : "") + "</span></div>" +
+          acciones + "</div>";
+      }).join("");
+    });
+  }
+
+  function editarEmprendedoraServidor(i) {
+    var f = EMPRENDEDORAS_SERVIDOR[i];
+    if (!f || !f.usuario_id || !servicio) return;
+    var nombre = prompt("Nombre de la emprendedora (" + f.email + "):", f.nombre || "");
+    if (nombre === null || !nombre.trim()) return;
+    var tienda = prompt("Nombre de su tienda:", f.tienda_nombre || "");
+    if (tienda === null || !tienda.trim()) return;
+    servicio.editarEmprendedora(f.usuario_id, nombre.trim(), tienda.trim()).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast("Cuenta actualizada.");
+      renderizarAdminEmprendedoras();
+    });
+  }
+
+  function cambiarEstadoEmprendedoraServidor(i) {
+    var f = EMPRENDEDORAS_SERVIDOR[i];
+    if (!f || !f.usuario_id || !servicio) return;
+    var activar = f.estado === "DESACTIVADA";
+    if (!confirm(activar ? "¿Reactivar la cuenta de " + f.email + "? Su tienda vuelve a verse." :
+      "¿Desactivar la cuenta de " + f.email + "? Su tienda y productos dejan de verse y no podrá hacer cambios. No se borra nada.")) return;
+    servicio.cambiarEstadoEmprendedora(f.usuario_id, activar).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast(activar ? "Cuenta reactivada." : "Cuenta desactivada.");
+      renderizarAdminEmprendedoras();
+    });
+  }
+
+  // ---------- Entrega 8: tipos de producto desde el servidor (RF-ADM-03) ----------
+  var TIPOS_SERVIDOR = [];
+
+  function renderizarTiposServidor() {
+    var sec = document.getElementById("admin-sec-cat");
+    if (!sec) return;
+    sec.innerHTML = '<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #166534;">' +
+      "🏷️ <strong>Tipos de producto:</strong> son los que eligen las emprendedoras al crear un producto. Un tipo que ya usan productos no se elimina: se desactiva y esos productos lo conservan.</div>" +
+      '<div><button type="button" class="btn-accion-pill btn-negro" style="min-height: 38px; font-size: 12.5px;" onclick="TramaWeb.editarTipoServidor(-1)">+ Nuevo tipo de producto</button></div>' +
+      '<div id="admin-lista-tipos-servidor" style="display: flex; flex-direction: column; gap: 8px;"><p style="font-size: 12.5px; color: var(--gris-texto);">Cargando tipos…</p></div>';
+    var cont = document.getElementById("admin-lista-tipos-servidor");
+    Promise.all([servicio.listarTiposAdmin(), servicio.usoTipos()]).then(function (rs) {
+      if (!rs[0].ok) { cont.innerHTML = '<p role="alert" style="font-size: 12.5px; color: #991b1b;">' + escaparHtml(Cat.mensajeError(rs[0].error)) + "</p>"; return; }
+      var uso = {};
+      (rs[1].ok ? rs[1].datos || [] : []).forEach(function (u) { uso[u.tipo_id] = u.productos; });
+      TIPOS_SERVIDOR = (rs[0].datos || []).map(function (t) { return Object.assign({}, t, { productos: uso[t.id] }); });
+      if (!TIPOS_SERVIDOR.length) { cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">No hay tipos de producto.</p>'; return; }
+      cont.innerHTML = TIPOS_SERVIDOR.map(function (t, i) {
+        var usado = typeof t.productos === "number" ? t.productos + (t.productos === 1 ? " producto" : " productos") : "";
+        return '<div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">' +
+          "<div><strong style=\"font-size: 13.5px;\">" + escaparHtml(t.nombre) + '</strong> <span style="font-size: 11px; color: ' + (t.activo ? "var(--gris-texto)" : "#991b1b") + ';">· ' + (t.activo ? "Se ofrece" : "Desactivado") + "</span><br>" +
+          '<span style="font-size: 12px; color: var(--gris-texto);">' + escaparHtml(Cat.CATEGORIAS[t.categoria] || t.categoria) + " · código " + escaparHtml(t.id) + (usado ? " · " + usado : "") + "</span></div>" +
+          '<div style="display: flex; gap: 6px; flex-wrap: wrap;">' +
+          '<button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.editarTipoServidor(' + i + ')">Editar</button>' +
+          '<button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.cambiarActivoTipoServidor(' + i + ')">' + (t.activo ? "Desactivar" : "Activar") + "</button>" +
+          (t.productos === 0 ? '<button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.eliminarTipoServidor(' + i + ')">Eliminar</button>' : "") +
+          "</div></div>";
+      }).join("");
+    });
+  }
+
+  function elegirCategoria(actual) {
+    var claves = Object.keys(Cat.CATEGORIAS);
+    var texto = claves.map(function (k, i) { return (i + 1) + ") " + Cat.CATEGORIAS[k]; }).join("   ");
+    var defecto = actual ? String(claves.indexOf(actual) + 1) : "1";
+    var r = prompt("Categoría (escribe el número):\n" + texto, defecto);
+    if (r === null) return null;
+    var k = claves[Number(r) - 1];
+    if (!k) { mostrarToast("Elige un número de la lista."); return null; }
+    return k;
+  }
+
+  function editarTipoServidor(i) {
+    if (!servicio) return;
+    var t = i >= 0 ? TIPOS_SERVIDOR[i] : null;
+    var nombre = prompt(t ? "Nombre del tipo:" : "Nombre del nuevo tipo de producto (ej.: Velas aromáticas):", t ? t.nombre : "");
+    if (nombre === null || !nombre.trim()) return;
+    var categoria = elegirCategoria(t && t.categoria);
+    if (!categoria) return;
+    var id = t ? t.id : nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
+    servicio.guardarTipo({ id: id, nombre: nombre.trim(), categoria: categoria, orden: t ? t.orden : TIPOS_SERVIDOR.length + 1, activo: t ? t.activo : true }).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast(t ? "Tipo actualizado." : "Tipo creado: ya se ofrece al crear productos.");
+      renderizarTiposServidor();
+    });
+  }
+
+  function cambiarActivoTipoServidor(i) {
+    var t = TIPOS_SERVIDOR[i];
+    if (!t || !servicio) return;
+    servicio.guardarTipo({ id: t.id, nombre: t.nombre, categoria: t.categoria, orden: t.orden, activo: !t.activo }).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast(t.activo ? "Tipo desactivado: ya no se ofrece; los productos que lo usan lo conservan." : "Tipo activado.");
+      renderizarTiposServidor();
+    });
+  }
+
+  function eliminarTipoServidor(i) {
+    var t = TIPOS_SERVIDOR[i];
+    if (!t || !servicio) return;
+    if (!confirm("¿Eliminar el tipo «" + t.nombre + "»? Ningún producto lo usa.")) return;
+    servicio.eliminarTipo(t.id).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast("Tipo eliminado.");
+      renderizarTiposServidor();
+    });
   }
 
   function filtrarAdminEmprendedoras() {
@@ -4654,6 +4832,7 @@
 
     var busqEl = document.getElementById("admin-busq-emp");
     var busq = busqEl ? busqEl.value.trim().toLowerCase() : "";
+    if (servicio) { renderizarEmprendedorasServidor(cont, busq); return; }
     var filtroEstadoEl = document.getElementById("admin-filtro-estado-emp");
     var filtroEstado = filtroEstadoEl ? filtroEstadoEl.value : "TODAS";
 
@@ -4725,7 +4904,9 @@
     var selAsoc = document.getElementById("admin-form-emp-asoc");
 
     if (idInput) idInput.value = "";
-    if (tit) tit.textContent = "Crear Cuenta de Emprendedora (W04)";
+    if (tit) tit.textContent = servicio ? "Autorizar cuenta de emprendedora" : "Crear Cuenta de Emprendedora (W04)";
+    // Entrega 8: con servidor la contraseña la elige ella al registrarse; no se pide aquí.
+    if (servicio && inpClave && inpClave.parentElement) inpClave.parentElement.style.display = "none";
     if (inpNom) inpNom.value = "";
     if (inpTienda) inpTienda.value = "";
     if (inpEmail) inpEmail.value = "";
@@ -4778,6 +4959,19 @@
 
     if (!nombre || !tiendaNombre || !email) {
       alert("Por favor completa el nombre, tienda y correo de la emprendedora.");
+      return;
+    }
+
+    // Entrega 8: con servidor solo se AUTORIZA el correo (RN-01). La emprendedora se registra
+    // con ese correo y su propia contraseña, y el servidor crea su tienda. No se inventan
+    // tiendas ni contraseñas en el navegador.
+    if (servicio) {
+      servicio.autorizarEmprendedora(email, nombre).then(function (r) {
+        if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+        cerrarFormEmprendedora();
+        renderizarAdminEmprendedoras();
+        mostrarToast("Correo autorizado. La emprendedora debe registrarse con " + email + " en la app o la web; el servidor crea su tienda.");
+      });
       return;
     }
 
@@ -5301,91 +5495,124 @@
     mostrarToast("Elemento eliminado.");
   }
 
+  // ---------- Entrega 8: cuentas de administración y bitácora DESDE EL SERVIDOR (09_administracion.sql) ----------
+  // Sin servidor (modo demostración) no se inventan cuentas ni registros: se avisa que requiere conexión.
+  var ADMINS_SERVIDOR = [];
+
+  function avisoSinServidorAdmin(cont, columnas) {
+    var texto = "Conecta la web al servidor e inicia sesión como administradora para ver esta sección.";
+    if (columnas) cont.innerHTML = '<tr><td colspan="' + columnas + '" style="padding: 18px; text-align: center; color: var(--gris-texto);">' + texto + "</td></tr>";
+    else cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">' + texto + "</p>";
+  }
+
+  function etiquetaEstadoAdmin(estado) {
+    if (estado === "ACTIVA") return '<span style="background: #dcfce7; color: #166534; font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 12px;">Activa</span>';
+    if (estado === "PENDIENTE_REGISTRO") return '<span style="background: #fef3c7; color: #92400e; font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 12px;">Debe registrarse con este correo</span>';
+    return '<span style="background: #fee2e2; color: #991b1b; font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 12px;">Desactivada</span>';
+  }
+
   function renderizarAdminAdmins() {
     var cont = document.getElementById("admin-lista-admins-contenedor");
     if (!cont) return;
-
-    var html = "";
-    ESTADO_ADMIN.admins.forEach(function(adm) {
-      var badge = adm.activa
-        ? '<span style="background: #dcfce7; color: #166534; font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 12px;">🟢 ACTIVA</span>'
-        : '<span style="background: #fee2e2; color: #991b1b; font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 12px;">🔴 SUSPENDIDA</span>';
-
-      html += '<div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center;">';
-      html += '  <div>';
-      html += '    <div style="display: flex; align-items: center; gap: 8px;">';
-      html += '      <strong style="font-size: 13.5px; color: var(--negro-apple);">' + adm.nombre + '</strong>';
-      html += '      ' + badge;
-      html += '    </div>';
-      html += '    <span style="font-size: 12px; color: var(--gris-texto);">' + adm.email + ' &middot; Rol: ' + adm.rol + '</span>';
-      html += '  </div>';
-      html += '  <div style="display: flex; gap: 6px;">';
-      if (adm.email !== "admin@alerce.app") {
-        html += '    <button type="button" class="btn-accion-pill" style="height: 30px; font-size: 11px;" onclick="TramaWeb.toggleEstadoAdmin(\'' + adm.id + '\')">' + (adm.activa ? "Desactivar" : "Activar") + '</button>';
-      } else {
-        html += '    <span style="font-size: 11px; color: var(--gris-texto); font-weight: 700;">Superadmin Principal</span>';
-      }
-      html += '  </div>';
-      html += '</div>';
+    if (!servicio) { avisoSinServidorAdmin(cont); return; }
+    cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">Cargando cuentas de administración…</p>';
+    servicio.listarAdmins().then(function (r) {
+      if (!r.ok) { cont.innerHTML = '<p role="alert" style="font-size: 12.5px; color: #991b1b;">' + escaparHtml(Cat.mensajeError(r.error)) + "</p>"; return; }
+      ADMINS_SERVIDOR = r.datos || [];
+      if (!ADMINS_SERVIDOR.length) { cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">No hay cuentas de administración.</p>'; return; }
+      var html = "";
+      ADMINS_SERVIDOR.forEach(function (adm, i) {
+        html += '<div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">';
+        html += '  <div>';
+        html += '    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"><strong style="font-size: 13.5px; color: var(--negro-apple);">' + escaparHtml(adm.nombre || adm.email) + "</strong> " + etiquetaEstadoAdmin(adm.estado) + (adm.es_yo ? ' <span style="font-size: 11px; color: var(--gris-texto);">(tu cuenta)</span>' : "") + "</div>";
+        html += '    <span style="font-size: 12px; color: var(--gris-texto);">' + escaparHtml(adm.email) + "</span>";
+        html += "  </div>";
+        html += '  <div style="display: flex; gap: 6px;">';
+        html += '    <button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.editarAdmin(' + i + ')">Editar nombre</button>';
+        if (!adm.es_yo) {
+          html += '    <button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.toggleEstadoAdmin(' + i + ')">' + (adm.estado === "DESACTIVADA" ? "Reactivar" : "Desactivar") + "</button>";
+        }
+        html += "  </div>";
+        html += "</div>";
+      });
+      cont.innerHTML = html;
     });
-
-    cont.innerHTML = html;
   }
 
   function abrirFormCrearAdmin() {
-    var nombre = prompt("Nombre del nuevo administrador:");
+    if (!servicio) { mostrarToast("Requiere conexión con el servidor."); return; }
+    var nombre = prompt("Nombre de la nueva administradora o administrador:");
     if (!nombre || !nombre.trim()) return;
-    var email = prompt("Correo del nuevo administrador (ej: soporte@alerce.app):");
+    var email = prompt("Correo con que se registrará (ej.: soporte@alerce.app):");
     if (!email || !email.trim()) return;
-
-    var nuevo = {
-      id: "adm_" + Date.now(),
-      nombre: nombre.trim(),
-      email: email.trim().toLowerCase(),
-      rol: "ADMIN",
-      activa: true,
-      creadoEn: new Date().toISOString().slice(0, 10)
-    };
-
-    ESTADO_ADMIN.admins.push(nuevo);
-    registrarAccionBitacora("Creó cuenta de administrador (W23)", nombre + " <" + email + ">");
-    persistirEstadoAdmin();
-    renderizarAdminAdmins();
-    mostrarToast("👑 Administrador creado con éxito (W23).");
+    servicio.crearAdmin(email.trim(), nombre.trim()).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast(r.datos === "ACTIVA" ? "Cuenta de administración creada: ya puede entrar." : "Autorizada. Debe registrarse en la web con ese correo para entrar como administradora.");
+      renderizarAdminAdmins();
+    });
   }
 
-  function toggleEstadoAdmin(id) {
-    var adm = ESTADO_ADMIN.admins.find(function(a){ return a.id === id; });
-    if (!adm) return;
+  function editarAdmin(i) {
+    var adm = ADMINS_SERVIDOR[i];
+    if (!adm || !servicio) return;
+    var nombre = prompt("Nuevo nombre para " + adm.email + ":", adm.nombre || "");
+    if (!nombre || !nombre.trim() || nombre.trim() === adm.nombre) return;
+    servicio.editarAdmin(adm.email, nombre.trim()).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast("Nombre actualizado.");
+      renderizarAdminAdmins();
+    });
+  }
 
-    if (!confirm("¿Deseas cambiar el estado de la cuenta de " + adm.nombre + "?")) return;
-    adm.activa = !adm.activa;
-    registrarAccionBitacora((adm.activa ? "Activó" : "Desactivó") + " cuenta admin", adm.email);
-    persistirEstadoAdmin();
-    renderizarAdminAdmins();
-    mostrarToast("Cuenta de administrador actualizada.");
+  function toggleEstadoAdmin(i) {
+    var adm = ADMINS_SERVIDOR[i];
+    if (!adm || !servicio) return;
+    var activar = adm.estado === "DESACTIVADA";
+    if (!confirm(activar ? "¿Reactivar la cuenta de " + adm.email + "?" : "¿Desactivar la cuenta de " + adm.email + "? Perderá el acceso de administración (su cuenta no se borra).")) return;
+    servicio.cambiarEstadoAdmin(adm.email, activar).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast(activar ? "Cuenta reactivada." : "Cuenta desactivada.");
+      renderizarAdminAdmins();
+    });
+  }
+
+  function textoDetalleBitacora(item) {
+    var d = item.detalle || {};
+    var partes = [];
+    if (item.objeto_tipo) partes.push(item.objeto_tipo + (item.objeto_id ? " " + item.objeto_id : ""));
+    if (d.nombre) partes.push("«" + d.nombre + "»");
+    if (Array.isArray(d.campos) && d.campos.length) partes.push("campos: " + d.campos.join(", "));
+    if (d.estado) partes.push("estado: " + d.estado);
+    if (d.asistencia && d.asistencia !== "PENDIENTE") partes.push("asistencia: " + d.asistencia);
+    if (d.valor) partes.push("valor: " + d.valor);
+    if (typeof d.destinatarias === "number") partes.push(d.destinatarias + " destinatarias");
+    return partes.join(" · ");
   }
 
   function renderizarAdminBitacora() {
     var tbody = document.getElementById("admin-tabla-bitacora-body");
     if (!tbody) return;
-
-    if (ESTADO_ADMIN.bitacora.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px; color: var(--gris-texto);">No hay eventos en la bitácora.</td></tr>';
-      return;
-    }
-
-    var html = "";
-    ESTADO_ADMIN.bitacora.forEach(function(item) {
-      html += '<tr style="border-bottom: 1px solid var(--gris-borde);">';
-      html += '  <td style="padding: 9px 12px; font-family: monospace; font-size: 11.5px; color: #4b5563;">' + item.fecha + '</td>';
-      html += '  <td style="padding: 9px 12px; font-weight: 700; color: #1e1e24;">' + item.admin + '</td>';
-      html += '  <td style="padding: 9px 12px;"><span style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-weight: 600;">' + item.accion + '</span></td>';
-      html += '  <td style="padding: 9px 12px; color: #374151;">' + item.detalle + '</td>';
-      html += '</tr>';
+    if (!servicio) { avisoSinServidorAdmin(tbody, 4); return; }
+    tbody.innerHTML = '<tr><td colspan="4" style="padding: 18px; text-align: center; color: var(--gris-texto);">Cargando bitácora…</td></tr>';
+    servicio.verBitacora(200).then(function (r) {
+      if (!r.ok) { tbody.innerHTML = '<tr><td colspan="4" role="alert" style="padding: 18px; color: #991b1b;">' + escaparHtml(Cat.mensajeError(r.error)) + "</td></tr>"; return; }
+      var filas = r.datos || [];
+      var kpiLog = document.getElementById("kpi-admin-total-log");
+      if (kpiLog) kpiLog.textContent = filas.length;
+      if (!filas.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 18px; color: var(--gris-texto);">Aún no hay acciones registradas.</td></tr>'; return; }
+      var html = "";
+      filas.forEach(function (item) {
+        var fecha = new Date(item.en);
+        var fechaTxt = isNaN(fecha) ? String(item.en) : fecha.toLocaleString("es-CL", { timeZone: "America/Santiago", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+        html += '<tr style="border-bottom: 1px solid var(--gris-borde);">';
+        html += '  <td style="padding: 9px 12px; font-family: monospace; font-size: 11.5px; color: #4b5563; white-space: nowrap;">' + escaparHtml(fechaTxt) + "</td>";
+        html += '  <td style="padding: 9px 12px; font-weight: 700; color: #1e1e24;">' + escaparHtml(item.quien) + "</td>";
+        html += '  <td style="padding: 9px 12px;"><span style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-weight: 600;">' + escaparHtml(item.accion) + "</span></td>";
+        html += '  <td style="padding: 9px 12px; color: #374151;">' + escaparHtml(textoDetalleBitacora(item)) + "</td>";
+        html += "</tr>";
+      });
+      tbody.innerHTML = html;
     });
-
-    tbody.innerHTML = html;
   }
 
   function mostrarAviso(id, mensaje) {
@@ -5939,6 +6166,12 @@
     eliminarCatalogoItem: eliminarCatalogoItem,
     abrirFormCrearAdmin: abrirFormCrearAdmin,
     toggleEstadoAdmin: toggleEstadoAdmin,
+    editarAdmin: editarAdmin,
+    editarEmprendedoraServidor: editarEmprendedoraServidor,
+    cambiarEstadoEmprendedoraServidor: cambiarEstadoEmprendedoraServidor,
+    editarTipoServidor: editarTipoServidor,
+    cambiarActivoTipoServidor: cambiarActivoTipoServidor,
+    eliminarTipoServidor: eliminarTipoServidor,
     recuperarContrasenaWeb: recuperarContrasenaWeb,
     enviarEnlaceRecuperacion: enviarEnlaceRecuperacion,
     guardarNuevaClave: guardarNuevaClave,
@@ -5976,6 +6209,8 @@
   function arrancar() {
     inicializar();
     abrirTiendaDesdeEnlace();
+    // Entrega 8 (W09): enlace directo al aviso de privacidad (lo usa también la app).
+    try { if (new URLSearchParams(window.location.search).get("privacidad") === "1") abrirModal("modal-privacidad"); } catch (e) { /* sin URLSearchParams */ }
   }
 
   // Ejecutar al cargar el DOM

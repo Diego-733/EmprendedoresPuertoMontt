@@ -12,9 +12,16 @@ const pruebasEntrega5 = require("./pruebas_entrega5");
 const pruebasEntrega6 = require("./pruebas_entrega6");
 const pruebasEntrega7 = require("./pruebas_entrega7");
 const pruebasEnvioAutomatico = require("./pruebas_envio_automatico");
+const pruebasAdministracion = require("./pruebas_administracion");
+const pruebasEmprendedorasTipos = require("./pruebas_emprendedoras_tipos");
 const concurrencia = require("./concurrencia");
 
 const COMMIT_ESQUEMA_ANTERIOR = "6859b8f";
+/** El escenario de actualización lee el esquema antiguo del historial de git. */
+function hayEsquemaAnterior() {
+  try { execFileSync("git", ["cat-file", "-e", COMMIT_ESQUEMA_ANTERIOR + ":supabase/01_esquema.sql"], { cwd: RAIZ, stdio: "ignore" }); return true; }
+  catch (e) { return false; }
+}
 
 async function instalacionLimpia(pg, r) {
   await pg.crearBase("limpia");
@@ -64,6 +71,8 @@ async function instalacionLimpia(pg, r) {
     await pruebasEntrega5(c, r);
     await pruebasEntrega6(c, r);
     await pruebasEntrega7(c, r);
+    await pruebasAdministracion(c, r);   // 09, sobre la base sin 08
+    await pruebasEmprendedorasTipos(c, r);   // 10, después de 09
     await pruebasEnvioAutomatico(c, r);
     await concurrencia(pg, "limpia", c, r);
   } finally {
@@ -163,6 +172,20 @@ async function actualizacion(pg, r) {
     r.igual("Quedan registradas las migraciones", migr.sort(), ["05_catalogo_ventas", "06_vitrina_mapas", "07_ferias_seguidores"]);
     await pruebasEntrega5(c, r);
 
+    // Entrega 8: 09 y 10 sobre una base actualizada desde el esquema anterior, con datos; y su reversión.
+    const huellaE8 = async () => (await c.query("select (select count(*) from productos)::int p, (select count(*) from ventas)::int v, (select count(*) from tiendas)::int t, (select count(*) from tipos_producto)::int tp")).rows[0];
+    const antesE8 = await huellaE8();
+    const publicosE8 = (await como(c, null, "select count(*)::int n from productos")).rows[0].n;
+    await ejecutarArchivo(c, "supabase/09_administracion.sql");
+    await ejecutarArchivo(c, "supabase/10_emprendedoras_y_tipos.sql");
+    r.igual("09 y 10 sobre una base antigua conservan productos, ventas, tiendas y tipos", await huellaE8(), antesE8);
+    r.igual("Tras 10 todas las tiendas antiguas quedan activas y la vitrina muestra lo mismo",
+      [(await c.query("select count(*)::int n from tiendas where not activa")).rows[0].n, (await como(c, null, "select count(*)::int n from productos")).rows[0].n],
+      [0, publicosE8]);
+    await ejecutarArchivo(c, "supabase/10_revertir.sql");
+    await ejecutarArchivo(c, "supabase/09_revertir.sql");
+    r.igual("Revertir 10 y luego 09 deja los datos como estaban", await huellaE8(), antesE8);
+
     // Diagnóstico de solo lectura: se ejecuta completo sin errores ni cambios.
     const conteo = async () => (await c.query("select (select count(*) from productos)::int p, (select count(*) from ventas)::int v, md5(string_agg(id || variantes::text, '|' order by id)) h from productos")).rows[0];
     const antesDiag = await conteo();
@@ -223,7 +246,9 @@ async function transaccion07(pg, r) {
       const rl = new Registro(`PG${v.version} limpia`);
       await instalacionLimpia(pg, rl).catch(e => rl.ok("instalación limpia sin errores", false, e.message));
       const ra = new Registro(`PG${v.version} actualización`);
-      await actualizacion(pg, ra).catch(e => ra.ok("actualización sin errores", false, e.message));
+      if (hayEsquemaAnterior()) await actualizacion(pg, ra).catch(e => ra.ok("actualización sin errores", false, e.message));
+      else console.log("AVISO: se omite el escenario de actualización: necesita el historial de git (commit " + COMMIT_ESQUEMA_ANTERIOR +
+        "). Clona el repositorio completo, sin --depth, para ejecutarlo.");
       const rt = new Registro(`PG${v.version} transacción`);
       await transaccion07(pg, rt).catch(e => rt.ok("transacción 07 sin errores", false, e.message));
       r.casos.push(...rl.casos, ...ra.casos, ...rt.casos);

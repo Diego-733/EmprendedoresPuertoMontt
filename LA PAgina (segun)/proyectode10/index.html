@@ -74,7 +74,7 @@
       <!-- Acciones de cabecera: Carrito, POS, Descarga y Usuario -->
       <div class="header-acciones">
         <!-- Descarga directa APK Android -->
-        <a href="app-debug.apk" download="AlerceEmprende.apk" class="btn-accion-pill" id="btn-descarga-apk-header" style="text-decoration: none; background: var(--gris-chip); border: 1px solid var(--gris-borde); color: var(--negro-apple); font-weight: 700; height: 36px; padding: 0 11px; gap: 5px;" title="Descargar APK oficial para Android v1.4 (Entrega 6)">
+        <a href="app-debug.apk" download="AlerceEmprende.apk" class="btn-accion-pill" id="btn-descarga-apk-header" style="text-decoration: none; background: var(--gris-chip); border: 1px solid var(--gris-borde); color: var(--negro-apple); font-weight: 700; height: 36px; padding: 0 11px; gap: 5px;" title="Descargar la app para Android (v1.6)">
           <span>📱</span>
           <span>App Android</span>
         </a>
@@ -174,7 +174,7 @@
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
           <a href="app-debug.apk" download="AlerceEmprende.apk" class="btn-accion-pill" style="background: var(--rojo-alerce); color: #fff; border: none; font-weight: 800; height: 40px; padding: 0 18px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);">
             <span>📥</span>
-            <span>Descargar APK v1.4 (Entrega 6)</span>
+            <span>Descargar app Android (v1.6)</span>
           </a>
         </div>
       </div>
@@ -411,14 +411,14 @@
       <div class="modal-cabecera" style="border-bottom: 1px solid var(--gris-borde); padding-bottom: 14px;">
         <div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="background: #111; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; letter-spacing: 1px;">CANAL WEB EXCLUSIVO (W01-W24)</span>
+            <span style="background: #111; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; letter-spacing: 1px;">ADMINISTRACIÓN</span>
             <span id="badge-admin-usuario" style="font-size: 11.5px; color: #059669; font-weight: 700;">👑 admin@alerce.app</span>
           </div>
           <h2 id="modal-admin-titulo" style="font-size: 20px; font-weight: 900; color: var(--negro-apple); margin: 4px 0 0 0;">
             Administración de Plataforma · Alerce
           </h2>
           <p style="font-size: 12px; color: var(--gris-texto); margin: 2px 0 0 0;">
-            Gestión oficial de cuentas de emprendedoras, asociaciones y catálogos comerciales (Entrega 4).
+            Cuentas, asociaciones, ferias, navegación de la app y bitácora de la plataforma.
           </p>
         </div>
         <div style="display: flex; gap: 8px; align-items: center;">
@@ -432,7 +432,7 @@
       </div>
 
       <!-- Barra de Estadísticas Rápidas (KPIs) -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--gris-borde);">
+      <div id="admin-kpis" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--gris-borde);">
         <div style="background: #f8fafc; border: 1px solid var(--gris-borde); border-radius: 10px; padding: 10px;">
           <span style="font-size: 11px; color: var(--gris-texto); display: block;">Emprendedoras</span>
           <strong id="kpi-admin-total-emp" style="font-size: 18px; font-weight: 900; color: var(--negro-apple);">0</strong>
@@ -491,7 +491,7 @@
               </select>
             </div>
             <button type="button" class="btn-accion-pill btn-negro" style="height: 38px; font-size: 12.5px; background: #059669; border-color: #059669;" onclick="TramaWeb.abrirFormCrearEmprendedora()">
-              + Crear Cuenta de Emprendedora (W04)
+              + Autorizar cuenta de emprendedora
             </button>
           </div>
 
@@ -678,11 +678,11 @@
         <div id="admin-sec-adm" style="display: none; flex-direction: column; gap: 14px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <strong style="font-size: 14px; color: var(--negro-apple);">Gestión de Cuentas de Administrador (W23)</strong>
-              <p style="font-size: 12px; color: var(--gris-texto); margin: 2px 0 0 0;">Cuentas autorizadas con acceso al canal web de administración de plataforma.</p>
+              <strong style="font-size: 14px; color: var(--negro-apple);">Cuentas de administración</strong>
+              <p style="font-size: 12px; color: var(--gris-texto); margin: 2px 0 0 0;">Crea, edita o desactiva a otras personas que administran la plataforma. Quien se crea debe registrarse en la web con ese correo.</p>
             </div>
             <button type="button" class="btn-accion-pill btn-negro" style="height: 38px; font-size: 12px;" onclick="TramaWeb.abrirFormCrearAdmin()">
-              + Crear Administrador (W23)
+              + Crear administradora o administrador
             </button>
           </div>
           <div id="admin-lista-admins-contenedor" style="display: flex; flex-direction: column; gap: 8px;"></div>
@@ -693,7 +693,7 @@
              ========================================== -->
         <div id="admin-sec-log" style="display: none; flex-direction: column; gap: 12px;">
           <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #6b21a8;">
-            📋 <strong>Bitácora de Seguridad (WA3 - Adicional +0,1):</strong> Registro inmutable de acciones administrativas (quién realizó qué acción y cuándo).
+            📋 <strong>Bitácora:</strong> registro de las acciones de administración (quién hizo qué y cuándo). Lo escribe el servidor; nadie puede editarlo ni borrarlo.
           </div>
           <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;">
@@ -739,7 +739,8 @@
         <p>Plataforma oficial de vinculación con el medio para ferias y emprendimientos de Puerto Montt.</p>
       </div>
       <div>
-        <p>© 2026 Trama Alerce · Sistema adaptado con Carrito, Código QR y Muro en Vivo.</p>
+        <p>© 2026 Alerce Emprende · Puerto Montt.</p>
+        <p><button type="button" id="btn-aviso-privacidad" style="background: none; border: none; padding: 8px 0; min-height: 44px; color: inherit; text-decoration: underline; cursor: pointer; font: inherit;" onclick="TramaWeb.abrirModal('modal-privacidad')">Aviso de privacidad y datos personales</button></p>
       </div>
     </div>
   </footer>
@@ -747,6 +748,37 @@
   <!-- ============================================================
        VENTANAS MODALES INTERACTIVAS
        ============================================================ -->
+
+  <!-- Entrega 8 (RNF-PRI-01, RNF-PRI-03, criterio W09): aviso de privacidad. También se abre con ?privacidad=1 -->
+  <div class="modal-overlay" id="modal-privacidad" role="dialog" aria-modal="true" aria-labelledby="modal-privacidad-titulo" style="display: none;">
+    <div class="modal-panel-editorial" style="max-width: 640px; width: 94%;">
+      <div class="modal-cabecera">
+        <div>
+          <span style="font-size: 11px; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 1px;">Datos personales</span>
+          <h2 id="modal-privacidad-titulo" style="font-size: 18px; font-weight: 800; color: var(--negro-apple); margin: 2px 0 0 0;">Aviso de privacidad</h2>
+        </div>
+        <button type="button" class="btn-cerrar-x" onclick="TramaWeb.cerrarModal('modal-privacidad')" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-cuerpo aviso-privacidad" style="gap: 10px; font-size: 13px; line-height: 1.55; overflow-y: auto; max-height: 70vh;">
+        <p>Alerce Emprende es una plataforma para que emprendedoras de Puerto Montt muestren sus productos y para difundir ferias. Tratamos los datos personales según la Ley N° 19.628 sobre protección de la vida privada y los principios de la Ley N° 21.719: solo para los fines que se indican, con el mínimo necesario y con medidas de seguridad.</p>
+        <h3 style="font-size: 14px; margin: 6px 0 0;">Qué datos usamos y para qué</h3>
+        <ul style="margin: 0; padding-left: 18px;">
+          <li><strong>Cuenta</strong> (correo, nombre y foto opcional): para entrar y saber qué puede hacer cada persona.</li>
+          <li><strong>Tienda</strong>: es pública solo la información que la emprendedora decide mostrar (nombre, descripción, productos publicados, precios si los muestra, forma de contacto y punto de retiro si lo marca). Lo que ella oculta no se publica.</li>
+          <li><strong>Ventas</strong>: son privadas. Solo las ve la emprendedora; ni el administrador ni el público tienen acceso.</li>
+          <li><strong>Mensajes del formulario de contacto</strong>: los recibe solo la emprendedora a quien escribes.</li>
+          <li><strong>Seguimientos y avisos</strong>: si sigues una tienda o asociación y aceptas los avisos, guardamos ese consentimiento y el identificador de tu dispositivo para enviarte la notificación. Puedes dejar de seguir o darte de baja cuando quieras desde Mi perfil → Avisos.</li>
+          <li><strong>Calificaciones</strong>: el público ve solo el promedio y la cantidad, sin tu nombre.</li>
+          <li><strong>Ubicación</strong>: la app la pide solo para ordenar las ferias por cercanía o sugerir la feria del día. Se usa en el celular y no se guarda en el servidor.</li>
+        </ul>
+        <h3 style="font-size: 14px; margin: 6px 0 0;">Quién accede</h3>
+        <p>Cada persona accede solo a sus datos. El administrador gestiona cuentas, asociaciones y ferias, y sus acciones quedan registradas en una bitácora. No vendemos ni cedemos datos a terceros. Los datos se guardan en el servidor de la plataforma (Supabase) y los avisos se envían con Firebase Cloud Messaging.</p>
+        <h3 style="font-size: 14px; margin: 6px 0 0;">Tus derechos</h3>
+        <p>Puedes pedir acceso, corrección o eliminación de tus datos, u oponerte a su uso. Una emprendedora corrige su tienda desde la app o la web; para lo demás, escribe al administrador de la plataforma. Durante el piloto, el responsable es el equipo ALERCEIS7 del curso Programación en Android 2026-2.</p>
+        <p style="font-size: 12px; color: var(--gris-texto);">Última actualización: noviembre de 2026.</p>
+      </div>
+    </div>
+  </div>
 
   <!-- 1. MODAL DETALLE DE TIENDA / VITRINA Y FORO -->
   <div class="modal-overlay" id="modal-tienda-vitrina" role="dialog" aria-modal="true" aria-labelledby="modal-tienda-titulo">
@@ -2011,7 +2043,8 @@
   </div>
 
   <!-- Script Supabase SDK Oficial (Backend Instancia Alerce i7) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Entrega 8 (RNF-SEG-05): versión fija y verificación de integridad (SRI); antes era la etiqueta flotante @2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2/dist/umd/supabase.js" integrity="sha256-iBavBNmRXbuhiC1vhPC0AtxAJoBjpj2cZtJPUvNxwmM=" crossorigin="anonymous"></script>
 
   <!-- Scripts Firebase SDK Oficial (Fallback de compatibilidad) -->
 

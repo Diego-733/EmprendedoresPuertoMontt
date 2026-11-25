@@ -75,7 +75,7 @@ fun PantallaEmprendedoraInicio(
             titulo = "Hola, $nombreCorto",
             subtitulo = tienda.nombre,
             acciones = {
-                IconButton(onClick = { avisar("No tenés notificaciones nuevas") }) {
+                IconButton(onClick = { avisar("No tienes notificaciones nuevas") }) {
                     Icon(Icons.Filled.Notifications, contentDescription = "Notificaciones", tint = NegroApple)
                 }
                 IconButton(onClick = { nav.irA(Ruta.Ajustes) }) {

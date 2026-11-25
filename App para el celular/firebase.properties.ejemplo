@@ -6,3 +6,10 @@ firebase.appId=
 firebase.apiKey=
 firebase.projectId=
 firebase.senderId=
+
+# Entrega 8 (A11, App Check). Dirección de la Realtime Database del mismo proyecto
+# (Compilación → Realtime Database → arriba de los datos, termina en firebasedatabase.app o firebaseio.com).
+# Sin ella, la app funciona igual y la comprobación de App Check no aparece.
+firebase.databaseUrl=
+# El proveedor de App Check NO se configura aquí: el APK público (release) usa Play Integrity
+# y el APK de prueba del equipo (debug) usa el proveedor de depuración.

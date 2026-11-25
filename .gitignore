@@ -46,3 +46,9 @@ servicios/notificador/.env
 # Cachés, registros y temporales
 *.log
 .kotlin/
+
+# Entrega 8: Firebase Hosting (carpeta generada y archivos locales de la CLI)
+dist/
+.firebase/
+.firebaserc
+firebase-debug.log

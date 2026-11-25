@@ -7,6 +7,7 @@ import androidx.biometric.BiometricManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,7 +86,7 @@ fun PantallaAjustes(
     val rol = TramaStore.rol
     val puedeVolver = nav.pila.size > 1
     val contextoHuella = LocalContext.current
-    val actividadHuella = contextoHuella as? FragmentActivity
+    val actividadHuella = androidx.activity.compose.LocalActivity.current as? FragmentActivity
     var huellaActiva by remember { mutableStateOf(SesionManager.huellaActivada()) }
     val biometriaDisponible = remember {
         BiometricManager.from(contextoHuella).canAuthenticate(autenticadoresHuella()) ==
@@ -168,6 +169,21 @@ fun PantallaAjustes(
             // Accesibilidad: disponible para todos los perfiles.
             AjustesAccesibilidad()
 
+            // Entrega 8 (A11): comprobación de Firebase App Check (solo si está configurada).
+            AjustesProteccionApp(avisar)
+
+            // Entrega 8 (RNF-PRI-01): el aviso de privacidad es el mismo de la web.
+            val contextoPrivacidad = LocalContext.current
+            BotonSecundario(
+                texto = "Aviso de privacidad y datos personales",
+                onClick = {
+                    runCatching {
+                        contextoPrivacidad.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(com.example.trabajodea10.ui.publico.URL_VITRINA + "?privacidad=1")))
+                    }.onFailure { avisar("No hay un navegador para abrir el aviso.") }
+                }
+            )
+
             // Cerrar sesión no borra lo pendiente: se avisa y queda guardado para esta cuenta.
             var avisoPendientes by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
             if (avisoPendientes) {
@@ -187,12 +203,70 @@ fun PantallaAjustes(
             )
 
             Text(
-                text = "Alerce Emprende · versión 1.0.0 (Oficial Online)",
+                text = "Alerce Emprende · versión ${com.example.trabajodea10.BuildConfig.VERSION_NAME}",
                 modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextoSecundario,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
+        }
+    }
+}
+
+/**
+ * Entrega 8 (RNF-SEG-06): prueba de Firebase App Check. Escribe una comprobación sin datos
+ * personales en Realtime Database; con «Enforce» activo, Firebase solo la acepta desde esta app.
+ */
+@Composable
+private fun AjustesProteccionApp(avisar: (String) -> Unit) {
+    val proteccion = com.example.trabajodea10.seguridad.ProteccionApp
+    if (!proteccion.configurada) return
+    val ambito = rememberCoroutineScope()
+    val portapapeles = androidx.compose.ui.platform.LocalClipboardManager.current
+    var probando by remember { mutableStateOf(false) }
+    var resultado by remember { mutableStateOf<String?>(null) }
+    var token by remember { mutableStateOf<String?>(null) }
+
+    TituloSeccion(texto = "Protección de la app")
+    Tarjeta {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Firebase App Check comprueba que las solicitudes vienen de esta app y no de otro programa.",
+                style = MaterialTheme.typography.bodyMedium)
+            Text("Proveedor: ${proteccion.nombreProveedor}", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
+            BotonSecundario(
+                texto = if (probando) "Comprobando…" else "Comprobar App Check",
+                onClick = {
+                    if (probando) return@BotonSecundario
+                    probando = true
+                    ambito.launch {
+                        resultado = when (val r = proteccion.comprobar()) {
+                            is com.example.trabajodea10.seguridad.ProteccionApp.Resultado.Aceptada ->
+                                "Firebase aceptó la solicitud de esta app."
+                            is com.example.trabajodea10.seguridad.ProteccionApp.Resultado.Rechazada ->
+                                "Firebase rechazó la solicitud: ${r.motivo}"
+                            is com.example.trabajodea10.seguridad.ProteccionApp.Resultado.SinRespuesta ->
+                                "Sin respuesta de Firebase. Revisa la conexión."
+                            is com.example.trabajodea10.seguridad.ProteccionApp.Resultado.SinConfigurar ->
+                                "Firebase no está configurado en esta versión."
+                        }
+                        probando = false
+                    }
+                }
+            )
+            resultado?.let { Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
+            if (proteccion.usaDepuracion) {
+                androidx.compose.material3.TextButton(onClick = {
+                    token = proteccion.tokenDepuracion()
+                    if (token == null) avisar("Aún no hay token: toca primero «Comprobar App Check».")
+                }) { Text("Ver token de depuración para la consola") }
+                token?.let { t ->
+                    Text(t, style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.material3.TextButton(onClick = {
+                        portapapeles.setText(androidx.compose.ui.text.AnnotatedString(t))
+                        avisar("Token copiado.")
+                    }) { Text("Copiar token") }
+                }
+            }
         }
     }
 }
@@ -254,7 +328,7 @@ private fun PerfilAdmin(avisar: (String) -> Unit) {
                 enabled = !subiendoFoto,
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, NegroApple),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) {
                 if (subiendoFoto) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = NegroApple)
@@ -339,7 +413,7 @@ private fun PerfilEmprendedora(nav: ControladorNavegacion, avisar: (String) -> U
                 enabled = !subiendoFoto,
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, NegroApple),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) {
                 if (subiendoFoto) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = NegroApple)
@@ -384,7 +458,7 @@ private fun PerfilEmprendedora(nav: ControladorNavegacion, avisar: (String) -> U
                 enabled = !subiendoLogo,
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, NegroApple),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) {
                 if (subiendoLogo) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = NegroApple)
@@ -510,7 +584,7 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
                 enabled = !subiendoFoto,
                 shape = RoundedCornerShape(12.dp),
                 border = BorderStroke(1.dp, NegroApple),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
             ) {
                 if (subiendoFoto) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = NegroApple)
@@ -529,7 +603,7 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
             onClick = { mostrarCrearTienda = true },
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, NegroApple),
-            modifier = Modifier.fillMaxWidth().height(50.dp)
+            modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)
         ) {
             Icon(Icons.Filled.Store, contentDescription = null, tint = NegroApple)
             Spacer(modifier = Modifier.width(8.dp))
@@ -683,7 +757,7 @@ private fun AjustesAccesibilidad() {
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Agrandá todo el texto de la app para leerlo más fácil.",
+                text = "Agranda todo el texto de la app para leerlo más fácil.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextoSecundario,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center

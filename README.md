@@ -132,6 +132,8 @@ La `08_envio_automatico.sql` es opcional y no forma parte de la entrega 8. Detal
 
 ### 1.8 Publicar la web en Firebase Hosting
 
+En el plan Spark la vitrina se sirve desde Firebase y el APK desde GitHub Releases. Antes del despliegue, publica el APK firmado como `app-release.apk` en la release `apk-1.6-alerce` (paso 4 de `docs/entrega8/README.md`).
+
 ```powershell
 npm run hosting:preparar -- --apk "App para el celular\app\build\outputs\apk\release\app-release.apk"
 ```

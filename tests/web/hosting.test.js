@@ -42,12 +42,13 @@ test("Hosting: copia la web en la carpeta indicada y escribe config.js solo con 
   const r = correr({ SUPABASE_URL: "https://falso.supabase.co", SUPABASE_ANON_KEY: clave }, destino);
   assert.strictEqual(r.status, 0, r.stderr);
   assert.ok(!(r.stdout + r.stderr).includes(clave), "no imprime la clave");
-  for (const f of ["index.html", "js/main.js", "js/servicio.js", "css/styles.css", "firebase-messaging-sw.js", "app-debug.apk"]) {
+  for (const f of ["index.html", "js/main.js", "js/servicio.js", "css/styles.css", "firebase-messaging-sw.js"]) {
     assert.ok(fs.existsSync(path.join(destino, f)), "falta " + f);
   }
   assert.strictEqual(fs.readFileSync(path.join(destino, "js", "config.js"), "utf8"),
     'window.__CONFIG__ = {"supabase":{"url":"https://falso.supabase.co","anonKey":"' + clave + '"}};\n');
   assert.ok(!fs.existsSync(path.join(destino, ".nojekyll")));
+  assert.ok(!fs.existsSync(path.join(destino, "app-debug.apk")));
   fs.rmSync(path.dirname(destino), { recursive: true, force: true });
 });
 

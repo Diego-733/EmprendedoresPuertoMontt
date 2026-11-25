@@ -4,10 +4,10 @@
  * Entrega 8 · Prepara la vitrina web para Firebase Hosting en dist/hosting (fuera de git).
  *
  *   npm run hosting:preparar                       # usa js/config.js local o las variables de entorno
- *   npm run hosting:preparar -- --apk "<ruta.apk>"  # además publica ese APK como descarga de la web
+ *   npm run hosting:preparar -- --apk "<ruta.apk>"  # verifica el APK que se adjunta a GitHub Releases y guarda su huella
  *   node scripts/preparar-hosting.js --destino <carpeta>   # otra carpeta (lo usan las pruebas, para no tocar dist/hosting)
  *
- * - Copia «LA PAgina (segun)/proyectode10» tal cual (la misma web de GitHub Pages).
+ * - Copia la vitrina de GitHub Pages y excluye los APK para Firebase Hosting Spark.
  * - Escribe js/config.js con la URL y la clave PÚBLICA (anon) de Supabase, desde
  *   SUPABASE_URL/SUPABASE_ANON_KEY o desde el js/config.js local. Rechaza claves secretas.
  * - Con --apk, el APK debe pasar scripts/verificar-apk.js (firmado con la clave de entrega, no
@@ -23,7 +23,6 @@ function argumento(nombre) { const i = process.argv.indexOf(nombre); return i >=
 const RAIZ = path.resolve(__dirname, "..");
 const ORIGEN = path.join(RAIZ, "LA PAgina (segun)", "proyectode10");
 const DESTINO = path.resolve(argumento("--destino") || path.join(RAIZ, "dist", "hosting"));
-const NOMBRE_APK = "app-debug.apk";   // nombre que enlaza index.html (se descarga como AlerceEmprende.apk)
 
 function fallar(mensaje) { console.error("No se preparó Hosting: " + mensaje); process.exit(1); }
 
@@ -52,6 +51,7 @@ function leerConfigLocal() {
 }
 
 function copiar(origen, destino) {
+  if (path.extname(origen).toLowerCase() === ".apk") return;
   const st = fs.statSync(origen);
   if (st.isDirectory()) {
     fs.mkdirSync(destino, { recursive: true });
@@ -90,11 +90,10 @@ function main() {
   fs.writeFileSync(path.join(DESTINO, "js", "config.js"), "window.__CONFIG__ = " + JSON.stringify(cfg) + ";\n");
 
   if (apk) {
-    fs.copyFileSync(apk, path.join(DESTINO, NOMBRE_APK));
     fs.writeFileSync(path.join(DESTINO, "apk-sha256.txt"), informeApk.sha256_archivo + "  AlerceEmprende.apk (" + informeApk.version + ")\n");
     console.log("APK de descarga: " + informeApk.version + " · firmado por " + informeApk.certificado + " · SHA-256 " + informeApk.sha256_archivo);
   } else {
-    console.log("APK de descarga: el que ya está en la web (usa --apk <ruta> para publicar el APK firmado).");
+    console.log("Descarga desde GitHub Releases. Usa --apk <ruta> para verificar la firma y generar apk-sha256.txt.");
   }
   console.log("Supabase: " + host.replace(/^([^.]{3})[^.]*/, "$1***") + (cfg.firebase ? " · push del navegador configurado" : " · sin push del navegador"));
   console.log("Listo en " + path.relative(RAIZ, DESTINO) + ". Publica con: npx firebase-tools deploy --only hosting --project <id-del-proyecto>");

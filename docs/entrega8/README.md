@@ -187,6 +187,8 @@ Debe coincidir con el SHA-256 del archivo.
 
 ### Paso 4 · Hosting (W01, W02)
 
+El plan Spark permite alojar la vitrina y bloquea los APK. En GitHub → Releases → Draft a new release, crea la etiqueta `apk-1.6-alerce` sobre el commit de esta versión, adjunta el archivo firmado `app-release.apk` del paso 2 y pulsa **Publish release**. La ruta de descarga de Firebase redirige a ese archivo. La etiqueta final de la pauta sigue siendo `entrega-8`.
+
 1. Consola → **Hosting → Comenzar**.
 2. En el PC, con el **mismo** APK del paso 2. El primer comando vuelve a verificar el APK: si no es apto, se detiene.
    ```powershell
@@ -200,7 +202,7 @@ Debe coincidir con el SHA-256 del archivo.
    ```
 3. Comprueba la descarga:
    ```powershell
-   curl.exe -L -o descargado.apk https://TU-ID.web.app/app-debug.apk
+   curl.exe -fL -o descargado.apk https://github.com/Diego-733/EmprendedoresPuertoMontt/releases/download/apk-1.6-alerce/app-release.apk
    ```
    ```powershell
    Get-FileHash descargado.apk -Algorithm SHA256

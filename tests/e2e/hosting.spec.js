@@ -62,11 +62,14 @@ test("W01: el emulador sirve la web con cabeceras de seguridad y la configuraciÃ
   expect(cfg).not.toMatch(/service_role|sb_secret_/);
 });
 
-test("W01: la descarga del APK responde 200 con el tipo de Android", async ({ request }) => {
-  const r = await request.get(URL_HOSTING + "/app-debug.apk");
-  expect(r.status()).toBe(200);
-  expect(r.headers()["content-type"]).toContain("application/vnd.android.package-archive");
-  expect((await r.body()).subarray(0, 2).toString()).toBe("PK");
+test("W01: los botones de Hosting enlazan el APK firmado en GitHub Releases", async ({ page }) => {
+  await preparar(page, datos());
+  await page.goto(URL_HOSTING);
+  const descargas = page.locator('a[download="AlerceEmprende.apk"]');
+  await expect(descargas).toHaveCount(2);
+  for (const enlace of await descargas.all()) {
+    await expect(enlace).toHaveAttribute("href", "https://github.com/Diego-733/EmprendedoresPuertoMontt/releases/download/apk-1.6-alerce/app-release.apk");
+  }
 });
 
 test("W02/RF-COM-03: enlaces directos ?tienda= y ?feria= abren su ficha desde Hosting", async ({ page }) => {

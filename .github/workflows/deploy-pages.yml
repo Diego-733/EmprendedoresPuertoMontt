@@ -9,6 +9,8 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  # deploy-pages busca el artefacto «github-pages» de esta ejecución: necesita leer Actions.
+  actions: read
 
 concurrency:
   group: "pages"

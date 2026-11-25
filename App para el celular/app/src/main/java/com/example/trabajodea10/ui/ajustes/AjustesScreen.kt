@@ -376,7 +376,8 @@ private fun PerfilEmprendedora(nav: ControladorNavegacion, avisar: (String) -> U
     }
 
     val emprendedora = TramaStore.emprendedoraActual
-    val nombre = if (SesionManager.nombreUsuarioActual.isNotBlank()) SesionManager.nombreUsuarioActual else emprendedora.nombre
+    // Nunca el nombre de los datos de ejemplo: si la cuenta no tiene nombre, «Mi cuenta».
+    val nombre = SesionManager.nombreUsuarioActual.ifBlank { "Mi cuenta" }
     val tienda = TramaStore.tienda
 
     // Perfil personal

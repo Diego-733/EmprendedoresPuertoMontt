@@ -71,7 +71,12 @@ class MainActivity : FragmentActivity() {
             }
             defaultHandler?.uncaughtException(thread, throwable)
         }
-        enableEdgeToEdge()
+        // La app usa siempre su paleta clara. Con el celular en modo oscuro, el estilo automático ponía
+        // blancos la hora, la batería y la señal sobre el fondo claro: se fijan oscuros para que se lean.
+        enableEdgeToEdge(
+            statusBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+        )
         procesarEnlace(intent)
         setContent {
             com.example.trabajodea10.ui.theme.TramaAppTheme {

@@ -8,6 +8,7 @@
    ============================================================ */
 
 :root {
+  color-scheme: only light;   /* sin oscurecido forzado: controles, barras y fondos siempre claros */
   --musgo: #1F5C46;          /* acción principal (contactar, guardar, vender) · 7,8:1 sobre blanco */
   --musgo-oscuro: #15412F;
   --musgo-claro: #E4EFEA;
@@ -522,3 +523,19 @@ h1, h2, h3, h4, .portada-titulo, .panel-emp-saludo, .panel-admin-titulo, .portad
 .guia-ejemplo-foto figcaption { font-size: 0.875rem; font-weight: 700; color: var(--tinta-suave); }
 fieldset.guia-paso-actual { border-color: var(--musgo); }
 .btn-guia-formulario { min-height: var(--alto-toque); padding-left: 0; margin-top: 2px; }
+
+/* ---------- Fotos: que se vean bien vengan de donde vengan (celular, otra app, enlaces) ---------- */
+/* Miniaturas: recortadas al centro para que la grilla quede pareja. Vista grande y vista previa: enteras. */
+.portada-prod-foto, .prod-foto, .gestion-miniatura, .pos-foto, .item-carrito-img { object-position: center; }
+.detalle-foto-marco { width: 100%; aspect-ratio: 4 / 3; max-height: 60vh; border-radius: 14px; overflow: hidden;
+  background: var(--neblina); border: 1px solid var(--linea); display: flex; align-items: center; justify-content: center; }
+.detalle-foto-grande { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Con la foto grande arriba, la miniatura de la tarjeta sobra. */
+#modal-producto-cuerpo .detalle-foto-marco + .producto-fila-card .producto-card-top > .prod-foto,
+#modal-producto-cuerpo .detalle-foto-marco + .producto-fila-card .producto-card-top > .prod-foto-vacia { display: none; }
+/* Vista previa al subir: la foto completa, para ver cómo quedó de verdad. */
+.pub-foto-caja { background: var(--neblina); }
+.pub-foto-img { object-fit: contain; }
+/* Imagen que no cargó: recuadro neutro del mismo tamaño. */
+.foto-no-disponible { display: flex; align-items: center; justify-content: center; background: var(--gris-chip, #EAEFEB);
+  color: var(--tinta-suave); font-size: 1.5rem; }

@@ -540,7 +540,7 @@ fun PantallaProductoPublico(productoId: String, nav: ControladorNavegacion, avis
             item {
                 FotoProducto(
                     fotoUrl = ReglasCatalogo.fotoDe(p, opcion), colorRespaldo = p.colorFoto, inicial = p.nombre,
-                    modifier = Modifier.fillMaxWidth().height(260.dp)
+                    modifier = Modifier.fillMaxWidth().height(260.dp), completa = true
                 )
             }
             item {

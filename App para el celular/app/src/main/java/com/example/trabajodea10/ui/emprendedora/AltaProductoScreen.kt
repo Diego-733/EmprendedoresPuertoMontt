@@ -590,7 +590,7 @@ private fun PasoFoto(p: Producto, avisoCamara: String?, onCamara: () -> Unit, on
         FotoProducto(
             fotoUrl = p.fotoUrl, colorRespaldo = p.colorFoto, inicial = p.nombre.ifBlank { " " },
             modifier = Modifier.fillMaxWidth().height(240.dp).semantics { contentDescription = "Foto elegida del producto" },
-            forma = RoundedCornerShape(16.dp), tamanoInicial = 40.sp
+            forma = RoundedCornerShape(16.dp), tamanoInicial = 40.sp, completa = true
         )
     } else {
         Surface(

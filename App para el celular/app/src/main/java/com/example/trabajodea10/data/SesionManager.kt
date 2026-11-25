@@ -307,6 +307,23 @@ object SesionManager {
             .onFailure { Log.w(TAG, "No se pudo traer el historial: ${it.message}") }
     }
 
+    /**
+     * Primer nombre de la cuenta con sesión, para saludar («Hola, Marta»). Vacío si no hay nombre,
+     * si es un correo o si es el nombre de la tienda (Modo Desarrollador): entonces se dice solo «Hola».
+     */
+    val nombreSaludo: String
+        get() {
+            val n = nombreUsuarioActual.trim()
+            if (n.isBlank() || n.contains("@") || n.equals(TramaStore.tienda.nombre.trim(), ignoreCase = true)) return ""
+            val partes = n.split(Regex("\\s+"))
+            // «Doña Marta Pérez» → «Doña Marta» (no «Hola, Doña»).
+            val tratamiento = partes.first().lowercase().trimEnd('.') in setOf("don", "doña", "dona", "sr", "sra", "srta", "señor", "señora")
+            return if (tratamiento && partes.size > 1) partes[0] + " " + partes[1] else partes.first()
+        }
+
+    /** «Hola, Marta» o «Hola» si la cuenta no tiene nombre. */
+    val saludo: String get() = nombreSaludo.let { if (it.isBlank()) "Hola" else "Hola, $it" }
+
     /** Acceso a las tiendas de ejemplo sin servidor (solo en el APK de pruebas). */
     fun entrarModoDesarrolladorPrueba(tiendaId: String, rol: Rol) {
         val tiendaPrueba = TIENDAS_INICIALES_ALERCE.find { it.id == tiendaId } ?: TIENDAS_INICIALES_ALERCE.first()

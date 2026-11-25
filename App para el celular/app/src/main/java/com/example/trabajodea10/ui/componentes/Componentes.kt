@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import androidx.compose.foundation.text.KeyboardOptions
 import com.example.trabajodea10.data.EstadoAsistencia
 import com.example.trabajodea10.data.EstadoCuenta
@@ -870,7 +871,10 @@ fun FotoProducto(
     inicial: String,
     modifier: Modifier = Modifier,
     forma: Shape = RoundedCornerShape(16.dp),
-    tamanoInicial: TextUnit = 26.sp
+    tamanoInicial: TextUnit = 26.sp,
+    // completa = la foto entera, sin recortar, sobre un fondo neutro (vista grande). Si no, se
+    // recorta al centro para que las miniaturas queden parejas en listas y grillas.
+    completa: Boolean = false
 ) {
     Box(
         modifier = modifier.clip(forma).background(Color(colorRespaldo)),
@@ -881,10 +885,19 @@ fun FotoProducto(
             SubcomposeAsyncImage(
                 model = modeloFoto(foto),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = if (completa) ContentScale.Fit else ContentScale.Crop,
+                alignment = Alignment.Center,
                 modifier = Modifier.fillMaxSize(),
                 loading = { FotoRespaldo(inicial, tamanoInicial) },
-                error = { FotoRespaldo(inicial, tamanoInicial) }
+                error = { FotoRespaldo(inicial, tamanoInicial) },
+                success = {
+                    val imagen = this
+                    // Fotos verticales o apaisadas (de la galería, capturas, otras apps): se ven enteras.
+                    Box(Modifier.fillMaxSize().then(if (completa) Modifier.background(com.example.trabajodea10.ui.theme.Neblina) else Modifier),
+                        contentAlignment = Alignment.Center) {
+                        imagen.SubcomposeAsyncImageContent()
+                    }
+                }
             )
         } else {
             FotoRespaldo(inicial, tamanoInicial)

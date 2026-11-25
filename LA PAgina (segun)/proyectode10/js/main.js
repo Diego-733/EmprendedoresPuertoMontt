@@ -403,7 +403,12 @@
     var limpia = Cat.urlImagenSegura(url);
     if (!limpia) return null;
     var img = h("img", { src: limpia, alt: alt || "", class: clase, style: estilo, loading: "lazy", decoding: "async" });
-    img.addEventListener("error", function () { img.style.display = "none"; });
+    // Si la imagen (por ejemplo, un enlace de otro sitio) no carga, queda un recuadro neutro del
+    // mismo tamaño en vez de un hueco o el ícono de imagen rota.
+    img.addEventListener("error", function () {
+      var vacio = h("span", { class: (clase || "") + " foto-no-disponible", style: estilo, role: alt ? "img" : null, "aria-label": alt || null, "aria-hidden": alt ? null : "true", text: "📷" });
+      if (img.parentNode) img.replaceWith(vacio); else img.style.display = "none";
+    });
     return img;
   }
 

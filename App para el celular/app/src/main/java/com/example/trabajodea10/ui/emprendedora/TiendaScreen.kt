@@ -241,10 +241,8 @@ fun PantallaTienda(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            // Mismo nombre que el saludo del Inicio; si la sesión aún no lo trae, solo «¡Hola!».
-                            text = (TramaStore.emprendedoraActual.nombre.ifBlank { SesionManager.nombreUsuarioDemo })
-                                .trim().split(" ").first()
-                                .let { if (it.isBlank()) "¡Hola!" else "¡Hola, $it!" },
+                            // Mismo saludo que el Inicio: el nombre del perfil con sesión, o solo «¡Hola!».
+                            text = SesionManager.nombreSaludo.let { if (it.isBlank()) "¡Hola!" else "¡Hola, $it!" },
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = NegroApple

@@ -81,7 +81,8 @@ fun PantallaEmprendedoraInicio(
 ) {
     val tienda = TramaStore.tienda
     val alertas = TramaStore.alertasStock()
-    val nombreCorto = TramaStore.emprendedoraActual.nombre.split(" ").first()
+    // Nombre del perfil de la cuenta con sesión (antes salía siempre «Camila», de los datos de ejemplo).
+    val saludo = com.example.trabajodea10.data.SesionManager.saludo
 
     LaunchedEffect(Unit) { FeriasStore.cargarMisFerias() }
     val hoy = ReglasFerias.fechaSantiago()
@@ -94,7 +95,7 @@ fun PantallaEmprendedoraInicio(
 
     Column(modifier = Modifier.fillMaxSize().background(FondoLimpio)) {
         BarraSuperior(
-            titulo = "Hola, $nombreCorto",
+            titulo = saludo,
             subtitulo = tienda.nombre,
             acciones = {
                 IconButton(onClick = { nav.irA(Ruta.Ajustes) }, modifier = Modifier.size(48.dp)) {

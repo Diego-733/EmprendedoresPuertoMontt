@@ -593,6 +593,10 @@
     if (!cuerpo) return false;
     if (titulo) titulo.textContent = p.nombre;
     cuerpo.textContent = "";
+    // Foto grande y entera (sin recortar): las fotos verticales o apaisadas se ven completas.
+    var fotoPrincipal = p.fotoUrl || ((p.variantes || []).filter(function (v) { return v.fotoUrl; })[0] || {}).fotoUrl;
+    var grande = fotoPrincipal ? ctx.imagenSegura(fotoPrincipal, p.nombre, "detalle-foto-grande") : null;
+    if (grande) cuerpo.appendChild(h("div", { class: "detalle-foto-marco" }, [grande]));
     cuerpo.appendChild(ctx.tarjetaProducto(p));
     if (tienda) {
       // Quién lo vende y a quién le llega el mensaje, antes de abrir WhatsApp.

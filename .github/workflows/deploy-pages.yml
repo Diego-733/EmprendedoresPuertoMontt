@@ -20,7 +20,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.reintento1.outputs.page_url || steps.reintento2.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -96,6 +96,28 @@ jobs:
         with:
           path: './LA PAgina (segun)/proyectode10'
 
+      # A veces deploy-pages consulta el artefacto antes de que la API lo liste («No artifacts named
+      # github-pages»), aunque la subida terminó bien. Se reintenta dos veces con espera.
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+
+      - name: Esperar antes del reintento
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+
+      - name: Deploy to GitHub Pages (reintento 1)
+        id: reintento1
+        if: steps.deployment.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+
+      - name: Esperar antes del último reintento
+        if: steps.deployment.outcome == 'failure' && steps.reintento1.outcome == 'failure'
+        run: sleep 90
+
+      - name: Deploy to GitHub Pages (reintento 2)
+        id: reintento2
+        if: steps.deployment.outcome == 'failure' && steps.reintento1.outcome == 'failure'
         uses: actions/deploy-pages@v5

@@ -95,3 +95,11 @@
   .e6-integrante .btn-accion-pill { width: 100%; }
   .e6-admin-asoc select { max-width: none; }
 }
+
+/* Filtros aplicados del directorio: se ven y se quitan con un toque (44 px o más). */
+.e6-filtros-activos { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.e6-filtros-activos[hidden] { display: none; }
+.e6-filtro-activo { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1.5px solid var(--negro-apple, #111); background: var(--gris-chip, #f4f4f5);
+  color: var(--negro-apple, #111); font-weight: 700; font-size: 0.875rem; cursor: pointer; }
+.e6-filtro-activo:focus-visible { outline: 3px solid var(--negro-apple, #111); outline-offset: 2px; }
+.e6-filtro-limpiar { background: transparent; border-color: transparent; color: var(--rojo-alerce, #b91c1c); text-decoration: underline; }

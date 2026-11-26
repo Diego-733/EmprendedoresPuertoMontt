@@ -256,6 +256,34 @@
       asociacion: el("e6-filtro-asociacion") ? el("e6-filtro-asociacion").value : ""
     });
     if (vistaDirectorio === "asociaciones") pintarAsociacionesDirectorio();
+    pintarFiltrosActivos();
+  }
+
+  /**
+   * Filtros aplicados a la vista: el resumen dice cuántos hay y cada uno aparece como una etiqueta
+   * que se quita con un toque (los filtros siguen siendo los mismos tres de siempre).
+   */
+  function pintarFiltrosActivos() {
+    var detalles = el("filtros-tiendas");
+    if (!detalles) return;
+    var activos = [["e6-filtro-tipo", "Tipo"], ["e6-filtro-sector", "Sector"], ["e6-filtro-asociacion", "Asociación"]]
+      .map(function (par) { var s = el(par[0]); return s && s.value ? { id: par[0], texto: par[1] + ": " + s.options[s.selectedIndex].text } : null; })
+      .filter(Boolean);
+    var resumen = detalles.querySelector("summary");
+    if (resumen) resumen.textContent = activos.length ? "Filtros (" + activos.length + ")" : "Filtros: tipo, sector o asociación";
+    var caja = el("e6-filtros-activos");
+    if (!caja) {
+      caja = h("div", { id: "e6-filtros-activos", class: "e6-filtros-activos", role: "group", "aria-label": "Filtros aplicados" });
+      detalles.parentNode.insertBefore(caja, detalles.nextSibling);
+    }
+    caja.innerHTML = "";
+    caja.hidden = activos.length === 0;
+    activos.forEach(function (a) {
+      caja.appendChild(h("button", { type: "button", class: "e6-filtro-activo", "aria-label": "Quitar el filtro " + a.texto, text: a.texto + " ✕",
+        onclick: function () { var s = el(a.id); if (s) s.value = ""; aplicarFiltros(); } }));
+    });
+    if (activos.length) caja.appendChild(h("button", { type: "button", class: "e6-filtro-activo e6-filtro-limpiar", text: "Limpiar filtros",
+      onclick: function () { ["e6-filtro-tipo", "e6-filtro-sector", "e6-filtro-asociacion"].forEach(function (id) { if (el(id)) el(id).value = ""; }); aplicarFiltros(); } }));
   }
 
   function sincronizarBusqueda(valor, origen) {
@@ -284,6 +312,7 @@
       sincronizarBusqueda("", null);
       aplicarFiltros();
     });
+    pintarFiltrosActivos();
   }
 
   function verDirectorio(vista) {

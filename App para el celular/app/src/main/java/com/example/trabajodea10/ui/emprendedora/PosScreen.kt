@@ -1,5 +1,13 @@
 package com.example.trabajodea10.ui.emprendedora
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.History
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,93 +59,69 @@ fun PantallaVenta(
     nav: ControladorNavegacion,
     avisar: (String) -> Unit
 ) {
+    // Rediseño v2 (punto de venta para la feria): una sola pantalla con la grilla de productos para tocar
+    // lo vendido, el carrito arriba y «Continuar al pago» fijo abajo. La lógica es la de siempre:
+    // DialogoElegirOpcion agrega con las mismas validaciones y el pago sigue en PantallaPagoVenta.
     val carrito = TramaStore.carritoVenta
     val total = carrito.sumOf { it.precio * it.cantidad }
+    val vendibles = TramaStore.productosDeMiTienda().filter { it.vendidaEn == null && it.nombre.isNotBlank() }
+    var elegir by remember { mutableStateOf<com.example.trabajodea10.data.Producto?>(null) }
+    elegir?.let { p -> DialogoElegirOpcion(producto = p, onCerrar = { elegir = null }, onAgregado = { elegir = null; avisar(it) }) }
+    val columnas = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 1 else 2
 
     Column(modifier = Modifier.fillMaxSize()) {
-        BarraSuperior(
-            titulo = "Carrito de venta",
-            subtitulo = TramaStore.tienda.nombre,
-            onVolver = if (nav.pila.size > 1) ({ nav.volver() }) else null
-        )
-
-        if (carrito.isEmpty()) {
-            Vacio(
-                titulo = "El carrito está vacío",
-                mensaje = "Agrega productos desde «Mis productos» para armar la venta.",
-                icono = {
-                    Icon(
-                        Icons.Filled.ShoppingCart,
-                        contentDescription = null,
-                        tint = TextoSecundario
-                    )
-                }
-            )
-            var elegir by remember { mutableStateOf<com.example.trabajodea10.data.Producto?>(null) }
-            elegir?.let { p -> DialogoElegirOpcion(producto = p, onCerrar = { elegir = null }, onAgregado = { elegir = null; avisar(it) }) }
-            Column(modifier = Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
-                TituloSeccion(texto = "Elige qué vendiste")
-                TramaStore.productosDeMiTienda().filter { it.vendidaEn == null && it.nombre.isNotBlank() }.forEach { p ->
-                    androidx.compose.material3.TextButton(onClick = { elegir = p }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                        Text("${p.nombre} · ${formatearMoneda(p.precio)}", modifier = Modifier.weight(1f))
-                    }
-                }
-                BotonPrimario(
-                    texto = "Ir al catálogo",
-                    onClick = { nav.seleccionarTab(Ruta.EmpCatalogo) }
-                )
-            }
-            return@Column
-        }
-
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp
-            ),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                TituloSeccion(texto = "Productos en el carrito")
+                com.example.trabajodea10.ui.componentes.CabeceraMarca(
+                    sobretitulo = TramaStore.tienda.nombre,
+                    titulo = "Venta",
+                    subtitulo = if (carrito.isEmpty()) "Toca lo que vendiste" else "${carrito.sumOf { it.cantidad }} artículos en el carrito",
+                    margen = 0.dp,
+                    onVolver = if (nav.pila.size > 1) ({ nav.volver() }) else null,
+                    acciones = {
+                        com.example.trabajodea10.ui.componentes.AccionCabecera(Icons.Filled.History, "Historial de ventas") { nav.irA(Ruta.HistorialVentas) }
+                    }
+                ) {
+                    if (carrito.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.Bottom) {
+                            Text("Total", color = com.example.trabajodea10.ui.theme.SobreBosqueSuave, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                            Text(formatearMoneda(total), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+            }
+
+            if (carrito.isNotEmpty()) item {
+                com.example.trabajodea10.ui.componentes.EncabezadoSeccion("En el carrito", sobretitulo = "Esta venta")
+                Spacer(Modifier.height(8.dp))
                 Tarjeta {
                     Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
                         carrito.forEachIndexed { index, item ->
-                            if (index > 0) {
-                                androidx.compose.material3.HorizontalDivider(color = LineaSuave)
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                            if (index > 0) androidx.compose.material3.HorizontalDivider(color = LineaSuave)
+                            // Dos líneas: qué es (foto, nombre, precio) y cuánto (subtotal, cantidad, quitar).
+                            Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 FotoProducto(
-                                    fotoUrl = item.fotoUrl
-                                        ?: TramaStore.productoPorId(item.productoId)?.fotoUrl,
-                                    colorRespaldo = TramaStore.productoPorId(item.productoId)
-                                        ?.colorFoto ?: 0xFF8E6B94,
-                                    inicial = item.nombre,
-                                    modifier = Modifier.size(44.dp),
-                                    forma = RoundedCornerShape(10.dp),
-                                    tamanoInicial = 16.sp
+                                    fotoUrl = item.fotoUrl ?: TramaStore.productoPorId(item.productoId)?.fotoUrl,
+                                    colorRespaldo = TramaStore.productoPorId(item.productoId)?.colorFoto ?: 0xFF8E6B94,
+                                    inicial = item.nombre, modifier = Modifier.size(48.dp), forma = RoundedCornerShape(12.dp), tamanoInicial = 16.sp
                                 )
-                                Spacer(modifier = Modifier.width(10.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = item.nombre,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1
-                                    )
+                                    Text(text = item.nombre, fontWeight = FontWeight.Bold, maxLines = 2)
                                     Text(
                                         text = "${item.detalle} · ${formatearMoneda(item.precio)} c/u" + if (item.encargo) " · encargo" else "",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextoSecundario
-                                    )
-                                    Text(
-                                        text = "Subtotal ${formatearMoneda(item.precio * item.cantidad)}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Berenjena
+                                        style = MaterialTheme.typography.bodySmall, color = TextoSecundario
                                     )
                                 }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
+                                Text(text = "Subtotal ${formatearMoneda(item.precio * item.cantidad)}",
+                                    fontWeight = FontWeight.ExtraBold, color = Berenjena, modifier = Modifier.weight(1f))
                                 ContadorCantidad(
                                     cantidad = item.cantidad,
                                     onCambio = { nueva ->
@@ -156,17 +140,10 @@ fun PantallaVenta(
                                         }
                                     }
                                 )
-                                IconButton(
-                                    onClick = { carrito.removeAll { it === item } },
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Filled.Delete,
-                                        contentDescription = "Quitar ${item.nombre} del carrito",
-                                        tint = TextoSecundario,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                IconButton(onClick = { carrito.removeAll { it === item } }, modifier = Modifier.size(48.dp)) {
+                                    Icon(Icons.Filled.Delete, contentDescription = "Quitar ${item.nombre} del carrito", tint = TextoSecundario, modifier = Modifier.size(20.dp))
                                 }
+                            }
                             }
                         }
                     }
@@ -174,50 +151,65 @@ fun PantallaVenta(
             }
 
             item {
-                Tarjeta {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Total", color = TextoSecundario, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                text = "${carrito.sumOf { it.cantidad }} artículos",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextoSecundario
-                            )
-                        }
-                        Text(
-                            text = formatearMoneda(total),
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Berenjena
-                        )
-                    }
-                }
+                com.example.trabajodea10.ui.componentes.EncabezadoSeccion(
+                    if (carrito.isEmpty()) "Elige qué vendiste" else "Agregar otro producto", sobretitulo = "Tus productos")
             }
-
-            item {
-                BotonPrimario(
-                    texto = "Continuar al pago · ${formatearMoneda(total)}",
-                    onClick = {
-                        val problema = TramaStore.validarVenta(carrito.toList())
-                        if (problema != null) avisar(problema) else nav.irA(Ruta.PagoVenta)
-                    }
+            if (vendibles.isEmpty()) item {
+                Vacio(
+                    titulo = "Aún no tienes productos para vender",
+                    mensaje = "Agrega productos desde «Mis productos» para armar la venta.",
+                    icono = { Icon(Icons.Filled.ShoppingCart, contentDescription = null, tint = TextoSecundario) }
                 )
+                BotonPrimario(texto = "Ir al catálogo", onClick = { nav.seleccionarTab(Ruta.EmpCatalogo) })
             }
+            items(vendibles.chunked(columnas), key = { fila -> "v_" + fila.joinToString("_") { it.id } }) { fila ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    fila.forEach { p -> MosaicoProductoVenta(p, Modifier.weight(1f)) { elegir = p } }
+                    if (fila.size < columnas) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
 
-            item {
-                var productoVenta by remember { mutableStateOf<com.example.trabajodea10.data.Producto?>(null) }
-                productoVenta?.let { p ->
-                    DialogoElegirOpcion(producto = p, onCerrar = { productoVenta = null }, onAgregado = { productoVenta = null; avisar(it) })
+        // Pago fijo abajo: siempre a la vista con el total, aunque la lista sea larga.
+        if (carrito.isNotEmpty()) {
+            androidx.compose.material3.Surface(color = Color.White, shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    BotonPrimario(
+                        texto = "Continuar al pago · ${formatearMoneda(total)}",
+                        onClick = {
+                            val problema = TramaStore.validarVenta(carrito.toList())
+                            if (problema != null) avisar(problema) else nav.irA(Ruta.PagoVenta)
+                        }
+                    )
                 }
-                TituloSeccion(texto = "Agregar otro producto")
-                TramaStore.productosDeMiTienda().filter { it.vendidaEn == null && it.nombre.isNotBlank() }.forEach { p ->
-                    androidx.compose.material3.TextButton(onClick = { productoVenta = p }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                        Text("${p.nombre} · ${formatearMoneda(p.precio)}", modifier = Modifier.weight(1f))
-                    }
-                }
+            }
+        }
+    }
+}
+
+/** Mosaico de un producto para tocar al vender: foto, nombre, precio y cuántos quedan. */
+@Composable
+private fun MosaicoProductoVenta(p: com.example.trabajodea10.data.Producto, modifier: Modifier, onClick: () -> Unit) {
+    val agotado = p.agotado
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(18.dp), color = Color.White, shadowElevation = 2.dp,
+        modifier = modifier.clip(RoundedCornerShape(18.dp))
+            .clickable(onClickLabel = "Agregar ${p.nombre} a la venta", role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+    ) {
+        Column {
+            FotoProducto(
+                fotoUrl = p.fotoUrl, colorRespaldo = p.colorFoto, inicial = p.nombre,
+                modifier = Modifier.fillMaxWidth().height(96.dp), forma = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp), tamanoInicial = 22.sp
+            )
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(p.nombre, fontWeight = FontWeight.Bold, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Text(formatearMoneda(p.precio), fontWeight = FontWeight.ExtraBold, color = com.example.trabajodea10.ui.theme.Corteza)
+                Text(
+                    when { agotado -> "Se acabó"; p.modalidad == com.example.trabajodea10.data.Modalidad.A_PEDIDO -> "A pedido"; p.manejaStock -> "Quedan ${p.stockTotal}"; else -> "Disponible" },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (agotado) com.example.trabajodea10.ui.theme.EstadoAcaboTexto else TextoSecundario
+                )
             }
         }
     }

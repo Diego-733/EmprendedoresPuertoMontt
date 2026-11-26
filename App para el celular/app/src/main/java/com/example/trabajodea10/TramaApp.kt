@@ -193,6 +193,11 @@ private fun ContenidoSegunRuta(
         Ruta.AdminInicio -> PantallaAdminInicio(nav = nav, avisar = avisar)
         Ruta.AdminFerias -> PantallaAdminFerias(nav = nav, avisar = avisar)
         Ruta.AdminEmprendedoras -> PantallaAdminEmprendedoras(nav = nav, avisar = avisar)
+        Ruta.AdminGestion -> com.example.trabajodea10.ui.admin.PantallaAdminGestion(nav = nav)
+        Ruta.AdminAsociaciones -> com.example.trabajodea10.ui.admin.PantallaAdminAsociaciones(nav = nav)
+        Ruta.AdminTipos -> com.example.trabajodea10.ui.admin.PantallaAdminTipos(nav = nav)
+        Ruta.AdminEquipo -> com.example.trabajodea10.ui.admin.PantallaAdminEquipo(nav = nav)
+        Ruta.AdminBitacora -> com.example.trabajodea10.ui.admin.PantallaAdminBitacora(nav = nav)
         Ruta.Ajustes -> PantallaAjustes(nav = nav, avisar = avisar)
         is Ruta.FeriaDetalle -> PantallaFeriaDetalle(
             feriaId = ruta.feriaId,

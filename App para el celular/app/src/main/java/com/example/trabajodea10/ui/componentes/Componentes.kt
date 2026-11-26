@@ -52,6 +52,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
@@ -133,7 +136,7 @@ fun BarraSuperior(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (onVolver != null) {
@@ -146,8 +149,8 @@ fun BarraSuperior(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = titulo,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold,
                 color = NegroApple,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -177,18 +180,16 @@ fun Tarjeta(
         Card(
             onClick = onClick,
             modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = BlancoPuro),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            border = BorderStroke(1.dp, GrisBorde)
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) { contenido() }
     } else {
         Card(
             modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = BlancoPuro),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-            border = BorderStroke(1.dp, GrisBorde)
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) { contenido() }
     }
 }
@@ -233,8 +234,8 @@ fun ChipFiltro(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(50),
-        color = if (seleccionado) com.example.trabajodea10.ui.theme.Musgo else BlancoPuro,
-        border = BorderStroke(1.dp, if (seleccionado) com.example.trabajodea10.ui.theme.Musgo else GrisBorde),
+        color = if (seleccionado) com.example.trabajodea10.ui.theme.Bosque else BlancoPuro,
+        border = BorderStroke(1.dp, if (seleccionado) com.example.trabajodea10.ui.theme.Bosque else GrisBorde),
         onClick = onClick
     ) {
         Text(
@@ -258,9 +259,10 @@ fun BotonPrimario(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp),   // Entrega 8: crece con la letra grande (RNF-USA-03)
+        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),   // Entrega 8: crece con la letra grande (RNF-USA-03)
         enabled = enabled,
-        shape = RoundedCornerShape(50.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 0.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = com.example.trabajodea10.ui.theme.Musgo,
             contentColor = BlancoPuro,
@@ -271,7 +273,7 @@ fun BotonPrimario(
     ) {
         icono?.invoke()
         if (icono != null) Spacer(modifier = Modifier.width(8.dp))
-        Text(texto, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = BlancoPuro, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(texto, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = BlancoPuro, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -285,12 +287,12 @@ fun BotonSecundario(
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp),   // Entrega 8: crece con la letra grande (RNF-USA-03)
+        modifier = modifier.fillMaxWidth().heightIn(min = 52.dp),   // Entrega 8: crece con la letra grande (RNF-USA-03)
         enabled = enabled,
-        shape = RoundedCornerShape(50.dp),
-        border = BorderStroke(1.5.dp, com.example.trabajodea10.ui.theme.Musgo),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, com.example.trabajodea10.ui.theme.Musgo.copy(alpha = 0.35f)),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = BlancoPuro,
+            containerColor = com.example.trabajodea10.ui.theme.MusgoClaro,
             contentColor = com.example.trabajodea10.ui.theme.Musgo,
             disabledContainerColor = GrisChip,
             disabledContentColor = GrisTexto
@@ -299,7 +301,7 @@ fun BotonSecundario(
     ) {
         icono?.invoke()
         if (icono != null) Spacer(modifier = Modifier.width(8.dp))
-        Text(texto, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = com.example.trabajodea10.ui.theme.Musgo, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Text(texto, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = com.example.trabajodea10.ui.theme.MusgoOscuro, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -401,7 +403,7 @@ fun CampoBusqueda(
     OutlinedTextField(
         value = valor,
         onValueChange = onValorChange,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().shadow(3.dp, RoundedCornerShape(50), clip = false),
         label = etiqueta?.let { { Text(it) } },
         placeholder = { Text(placeholder) },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
@@ -411,8 +413,9 @@ fun CampoBusqueda(
         shape = RoundedCornerShape(50),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Berenjena,
-            unfocusedBorderColor = LineaSuave,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+            unfocusedBorderColor = Color.Transparent,
+            unfocusedContainerColor = BlancoPuro,
+            focusedContainerColor = BlancoPuro
         )
     )
 }
@@ -428,16 +431,15 @@ fun TarjetaMetrica(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         color = BlancoPuro,
-        border = BorderStroke(1.dp, GrisBorde),
-        shadowElevation = 0.5.dp
+        shadowElevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .background(color = colorIcono.copy(alpha = 0.12f), shape = CircleShape),
+                    .size(40.dp)
+                    .background(color = colorIcono.copy(alpha = 0.12f), shape = RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -451,8 +453,8 @@ fun TarjetaMetrica(
             Text(
                 text = valor,
                 style = MaterialTheme.typography.titleLarge,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
                 color = NegroApple,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -576,9 +578,9 @@ fun TituloSeccion(
         Text(
             text = texto,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.ExtraBold,
             color = NegroApple,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f).semantics { heading() }
         )
         if (accion != null && onAccion != null) {
             TextButton(
@@ -586,10 +588,10 @@ fun TituloSeccion(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = accion,
+                    text = "$accion ›",
                     color = com.example.trabajodea10.ui.theme.Musgo,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp
+                    fontSize = 15.sp
                 )
             }
         }
@@ -677,14 +679,14 @@ fun Vacio(
         modifier = modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Surface(shape = CircleShape, color = SuperficieVariante) {
-            Box(modifier = Modifier.padding(16.dp)) {
+        Surface(shape = CircleShape, color = com.example.trabajodea10.ui.theme.MusgoClaro) {
+            Box(modifier = Modifier.size(72.dp), contentAlignment = Alignment.Center) {
                 icono?.invoke()
                     ?: Text("…", fontSize = 22.sp, color = TextoSecundario)
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Text(titulo, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
+        Text(titulo, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             mensaje,

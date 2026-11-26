@@ -97,7 +97,14 @@ fun PantallaAjustes(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        BarraSuperior(
+        // Rediseño v2: cabecera de marca (antes, título suelto).
+        com.example.trabajodea10.ui.componentes.CabeceraMarca(
+            sobretitulo = when (rol) {
+                Rol.ADMIN -> "Administración"
+                Rol.EMPRENDEDORA -> "Mi cuenta y mi tienda"
+                Rol.VISITANTE -> "Mi cuenta"
+                null -> null
+            },
             titulo = "Ajustes",
             subtitulo = when (rol) {
                 Rol.ADMIN -> "Configuración central"
@@ -172,8 +179,10 @@ fun PantallaAjustes(
             // Accesibilidad: disponible para todos los perfiles.
             AjustesAccesibilidad(nav)
 
-            // Entrega 8 (A11): comprobación de Firebase App Check (solo si está configurada).
-            AjustesProteccionApp(avisar)
+            // Entrega 8 (A11, RNF-SEG-06): la comprobación de App Check es una herramienta técnica. No se muestra a
+            // compradoras ni emprendedoras: queda en «Diagnóstico técnico» para la administración y en las
+            // compilaciones de depuración del equipo. La protección funciona igual para todos.
+            if (rol == Rol.ADMIN || com.example.trabajodea10.BuildConfig.DEBUG) AjustesDiagnosticoTecnico(avisar)
 
             // Entrega 8 (RNF-PRI-01): el aviso de privacidad es el mismo de la web.
             val contextoPrivacidad = LocalContext.current
@@ -216,6 +225,20 @@ fun PantallaAjustes(
     }
 }
 
+/** Herramientas técnicas plegadas (cerradas por defecto) para no mezclarlas con los ajustes de todos los días. */
+@Composable
+private fun AjustesDiagnosticoTecnico(avisar: (String) -> Unit) {
+    if (!com.example.trabajodea10.seguridad.ProteccionApp.configurada) return
+    var abierto by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    androidx.compose.material3.TextButton(
+        onClick = { abierto = !abierto },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+    ) {
+        Text(if (abierto) "Ocultar diagnóstico técnico" else "Diagnóstico técnico (administración)", color = TextoSecundario, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+    }
+    if (abierto) AjustesProteccionApp(avisar)
+}
+
 /**
  * Entrega 8 (RNF-SEG-06): prueba de Firebase App Check. Escribe una comprobación sin datos
  * personales en Realtime Database; con «Enforce» activo, Firebase solo la acepta desde esta app.
@@ -235,6 +258,9 @@ private fun AjustesProteccionApp(avisar: (String) -> Unit) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Firebase App Check comprueba que las solicitudes vienen de esta app y no de otro programa.",
                 style = MaterialTheme.typography.bodyMedium)
+            // Lo que verifica de verdad (docs/entrega8/matriz-requisitos.md, RNF-SEG-06): no se promete más.
+            Text("Hoy lo verifica solo la comprobación de Firebase (Realtime Database). Supabase y la web no verifican App Check.",
+                style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
             Text("Proveedor: ${proteccion.nombreProveedor}", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
             BotonSecundario(
                 texto = if (probando) "Comprobando…" else "Comprobar App Check",

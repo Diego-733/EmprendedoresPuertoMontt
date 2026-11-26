@@ -1,7 +1,9 @@
 package com.example.trabajodea10.ui.comprador
 
+import androidx.compose.foundation.border
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -9,6 +11,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,6 +34,11 @@ import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,6 +65,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -106,13 +116,17 @@ import kotlinx.coroutines.launch
 
 // ============================================================ Directorio (A01, A02)
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
-    var verAsociaciones by rememberSaveable { mutableStateOf(false) }
+    val columnas = columnasGrilla()
+    // Qué se está mirando: productos (buscar algo concreto), emprendimientos (conocer tiendas) o asociaciones.
+    var vista by rememberSaveable { mutableStateOf(VISTA_PRODUCTOS) }
     var busqueda by rememberSaveable { mutableStateOf("") }
     var tipo by rememberSaveable { mutableStateOf("") }
     var sector by rememberSaveable { mutableStateOf("") }
     var asociacion by rememberSaveable { mutableStateOf("") }
+    var verFiltros by rememberSaveable { mutableStateOf(false) }
     val ambito = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -123,12 +137,14 @@ fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
     val tiendas = SesionManager.tiendas.toList()
     val asociaciones = VitrinaStore.asociaciones.filter { it.activa }
     val filtradas = ReglasVitrina.filtrarTiendas(tiendas, busqueda, tipo, sector, asociacion, VitrinaStore.pertenencias) { TramaStore.productosDeTienda(it) }
-    // Productos que calzan con lo escrito o dictado (misma búsqueda), de las tiendas que pasan los filtros.
-    val productosEncontrados = if (busqueda.isBlank()) emptyList() else filtradas.flatMap { t ->
+    // Productos públicos (nunca los ocultos) de las tiendas que pasan los filtros; con búsqueda, los que calzan.
+    // Usa los mismos datos públicos que ya trae la vitrina: no hay consultas nuevas al servidor.
+    val tiendasParaProductos = if (busqueda.isBlank()) ReglasVitrina.filtrarTiendas(tiendas, "", tipo, sector, asociacion, VitrinaStore.pertenencias) { TramaStore.productosDeTienda(it) } else filtradas
+    val productos = tiendasParaProductos.flatMap { t ->
         TramaStore.productosDeTienda(t.id)
-            .filter { ReglasCatalogo.estadoPublico(it) != com.example.trabajodea10.data.EstadoPublico.OCULTO && ReglasVitrina.coincideProducto(busqueda, it) }
+            .filter { it.nombre.isNotBlank() && ReglasCatalogo.estadoPublico(it) != EstadoPublico.OCULTO && (busqueda.isBlank() || ReglasVitrina.coincideProducto(busqueda, it)) }
             .map { it to t }
-    }.take(12)
+    }.sortedBy { if (ReglasCatalogo.estadoPublico(it.first) == EstadoPublico.AGOTADO) 1 else 0 }   // lo que se puede comprar, primero
     // Buscar por voz con el dictado del celular: lo dictado queda en el buscador y se puede corregir.
     val contextoVoz = LocalContext.current
     val hayDictado = remember { com.example.trabajodea10.ui.componentes.dictadoDisponible(contextoVoz) }
@@ -147,55 +163,159 @@ fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
             (busqueda.isBlank() || a.nombre.contains(busqueda, true) || a.descripcion.contains(busqueda, true) ||
                 socias.any { it.nombre.contains(busqueda, true) })
     }
+    val nombreAsociacion = { id: String -> if (id == ReglasVitrina.SIN_ASOCIACION) "Sin asociación" else asociaciones.firstOrNull { it.id == id }?.nombre ?: id }
+    val filtrosActivos = listOf(tipo, sector, asociacion).count { it.isNotBlank() }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        // Rediseño v2: cabecera de marca con el buscador adentro (antes, título suelto y buscador aparte).
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Vitrina de Alerce", fontSize = 24.sp, fontWeight = FontWeight.Black, color = NegroApple)
-                    Text(
-                        if (SesionManager.mensajeError != null) "Sin conexión: se muestran datos guardados" else "Emprendedoras y asociaciones de Alerce",
-                        style = MaterialTheme.typography.bodySmall, color = TextoSecundario
-                    )
+            com.example.trabajodea10.ui.componentes.CabeceraMarca(
+                sobretitulo = "Hecho en Alerce",
+                titulo = "Vitrina de Alerce",
+                subtitulo = if (SesionManager.mensajeError != null) "Sin conexión: se muestran los datos guardados" else "Lo que hacen y venden las emprendedoras de Alerce",
+                margen = 0.dp,
+                acciones = {
+                    com.example.trabajodea10.ui.componentes.AccionCabecera(Icons.Filled.Refresh, "Actualizar la vitrina") {
+                        ambito.launch { SesionManager.cargarTiendas(); VitrinaStore.cargar(); avisar("Vitrina actualizada") }
+                    }
                 }
-                IconButton(onClick = {
-                    ambito.launch { SesionManager.cargarTiendas(); VitrinaStore.cargar(); avisar("Vitrina actualizada") }
-                }) { Icon(Icons.Filled.Store, contentDescription = "Actualizar vitrina", tint = NegroApple) }
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ) {
                 CampoBusqueda(
                     valor = busqueda, onValorChange = { busqueda = it; estadoVoz = "" },
-                    etiqueta = "¿Qué buscas?", placeholder = "Ej: torta, chal, barbería",
+                    placeholder = "Busca torta, chal, barbería…",
                     onDictar = if (hayDictado) dictarBusqueda else null
                 )
                 if (estadoVoz.isNotBlank()) {
-                    Text(estadoVoz, style = MaterialTheme.typography.bodyMedium, color = TextoSecundario,
+                    Spacer(Modifier.height(6.dp))
+                    Text(estadoVoz, style = MaterialTheme.typography.bodyMedium, color = com.example.trabajodea10.ui.theme.SobreBosqueSuave,
                         modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
                 }
             }
         }
-        if (!verAsociaciones && productosEncontrados.isNotEmpty()) {
+        // Una sola línea de controles: qué mirar y «Filtros». Los tres filtros van en un panel (antes ocupaban ~200 dp).
+        item {
+            com.example.trabajodea10.ui.componentes.ContenedorChips(modifier = Modifier.fillMaxWidth(), espacioHorizontal = 8.dp, espacioVertical = 8.dp) {
+                ChipFiltro(texto = "Productos (${productos.size})", seleccionado = vista == VISTA_PRODUCTOS, onClick = { vista = VISTA_PRODUCTOS })
+                ChipFiltro(texto = "Emprendimientos (${filtradas.size})", seleccionado = vista == VISTA_TIENDAS, onClick = { vista = VISTA_TIENDAS })
+                ChipFiltro(texto = "Asociaciones (${asocFiltradas.size})", seleccionado = vista == VISTA_ASOCIACIONES, onClick = { vista = VISTA_ASOCIACIONES })
+                OutlinedButton(
+                    onClick = { verFiltros = true },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(50),
+                    border = BorderStroke(1.5.dp, if (filtrosActivos > 0) NegroApple else GrisBorde)
+                ) {
+                    Icon(Icons.Filled.Tune, contentDescription = null, tint = NegroApple, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (filtrosActivos > 0) "Filtros ($filtrosActivos)" else "Filtros", color = NegroApple, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+        // Filtros aplicados: se ven y se quitan con un toque.
+        if (filtrosActivos > 0) {
             item {
-                Text("Productos que coinciden (${productosEncontrados.size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NegroApple)
+                com.example.trabajodea10.ui.componentes.ContenedorChips(modifier = Modifier.fillMaxWidth(), espacioHorizontal = 8.dp, espacioVertical = 8.dp) {
+                    if (tipo.isNotBlank()) EtiquetaFiltroActivo("Tipo: $tipo") { tipo = "" }
+                    if (sector.isNotBlank()) EtiquetaFiltroActivo("Sector: $sector") { sector = "" }
+                    if (asociacion.isNotBlank()) EtiquetaFiltroActivo(nombreAsociacion(asociacion)) { asociacion = "" }
+                    TextButton(onClick = { tipo = ""; sector = ""; asociacion = "" }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Limpiar filtros", fontWeight = FontWeight.Bold, color = RojoAlerce)
+                    }
+                }
             }
-            items(productosEncontrados, key = { "p_" + it.first.id }) { (p, t) ->
-                TarjetaProductoPublico(p, t) { nav.irA(Ruta.ProductoPublico(p.id)) }
+        }
+        when (vista) {
+            VISTA_PRODUCTOS -> {
+                if (productos.isEmpty()) {
+                    item {
+                        Vacio(
+                            titulo = if (SesionManager.cargando) "Cargando…" else "Sin productos",
+                            mensaje = if (busqueda.isNotBlank() || filtrosActivos > 0) "No hay productos que coincidan. Prueba con otra palabra o quita filtros." else "Todavía no hay productos publicados."
+                        )
+                    }
+                }
+                items(productos.chunked(columnas), key = { fila -> "pf_" + fila.joinToString("_") { it.first.id } }) { fila ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        fila.forEach { (p, t) ->
+                            TarjetaProductoGrilla(p, t, Modifier.weight(1f), ancha = columnas == 1) { nav.irA(Ruta.ProductoPublico(p.id)) }
+                        }
+                        if (fila.size < columnas) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+            VISTA_TIENDAS -> {
+                // Al buscar algo, primero los productos que calzan (hasta 4) y un acceso a verlos todos.
+                if (busqueda.isNotBlank() && productos.isNotEmpty()) {
+                    item { Text("Productos que coinciden", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NegroApple, modifier = Modifier.semantics { heading() }) }
+                    items(productos.take(4).chunked(columnas), key = { fila -> "pb_" + fila.joinToString("_") { it.first.id } }) { fila ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            fila.forEach { (p, t) -> TarjetaProductoGrilla(p, t, Modifier.weight(1f), ancha = columnas == 1) { nav.irA(Ruta.ProductoPublico(p.id)) } }
+                            if (fila.size < columnas) Spacer(Modifier.weight(1f))
+                        }
+                    }
+                    if (productos.size > 4) item {
+                        TextButton(onClick = { vista = VISTA_PRODUCTOS }, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text("Ver los ${productos.size} productos", fontWeight = FontWeight.Bold, color = NegroApple)
+                        }
+                    }
+                    item { Text("Emprendimientos", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = NegroApple, modifier = Modifier.semantics { heading() }) }
+                }
+                if (filtradas.isEmpty()) {
+                    item {
+                        Vacio(
+                            titulo = if (SesionManager.cargando) "Cargando…" else "Sin resultados",
+                            mensaje = "No hay emprendimientos que coincidan con la búsqueda o los filtros."
+                        )
+                    }
+                }
+                items(filtradas, key = { "t_" + it.id }) { tienda ->
+                    val cuantos = TramaStore.productosDeTienda(tienda.id).count { ReglasCatalogo.estadoPublico(it) != EstadoPublico.OCULTO && it.nombre.isNotBlank() }
+                    TarjetaTiendaDirectorio(tienda, VitrinaStore.asociacion(tienda.asociacionId)?.nombre, cuantos) {
+                        nav.irA(Ruta.TiendaPublica(tienda.id))
+                    }
+                }
+            }
+            else -> {
+                if (asocFiltradas.isEmpty()) {
+                    item { Vacio(titulo = if (VitrinaStore.cargando) "Cargando…" else "Sin asociaciones", mensaje = "No hay asociaciones que coincidan.") }
+                }
+                items(asocFiltradas, key = { "a_" + it.id }) { a ->
+                    val socias = tiendas.count { it.asociacionId == a.id }
+                    Tarjeta(onClick = { nav.irA(Ruta.AsociacionPublica(a.id)) }) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Groups, contentDescription = null, tint = NegroApple, modifier = Modifier.size(36.dp))
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(a.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                Text(listOf(a.sector, a.localidad).filter { it.isNotBlank() }.joinToString(" · ") + " · $socias integrantes",
+                                    style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
+                                if (a.descripcion.isNotBlank()) Text(a.descripcion, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChipFiltro(texto = "Emprendedoras (${filtradas.size})", seleccionado = !verAsociaciones, onClick = { verAsociaciones = false })
-                ChipFiltro(texto = "Asociaciones (${asocFiltradas.size})", seleccionado = verAsociaciones, onClick = { verAsociaciones = true })
+            TextButton(onClick = { nav.irA(Ruta.VisMarketplaceClasico) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text("Ver vitrina clásica (agenda de horas y foro)", color = TextoSecundario)
             }
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { Spacer(Modifier.height(24.dp)) }
+    }
+
+    // Panel de filtros: los mismos tres filtros de siempre, sin quitar opciones.
+    if (verFiltros) {
+        val estadoPanel = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { verFiltros = false }, sheetState = estadoPanel, containerColor = BlancoPuro) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Filtros", fontSize = 20.sp, fontWeight = FontWeight.Black, color = NegroApple, modifier = Modifier.semantics { heading() })
                 SelectorFiltro("Tipo de emprendimiento", tipos.map { it to it }, tipo) { tipo = it }
                 SelectorFiltro("Sector", sectores.map { it to it }, sector) { sector = it }
                 SelectorFiltro(
@@ -203,53 +323,86 @@ fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
                     asociaciones.map { it.id to it.nombre } + (ReglasVitrina.SIN_ASOCIACION to "Sin asociación"),
                     asociacion
                 ) { asociacion = it }
-                if (tipo.isNotBlank() || sector.isNotBlank() || asociacion.isNotBlank() || busqueda.isNotBlank()) {
-                    TextButton(onClick = { tipo = ""; sector = ""; asociacion = ""; busqueda = "" }) {
-                        Text("Limpiar filtros", fontWeight = FontWeight.Bold, color = RojoAlerce)
+                val total = when (vista) { VISTA_PRODUCTOS -> productos.size; VISTA_ASOCIACIONES -> asocFiltradas.size; else -> filtradas.size }
+                BotonPrimario(texto = "Ver $total ${if (total == 1) "resultado" else "resultados"}", onClick = { verFiltros = false })
+                if (filtrosActivos > 0) BotonSecundario(texto = "Limpiar filtros", onClick = { tipo = ""; sector = ""; asociacion = "" })
+            }
+        }
+    }
+}
+
+private const val VISTA_PRODUCTOS = "productos"
+private const val VISTA_TIENDAS = "tiendas"
+private const val VISTA_ASOCIACIONES = "asociaciones"
+
+/** Filtro aplicado: texto visible y una «✕» con nombre accesible para quitarlo. */
+@Composable
+private fun EtiquetaFiltroActivo(texto: String, onQuitar: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(10.dp), color = GrisChip, border = BorderStroke(1.dp, NegroApple),
+        modifier = Modifier.heightIn(min = 48.dp).clickable(onClickLabel = "Quitar el filtro $texto", onClick = onQuitar)
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(texto, fontWeight = FontWeight.SemiBold, color = NegroApple, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(6.dp))
+            Icon(Icons.Filled.Close, contentDescription = "Quitar", tint = NegroApple, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+/**
+ * Producto en la grilla de la vitrina: la foto manda (cuadrada), después el precio, el nombre y quién lo
+ * vende. El estado («Se acabó», «A pedido») va escrito, no solo con color.
+ */
+/** Dos columnas de productos; con la letra del celular al 150 % o más, una sola para que los nombres se lean enteros. */
+@Composable
+private fun columnasGrilla(): Int = if (androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f) 1 else 2
+
+@Composable
+private fun TarjetaProductoGrilla(p: Producto, tienda: Tienda, modifier: Modifier, mostrarTienda: Boolean = true, ancha: Boolean = false, onClick: () -> Unit) {
+    // A una columna (letra grande) la foto es más baja y el nombre tiene más líneas, para que no se corte.
+    val proporcion = if (ancha) 1.6f else 1f
+    val opcion = p.variantes.firstOrNull { ReglasCatalogo.opcionVendible(p, it) } ?: p.variantes.firstOrNull()
+    val estado = ReglasCatalogo.estadoPublico(p)
+    val precio = ReglasVitrina.textoPrecio(tienda, ReglasCatalogo.precioDe(p, opcion))
+    Surface(
+        shape = RoundedCornerShape(14.dp), color = BlancoPuro, border = BorderStroke(1.dp, GrisBorde),
+        modifier = modifier.clickable(onClickLabel = "Ver ${p.nombre}", onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+    ) {
+        Column {
+            Box {
+                val foto = ReglasCatalogo.fotoDe(p, opcion)
+                if (foto != null) FotoProducto(foto, p.colorFoto, p.nombre,
+                    Modifier.fillMaxWidth().aspectRatio(proporcion), forma = RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+                else Box(
+                    // Sin foto: un fondo tranquilo que no compite con los productos que sí tienen foto.
+                    Modifier.fillMaxWidth().aspectRatio(if (ancha) 3f else 1f).clip(RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)).background(GrisChip),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = TextoSecundario, modifier = Modifier.size(28.dp))
+                        Text("Sin foto", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
+                    }
+                }
+                if (estado != EstadoPublico.DISPONIBLE) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (estado == EstadoPublico.AGOTADO) NegroApple else NaranjaContenedor,
+                        modifier = Modifier.padding(8.dp).align(Alignment.TopStart)
+                    ) {
+                        Text(estado.etiqueta, color = if (estado == EstadoPublico.AGOTADO) BlancoPuro else NegroApple,
+                            fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                     }
                 }
             }
-        }
-        if (!verAsociaciones) {
-            if (filtradas.isEmpty()) {
-                item {
-                    Vacio(
-                        titulo = if (SesionManager.cargando) "Cargando…" else "Sin resultados",
-                        mensaje = "No hay emprendedoras que coincidan con la búsqueda o los filtros."
-                    )
-                }
-            }
-            items(filtradas, key = { "t_" + it.id }) { tienda ->
-                TarjetaTiendaDirectorio(tienda, VitrinaStore.asociacion(tienda.asociacionId)?.nombre) {
-                    nav.irA(Ruta.TiendaPublica(tienda.id))
-                }
-            }
-        } else {
-            if (asocFiltradas.isEmpty()) {
-                item { Vacio(titulo = if (VitrinaStore.cargando) "Cargando…" else "Sin asociaciones", mensaje = "No hay asociaciones que coincidan.") }
-            }
-            items(asocFiltradas, key = { "a_" + it.id }) { a ->
-                val socias = tiendas.count { it.asociacionId == a.id }
-                Tarjeta(onClick = { nav.irA(Ruta.AsociacionPublica(a.id)) }) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Groups, contentDescription = null, tint = NegroApple, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(a.nombre, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text(listOf(a.sector, a.localidad).filter { it.isNotBlank() }.joinToString(" · ") + " · $socias integrantes",
-                                style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
-                            if (a.descripcion.isNotBlank()) Text(a.descripcion, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(precio, fontWeight = FontWeight.Black, fontSize = 17.sp, color = if (tienda.mostrarPrecios) RojoAlerce else NegroApple)
+                Text(p.nombre, fontWeight = FontWeight.SemiBold, maxLines = if (ancha) 4 else 2, overflow = TextOverflow.Ellipsis, color = NegroApple)
+                if (mostrarTienda) Text(tienda.nombre, style = MaterialTheme.typography.bodySmall, color = TextoSecundario, maxLines = if (ancha) 2 else 1, overflow = TextOverflow.Ellipsis)
+                if (p.variantes.size > 1) Text("${p.variantes.size} opciones", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
             }
         }
-        item {
-            TextButton(onClick = { nav.irA(Ruta.VisMarketplaceClasico) }) {
-                Text("Ver vitrina clásica (agenda de horas y foro)", color = TextoSecundario)
-            }
-        }
-        item { Spacer(Modifier.height(24.dp)) }
     }
 }
 
@@ -281,7 +434,7 @@ private fun SelectorFiltro(etiqueta: String, opciones: List<Pair<String, String>
 }
 
 @Composable
-private fun TarjetaTiendaDirectorio(tienda: Tienda, asociacion: String?, onClick: () -> Unit) {
+private fun TarjetaTiendaDirectorio(tienda: Tienda, asociacion: String?, cuantos: Int, onClick: () -> Unit) {
     Tarjeta(onClick = onClick) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             FotoProducto(
@@ -294,7 +447,10 @@ private fun TarjetaTiendaDirectorio(tienda: Tienda, asociacion: String?, onClick
                 Text(listOf(tienda.rubro, tienda.sector).filter { it.isNotBlank() }.joinToString(" · "),
                     style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
                 if (asociacion != null) Text("🤝 $asociacion", style = MaterialTheme.typography.bodySmall, color = Color1E40AF)
+                Text(if (cuantos == 1) "1 producto" else "$cuantos productos", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = NegroApple)
             }
+            // Toda la tarjeta abre la tienda; la flecha solo lo indica (TalkBack lee el nombre de la tienda).
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = NegroApple)
         }
     }
 }
@@ -310,6 +466,7 @@ fun PantallaTiendaPublica(tiendaId: String, nav: ControladorNavegacion, avisar: 
         ?: TramaStore.tienda.takeIf { it.id == tiendaId }
     var mostrarQR by remember { mutableStateOf(false) }
     var contacto by remember { mutableStateOf<Pair<String?, String>?>(null) }
+    val columnas = columnasGrilla()
 
     LaunchedEffect(tiendaId) {
         if (SesionManager.tiendas.none { it.id == tiendaId }) SesionManager.cargarTiendas()
@@ -317,8 +474,8 @@ fun PantallaTiendaPublica(tiendaId: String, nav: ControladorNavegacion, avisar: 
     }
 
     Column(Modifier.fillMaxSize()) {
-        BarraSuperior(titulo = tienda?.nombre ?: "Tienda", onVolver = { nav.volver() })
         if (tienda == null) {
+            BarraSuperior(titulo = "Tienda", onVolver = { nav.volver() })
             Vacio(titulo = "Tienda no encontrada", mensaje = "Puede que ya no esté publicada.")
             return@Column
         }
@@ -328,18 +485,25 @@ fun PantallaTiendaPublica(tiendaId: String, nav: ControladorNavegacion, avisar: 
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Rediseño v2: la tienda se presenta en una cabecera de marca (logo, nombre, rubro y bio).
             item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    FotoProducto(tienda.logoUrl, tienda.colorLogo, tienda.nombre, Modifier.size(64.dp), RoundedCornerShape(32.dp), 24.sp)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(tienda.nombre, fontWeight = FontWeight.Black, fontSize = 20.sp)
-                        Text(listOf(tienda.rubro, tienda.sector).filter { it.isNotBlank() }.joinToString(" · "), color = TextoSecundario)
+                com.example.trabajodea10.ui.componentes.CabeceraMarca(
+                    sobretitulo = listOf(tienda.rubro, tienda.sector).filter { it.isNotBlank() }.joinToString(" · "),
+                    titulo = tienda.nombre,
+                    margen = 0.dp,
+                    onVolver = { nav.volver() }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        FotoProducto(tienda.logoUrl, tienda.colorLogo, tienda.nombre,
+                            Modifier.size(64.dp).border(3.dp, androidx.compose.ui.graphics.Color.White, RoundedCornerShape(32.dp)),
+                            RoundedCornerShape(32.dp), 24.sp)
+                        Spacer(Modifier.width(14.dp))
+                        Text(
+                            if (tienda.bio.isNotBlank()) tienda.bio else "Emprendimiento de Alerce",
+                            color = com.example.trabajodea10.ui.theme.SobreBosqueSuave, style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                }
-                if (tienda.bio.isNotBlank()) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(tienda.bio, style = MaterialTheme.typography.bodyMedium)
                 }
             }
             if (asociacion != null) {
@@ -358,6 +522,26 @@ fun PantallaTiendaPublica(tiendaId: String, nav: ControladorNavegacion, avisar: 
             item { BotonesContacto(tienda, null, "") { prod, ref -> contacto = prod to ref } }
             // Entrega 7: seguir la tienda y calificarla (si la emprendedora lo permite)
             item { BotonSeguir("TIENDA", tienda.id, tienda.nombre, nav, avisar) }
+            item { TituloSeccion(texto = "Productos (${productos.size})") }
+            if (!tienda.mostrarPrecios) {
+                item {
+                    Surface(color = NaranjaContenedor, shape = RoundedCornerShape(12.dp)) {
+                        Text("Esta tienda muestra «Consultar precio»: escríbele para saber el valor.",
+                            modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            if (productos.isEmpty()) {
+                item { Vacio(titulo = "Sin productos a la vista", mensaje = "Esta tienda aún no publica productos.") }
+            }
+            // Productos en grilla de dos columnas: la foto y el precio mandan (antes, lista de filas con foto pequeña).
+            items(productos.chunked(columnas), key = { fila -> fila.joinToString("_") { it.id } }) { fila ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    fila.forEach { p -> TarjetaProductoGrilla(p, tienda, Modifier.weight(1f), mostrarTienda = false, ancha = columnas == 1) { nav.irA(Ruta.ProductoPublico(p.id)) } }
+                    if (fila.size < columnas) Spacer(Modifier.weight(1f))
+                }
+            }
+            // Después de los productos: calificaciones reales, compartir y QR, punto de retiro (nada se quitó).
             item { SeccionCalificaciones(tienda, null, nav, avisar) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -395,47 +579,11 @@ fun PantallaTiendaPublica(tiendaId: String, nav: ControladorNavegacion, avisar: 
                     }
                 }
             }
-            item { TituloSeccion(texto = "Productos (${productos.size})") }
-            if (!tienda.mostrarPrecios) {
-                item {
-                    Surface(color = NaranjaContenedor, shape = RoundedCornerShape(12.dp)) {
-                        Text("Esta tienda muestra «Consultar precio»: escríbele para saber el valor.",
-                            modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            if (productos.isEmpty()) {
-                item { Vacio(titulo = "Sin productos a la vista", mensaje = "Esta tienda aún no publica productos.") }
-            }
-            items(productos, key = { it.id }) { p ->
-                TarjetaProductoPublico(p, tienda) { nav.irA(Ruta.ProductoPublico(p.id)) }
-            }
             item { Spacer(Modifier.height(24.dp)) }
         }
         if (mostrarQR) DialogoQR(titulo = tienda.nombre, url = urlTienda(tienda.id)) { mostrarQR = false }
         contacto?.let { (productoId, referencia) ->
             DialogoContacto(tienda, productoId, referencia, onCerrar = { contacto = null }, avisar = avisar)
-        }
-    }
-}
-
-@Composable
-private fun TarjetaProductoPublico(p: Producto, tienda: Tienda, onClick: () -> Unit) {
-    val opcion = p.variantes.firstOrNull { ReglasCatalogo.opcionVendible(p, it) } ?: p.variantes.firstOrNull()
-    val estado = ReglasCatalogo.estadoPublico(p)
-    Tarjeta(onClick = onClick) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            FotoProducto(ReglasCatalogo.fotoDe(p, opcion), p.colorFoto, p.nombre, Modifier.size(72.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(p.nombre, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(
-                    ReglasVitrina.textoPrecio(tienda, ReglasCatalogo.precioDe(p, opcion)),
-                    fontWeight = FontWeight.Black, color = if (tienda.mostrarPrecios) RojoAlerce else NegroApple
-                )
-                if (p.variantes.size > 1) Text("${p.variantes.size} opciones", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
-                if (estado != EstadoPublico.DISPONIBLE) Text(estado.etiqueta, style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
-            }
         }
     }
 }
@@ -534,14 +682,25 @@ fun PantallaProductoPublico(productoId: String, nav: ControladorNavegacion, avis
         val estado = ReglasCatalogo.estadoPublico(p)
         val referencia = p.nombre + if (opcion != null && p.variantes.size > 1) " — ${opcion.nombre}" else ""
         LazyColumn(
+            modifier = Modifier.weight(1f),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                FotoProducto(
-                    fotoUrl = ReglasCatalogo.fotoDe(p, opcion), colorRespaldo = p.colorFoto, inicial = p.nombre,
+                val foto = ReglasCatalogo.fotoDe(p, opcion)
+                if (foto != null) FotoProducto(
+                    fotoUrl = foto, colorRespaldo = p.colorFoto, inicial = p.nombre,
                     modifier = Modifier.fillMaxWidth().height(260.dp), completa = true
-                )
+                ) else Box(
+                    // Sin foto: el mismo aviso tranquilo de la grilla, más bajo, para que el nombre y el precio suban.
+                    Modifier.fillMaxWidth().heightIn(min = 120.dp).clip(RoundedCornerShape(16.dp)).background(GrisChip).padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Filled.PhotoCamera, contentDescription = null, tint = TextoSecundario)
+                        Text("Este producto aún no tiene foto", color = TextoSecundario, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
             item {
                 Text(p.nombre, fontWeight = FontWeight.Black, fontSize = 22.sp)
@@ -551,7 +710,17 @@ fun PantallaProductoPublico(productoId: String, nav: ControladorNavegacion, avis
                     color = if (tienda?.mostrarPrecios != false) RojoAlerce else NegroApple
                 )
                 Text(estado.etiqueta + (opcion?.let { if (p.manejaStock && estado == EstadoPublico.DISPONIBLE) " · quedan ${it.stock}" else "" } ?: ""),
-                    color = TextoSecundario, style = MaterialTheme.typography.bodySmall)
+                    color = if (estado == EstadoPublico.DISPONIBLE) com.example.trabajodea10.ui.theme.VerdeOk else TextoSecundario,
+                    fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                // Quién lo vende, a un toque (antes había que bajar hasta «Ver tienda»).
+                // Fila tocable alineada a la izquierda: con letra grande el texto baja de línea sin cortarse.
+                if (tienda != null) Box(
+                    Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clickable(onClickLabel = "Ver la tienda", role = androidx.compose.ui.semantics.Role.Button) { nav.irA(Ruta.TiendaPublica(tienda.id)) },
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text("Vendido por ${tienda.nombre} ›", fontWeight = FontWeight.Bold, color = NegroApple)
+                }
             }
             if (p.variantes.size > 1) {
                 item {
@@ -566,7 +735,7 @@ fun PantallaProductoPublico(productoId: String, nav: ControladorNavegacion, avis
             }
             if (p.descripcion.isNotBlank()) item { Text(p.descripcion, style = MaterialTheme.typography.bodyMedium) }
             if (tienda != null) {
-                item { BotonesContacto(tienda, p.id, referencia) { prod, ref -> contacto = prod to ref } }
+                // El contacto va fijo abajo (siempre a la vista); aquí, calificaciones, compartir y la tienda.
                 item { SeccionCalificaciones(tienda, p.id, nav, avisar) }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -584,6 +753,13 @@ fun PantallaProductoPublico(productoId: String, nav: ControladorNavegacion, avis
                 }
             }
             item { Spacer(Modifier.height(24.dp)) }
+        }
+        // Contactar a la emprendedora: la acción principal, fija abajo y sin tapar contenido (la lista termina antes).
+        // Usa los mismos botones de siempre, según el contacto que eligió cada emprendedora (WhatsApp, mensaje o ambos).
+        if (tienda != null) Surface(color = BlancoPuro, shadowElevation = 6.dp, modifier = Modifier.fillMaxWidth()) {
+            Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                BotonesContacto(tienda, p.id, referencia) { prod, ref -> contacto = prod to ref }
+            }
         }
         if (tienda != null) contacto?.let { (prod, ref) -> DialogoContacto(tienda, prod, ref, { contacto = null }, avisar) }
     }
@@ -633,7 +809,7 @@ fun PantallaAsociacionPublica(asociacionId: String, nav: ControladorNavegacion, 
             item { TituloSeccion(texto = "Integrantes (${socias.size})") }
             if (socias.isEmpty()) item { Vacio(titulo = "Sin integrantes", mensaje = "Esta asociación aún no tiene tiendas en la vitrina.") }
             items(socias, key = { it.id }) { t ->
-                TarjetaTiendaDirectorio(t, null) { nav.irA(Ruta.TiendaPublica(t.id)) }
+                TarjetaTiendaDirectorio(t, null, TramaStore.productosDeTienda(t.id).count { ReglasCatalogo.estadoPublico(it) != EstadoPublico.OCULTO && it.nombre.isNotBlank() }) { nav.irA(Ruta.TiendaPublica(t.id)) }
             }
         }
         if (mostrarQR) DialogoQR(titulo = a.nombre, url = urlAsociacion(a.id)) { mostrarQR = false }

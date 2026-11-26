@@ -1,8 +1,9 @@
 package com.example.trabajodea10.ui.emprendedora
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,24 +18,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EventAvailable
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.RecordVoiceOver
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,39 +41,48 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.trabajodea10.data.EstadoInvitacion7
 import com.example.trabajodea10.data.FeriasStore
 import com.example.trabajodea10.data.ReglasFerias
-import com.example.trabajodea10.data.ReglasVitrina
 import com.example.trabajodea10.data.TramaStore
 import com.example.trabajodea10.data.fechaLegible
 import com.example.trabajodea10.data.formatearMoneda
-import com.example.trabajodea10.ui.componentes.BarraSuperior
-import com.example.trabajodea10.ui.componentes.Tarjeta
-import com.example.trabajodea10.ui.componentes.TarjetaMetrica
-import com.example.trabajodea10.ui.componentes.TituloSeccion
-import com.example.trabajodea10.ui.componentes.Vacio
+import com.example.trabajodea10.ui.componentes.AccionCabecera
+import com.example.trabajodea10.ui.componentes.AvisoAccion
+import com.example.trabajodea10.ui.componentes.BloqueFecha
+import com.example.trabajodea10.ui.componentes.CabeceraMarca
+import com.example.trabajodea10.ui.componentes.CifraCabecera
+import com.example.trabajodea10.ui.componentes.EncabezadoSeccion
+import com.example.trabajodea10.ui.componentes.FilaGestion
+import com.example.trabajodea10.ui.componentes.GrupoFilas
+import com.example.trabajodea10.ui.componentes.IconoTono
+import com.example.trabajodea10.ui.componentes.MosaicoAccion
+import com.example.trabajodea10.ui.componentes.PildoraEstado
+import com.example.trabajodea10.ui.componentes.Tono
 import com.example.trabajodea10.ui.navegacion.ControladorNavegacion
 import com.example.trabajodea10.ui.navegacion.Ruta
 import com.example.trabajodea10.ui.theme.BlancoPuro
-import com.example.trabajodea10.ui.theme.EstadoAcaboFondo
-import com.example.trabajodea10.ui.theme.EstadoAcaboTexto
-import com.example.trabajodea10.ui.theme.EstadoPendFondo
-import com.example.trabajodea10.ui.theme.EstadoPendTexto
+import com.example.trabajodea10.ui.theme.Bosque
 import com.example.trabajodea10.ui.theme.FondoLimpio
-import com.example.trabajodea10.ui.theme.Musgo
 import com.example.trabajodea10.ui.theme.NegroApple
 import com.example.trabajodea10.ui.theme.TextoSecundario
 import com.example.trabajodea10.ui.theme.VerdeOk
 
 /**
- * Inicio de la emprendedora. Pensado para la feria: con el celular en una mano, lo primero es
- * lo que espera respuesta (invitaciones) y las dos tareas de todos los días con texto visible:
- * «Registrar una venta» y «Mis productos». El resumen del mes va al final.
+ * Inicio de la emprendedora (rediseño v2). Pensado para la feria, con el celular en una mano:
+ *  1. Cabecera de marca con su tienda, tres cifras reales y «Registrar una venta» a la vista.
+ *  2. Lo que espera respuesta (invitaciones) y lo que conviene revisar (se acabó / quedan pocos).
+ *  3. Accesos rápidos en mosaico: añadir, mis productos, ferias, compartir.
+ *  4. Asistente y ayuda; próxima feria con su fecha; últimas ventas.
+ * Se quitó la cifra «Seguidores»: salía de datos de ejemplo, no del servidor.
  */
 @Composable
 fun PantallaEmprendedoraInicio(
@@ -96,171 +102,171 @@ fun PantallaEmprendedoraInicio(
     }
     val proxima = ReglasFerias.calendario(FeriasStore.misFerias.toList(), hoy)
         .flatMap { it.second }.firstOrNull { it.estadoInvitacion.participa }
+    // Modo sencillo (opcional, en Ajustes): botones grandes con lo esencial. No quita nada:
+    // la barra de abajo, Ajustes y «Ver el inicio completo» siguen llevando a todo lo demás.
+    var verCompleto by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    val sencillo = TramaStore.prefs.modoSencillo && !verCompleto
 
-    Column(modifier = Modifier.fillMaxSize().background(FondoLimpio)) {
-        BarraSuperior(
+    Column(Modifier.fillMaxSize().background(FondoLimpio).verticalScroll(rememberScrollState())) {
+        CabeceraMarca(
+            sobretitulo = tienda.nombre,
             titulo = saludo,
-            subtitulo = tienda.nombre,
+            subtitulo = if (sencillo) "¿Qué quieres hacer hoy?" else "Así va tu tienda",
             acciones = {
-                IconButton(onClick = { nav.irA(Ruta.Ajustes) }, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Ajustes y mi cuenta", tint = NegroApple)
+                AccionCabecera(Icons.Filled.Settings, "Ajustes y mi cuenta") { nav.irA(Ruta.Ajustes) }
+            }
+        ) {
+            if (!sencillo) {
+                com.example.trabajodea10.ui.componentes.FilaCifras(
+                    formatearMoneda(TramaStore.ventasDelMes()) to "Vendido este mes",
+                    TramaStore.productosPublicados().toString() to "A la vista",
+                    TramaStore.stockTotal().toString() to "Unidades"
+                )
+                Spacer(Modifier.height(14.dp))
+                // La tarea principal, en blanco sobre el bosque: se encuentra sin buscar.
+                Button(
+                    onClick = { nav.seleccionarTab(Ruta.EmpVenta) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BlancoPuro, contentColor = Bosque)
+                ) {
+                    Icon(Icons.Filled.PointOfSale, contentDescription = null, modifier = Modifier.size(26.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Registrar una venta", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
                 }
             }
-        )
+        }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
+        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             // 1. Lo que espera respuesta
             if (porResponder.isNotEmpty()) {
-                AvisoConAccion(
+                AvisoAccion(
                     texto = if (porResponder.size == 1) "Te invitaron a «${porResponder.first().nombre}». Falta tu respuesta."
                     else "Tienes ${porResponder.size} invitaciones a ferias por responder.",
-                    accion = "Responder",
-                    fondo = EstadoPendFondo, colorTexto = EstadoPendTexto,
-                    onAccion = { nav.seleccionarTab(Ruta.EmpFerias) }
+                    tono = Tono.AMBAR, icono = Icons.Filled.EventAvailable,
+                    accion = "Responder", onAccion = { nav.seleccionarTab(Ruta.EmpFerias) }
                 )
             }
 
-            // Modo sencillo (opcional, en Ajustes): botones grandes con lo esencial. No quita nada:
-            // la barra de abajo, Ajustes y «Ver el inicio completo» siguen llevando a todo lo demás.
-            var verCompleto by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
-            if (TramaStore.prefs.modoSencillo && !verCompleto) {
+            if (sencillo) {
                 InicioSencillo(nav, onVerCompleto = { verCompleto = true })
                 return@Column
             }
 
-            // 2. Las dos tareas de todos los días
-            BotonTarea(
-                titulo = "Registrar una venta",
-                detalle = "Descuenta lo que vendiste",
-                icono = Icons.Filled.PointOfSale,
-                principal = true,
-                onClick = { nav.seleccionarTab(Ruta.EmpVenta) }
-            )
-            BotonTarea(
-                titulo = "Mis productos",
-                detalle = "Cuántos tengo, «Se acabó» y quién los ve",
-                icono = Icons.Filled.Inventory2,
-                principal = false,
-                onClick = { nav.seleccionarTab(Ruta.EmpCatalogo) }
-            )
-            // Asistente Alerce (opcional): enseña cómo se hace o prepara los datos; nunca reemplaza los botones de siempre.
-            BotonTarea(
-                titulo = "Asistente Alerce",
-                detalle = "Dime qué necesitas: te enseño o te ayudo a hacerlo",
-                icono = Icons.Filled.RecordVoiceOver,
-                principal = false,
-                onClick = { nav.irA(Ruta.Asistente) }
-            )
-
-            // 3. Lo que conviene revisar
+            // 2. Lo que conviene revisar
             if (alertas.isNotEmpty()) {
                 val acabados = alertas.filter { it.agotado }
-                AvisoConAccion(
+                AvisoAccion(
                     texto = if (acabados.isNotEmpty()) "Se acabó: " + acabados.take(3).joinToString(", ") { it.nombre } + (if (acabados.size > 3) "…" else "")
                     else "Quedan pocos: " + alertas.take(3).joinToString(", ") { it.nombre + " (" + it.stockTotal + ")" },
-                    accion = "Revisar",
-                    fondo = if (acabados.isNotEmpty()) EstadoAcaboFondo else EstadoPendFondo,
-                    colorTexto = if (acabados.isNotEmpty()) EstadoAcaboTexto else EstadoPendTexto,
+                    tono = if (acabados.isNotEmpty()) Tono.CORTEZA else Tono.AMBAR,
                     icono = Icons.Filled.Warning,
-                    onAccion = { nav.seleccionarTab(Ruta.EmpCatalogo) }
+                    accion = "Revisar", onAccion = { nav.seleccionarTab(Ruta.EmpCatalogo) }
                 )
             }
 
-            // 4. Próxima feria confirmada (del servidor)
-            TituloSeccion(texto = "Próxima feria", accion = "Mis ferias", onAccion = { nav.seleccionarTab(Ruta.EmpFerias) })
+            // 3. Accesos rápidos
+            EncabezadoSeccion("Accesos rápidos", sobretitulo = "Tu tienda")
+            com.example.trabajodea10.ui.componentes.ParAdaptable(
+                { m -> MosaicoAccion("Añadir producto", Icons.Filled.AddCircle, Tono.MUSGO,
+                    { nav.irA(Ruta.ProductoDetalle(TramaStore.crearProductoBorrador())) }, m, detalle = "Foto, nombre y precio") },
+                { m -> MosaicoAccion("Mis productos", Icons.Filled.Inventory2, Tono.AMBAR,
+                    { nav.seleccionarTab(Ruta.EmpCatalogo) }, m, detalle = "Cuántos tengo y quién los ve",
+                    insignia = alertas.size.takeIf { it > 0 }?.toString()) }
+            )
+            com.example.trabajodea10.ui.componentes.ParAdaptable(
+                { m -> MosaicoAccion("Mis ferias", Icons.Filled.EventAvailable, Tono.AZUL,
+                    { nav.seleccionarTab(Ruta.EmpFerias) }, m, detalle = "Invitaciones y fechas",
+                    insignia = porResponder.size.takeIf { it > 0 }?.toString()) },
+                { m -> MosaicoAccion("Compartir tienda", Icons.Filled.QrCode2, Tono.CORTEZA,
+                    { nav.irA(Ruta.EmpTiendaQR(tienda.id)) }, m, detalle = "Código QR y enlace") }
+            )
+
+            // 4. Ayuda: el asistente nunca reemplaza los botones de siempre.
+            GrupoFilas {
+                FilaGestion("Asistente Alerce", Icons.Filled.RecordVoiceOver, Tono.MUSGO, { nav.irA(Ruta.Asistente) },
+                    detalle = "Dime qué necesitas: te enseño o te ayudo a hacerlo")
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(start = 74.dp, end = 16.dp))
+                FilaGestion("Centro de ayuda", Icons.AutoMirrored.Filled.HelpOutline, Tono.NEUTRO, { nav.irA(Ruta.CentroAyuda) },
+                    detalle = "Paso a paso, con lectura en voz alta")
+            }
+
+            // 5. Próxima feria confirmada (del servidor)
+            EncabezadoSeccion("Próxima feria", sobretitulo = "Agenda", accion = "Mis ferias", onAccion = { nav.seleccionarTab(Ruta.EmpFerias) })
             if (proxima == null) {
-                Vacio(
-                    titulo = "No tienes ferias confirmadas",
-                    mensaje = "Cuando confirmes una invitación, la verás aquí con la fecha y el lugar.",
-                    icono = { Icon(Icons.Filled.EventAvailable, contentDescription = null, tint = TextoSecundario) }
-                )
+                AvisoAccion("No tienes ferias confirmadas. Cuando confirmes una invitación, aparecerá aquí con su fecha y lugar.", Tono.NEUTRO)
             } else {
-                Tarjeta(onClick = { nav.seleccionarTab(Ruta.EmpFerias) }) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(text = proxima.nombre, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = ReglasVitrina.fechaLegible(proxima.fechaInicio) + (if (proxima.horario.isNotBlank()) " · " + proxima.horario else ""),
-                            style = MaterialTheme.typography.bodyMedium, color = TextoSecundario
-                        )
-                        if (proxima.ubicacion.isNotBlank()) Text(text = "📍 " + proxima.ubicacion, style = MaterialTheme.typography.bodyMedium, color = TextoSecundario)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(text = proxima.estadoInvitacion.etiqueta, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, color = Musgo)
-                    }
-                }
-            }
-
-            // 5. Últimas ventas
-            TituloSeccion(texto = "Últimas ventas", accion = "Ver historial", onAccion = { nav.irA(Ruta.HistorialVentas) })
-            val ultimas = TramaStore.ultimasVentas(3)
-            if (ultimas.isEmpty()) {
-                Text(text = "Aún no registras ventas este mes.", style = MaterialTheme.typography.bodyMedium, color = TextoSecundario)
-            } else {
-                Tarjeta {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                        ultimas.forEachIndexed { index, venta ->
-                            if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = TramaStore.feriaDeLaVenta(venta.feriaId), fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
-                                    Text(text = "${fechaLegible(venta.fecha)} · ${venta.medioPago.etiqueta}", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
-                                }
-                                Text(text = formatearMoneda(venta.total), fontWeight = FontWeight.SemiBold, color = VerdeOk)
-                            }
+                GrupoFilas {
+                    Row(
+                        Modifier.fillMaxWidth().clickable(onClickLabel = "Ver mis ferias") { nav.seleccionarTab(Ruta.EmpFerias) }
+                            .padding(16.dp).semantics(mergeDescendants = true) {},
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val partes = proxima.fechaInicio?.take(10)?.split("-")
+                        val meses = listOf("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+                        BloqueFecha(partes?.getOrNull(2)?.trimStart('0') ?: "?", partes?.getOrNull(1)?.toIntOrNull()?.let { meses.getOrNull(it - 1) } ?: "fecha")
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(proxima.nombre, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = NegroApple)
+                            Text(listOf(proxima.horario, proxima.ubicacion).filter { it.isNotBlank() }.joinToString(" · "),
+                                fontSize = 14.sp, color = TextoSecundario, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(4.dp))
+                            PildoraEstado(proxima.estadoInvitacion.etiqueta, Tono.OK)
                         }
                     }
                 }
             }
 
-            // 6. Resumen del mes (al final: se mira de vez en cuando)
-            TituloSeccion(texto = "Resumen del mes")
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TarjetaMetrica(titulo = "Ventas del mes", valor = formatearMoneda(TramaStore.ventasDelMes()), icono = Icons.Filled.PointOfSale, colorIcono = VerdeOk, modifier = Modifier.weight(1f))
-                TarjetaMetrica(titulo = "Productos a la vista", valor = TramaStore.productosPublicados().toString(), icono = Icons.Filled.Inventory2, colorIcono = Musgo, modifier = Modifier.weight(1f))
+            // 6. Últimas ventas
+            EncabezadoSeccion("Últimas ventas", sobretitulo = "Movimiento", accion = "Historial", onAccion = { nav.irA(Ruta.HistorialVentas) })
+            val ultimas = TramaStore.ultimasVentas(3)
+            if (ultimas.isEmpty()) {
+                AvisoAccion("Aún no registras ventas este mes.", Tono.NEUTRO)
+            } else {
+                GrupoFilas {
+                    ultimas.forEachIndexed { index, venta ->
+                        if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).semantics(mergeDescendants = true) {},
+                            verticalAlignment = Alignment.CenterVertically) {
+                            IconoTono(Icons.Filled.PointOfSale, Tono.OK, tamano = 40)
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = TramaStore.feriaDeLaVenta(venta.feriaId), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text(text = "${fechaLegible(venta.fecha)} · ${venta.medioPago.etiqueta}", fontSize = 14.sp, color = TextoSecundario)
+                            }
+                            Text(text = formatearMoneda(venta.total), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = VerdeOk)
+                        }
+                    }
+                }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TarjetaMetrica(titulo = "Unidades disponibles", valor = TramaStore.stockTotal().toString(), icono = Icons.Filled.Layers, colorIcono = EstadoPendTexto, modifier = Modifier.weight(1f))
-                TarjetaMetrica(titulo = "Seguidores", valor = TramaStore.seguidores().toString(), icono = Icons.Filled.People, colorIcono = Musgo, modifier = Modifier.weight(1f))
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
 
-/** Botón grande de una tarea diaria: texto visible, al menos 72 dp, crece con la letra del celular. */
+/** Botón grande de una tarea (modo sencillo): ícono de color, texto visible, al menos 80 dp. */
 @Composable
 private fun BotonTarea(titulo: String, detalle: String, icono: ImageVector, principal: Boolean, onClick: () -> Unit) {
-    val contenido: @Composable () -> Unit = {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icono, contentDescription = null, modifier = Modifier.size(28.dp))
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = if (principal) Bosque else BlancoPuro,
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp).clip(RoundedCornerShape(22.dp))
+            .clickable(role = Role.Button, onClickLabel = titulo, onClick = onClick)
+            .semantics(mergeDescendants = true) {}
+    ) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (principal) {
+                Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(BlancoPuro.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                    Icon(icono, contentDescription = null, tint = BlancoPuro, modifier = Modifier.size(28.dp))
+                }
+            } else IconoTono(icono, Tono.MUSGO, tamano = 52)
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(titulo, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text(detalle, fontSize = 14.sp)
+                Text(titulo, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = if (principal) BlancoPuro else NegroApple)
+                Text(detalle, fontSize = 15.sp, color = if (principal) com.example.trabajodea10.ui.theme.SobreBosqueSuave else TextoSecundario)
             }
         }
-    }
-    val modificador = Modifier.fillMaxWidth().heightIn(min = 72.dp)
-    if (principal) {
-        Button(
-            onClick = onClick, modifier = modificador, shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Musgo, contentColor = BlancoPuro),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp, vertical = 12.dp)
-        ) { contenido() }
-    } else {
-        OutlinedButton(
-            onClick = onClick, modifier = modificador, shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.5.dp, Musgo),
-            colors = ButtonDefaults.outlinedButtonColors(containerColor = BlancoPuro, contentColor = Musgo),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp, vertical = 12.dp)
-        ) { contenido() }
     }
 }
 
@@ -280,25 +286,4 @@ private fun InicioSencillo(nav: ControladorNavegacion, onVerCompleto: () -> Unit
         Text("Ver el inicio completo", fontWeight = FontWeight.Bold, fontSize = 16.sp)
     }
     Text("El modo sencillo se apaga en Ajustes › Accesibilidad.", color = TextoSecundario, fontSize = 14.sp, modifier = Modifier.padding(bottom = 24.dp))
-}
-
-/** Aviso con texto y una acción con nombre (no solo color). */
-@Composable
-private fun AvisoConAccion(
-    texto: String, accion: String, fondo: androidx.compose.ui.graphics.Color, colorTexto: androidx.compose.ui.graphics.Color,
-    icono: ImageVector? = null, onAccion: () -> Unit
-) {
-    Surface(shape = RoundedCornerShape(18.dp), color = fondo, modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (icono != null) {
-                Icon(icono, contentDescription = null, tint = colorTexto, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-            }
-            Text(text = texto, color = colorTexto, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f))
-            TextButton(onClick = onAccion, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(accion, fontWeight = FontWeight.Bold, color = colorTexto, fontSize = 16.sp)
-            }
-        }
-    }
 }

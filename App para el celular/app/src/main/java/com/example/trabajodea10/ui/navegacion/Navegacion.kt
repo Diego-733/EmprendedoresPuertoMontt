@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -37,6 +38,12 @@ sealed class Ruta(val grafica: String? = null) {
     data object AdminInicio : Ruta("admin_inicio")
     data object AdminFerias : Ruta("admin_ferias")
     data object AdminEmprendedoras : Ruta("admin_emprendedoras")
+    // Rediseño v2: áreas de gestión (consulta con datos reales; se edita en el panel web).
+    data object AdminGestion : Ruta("admin_gestion")
+    data object AdminAsociaciones : Ruta()
+    data object AdminTipos : Ruta()
+    data object AdminEquipo : Ruta()
+    data object AdminBitacora : Ruta()
     data object Ajustes : Ruta("ajustes")
     data class FeriaDetalle(val feriaId: String) : Ruta()
 
@@ -88,7 +95,8 @@ fun itemsSegunRol(rol: Rol): List<ItemNavegacion> = when (rol) {
         ItemNavegacion(Ruta.AdminInicio, "Inicio", Icons.Filled.Home),
         ItemNavegacion(Ruta.AdminFerias, "Ferias", Icons.Filled.CalendarMonth),
         ItemNavegacion(Ruta.AdminEmprendedoras, "Emprendedoras", Icons.Filled.People),
-        ItemNavegacion(Ruta.Ajustes, "Ajustes", Icons.Filled.Settings)
+        // Ajustes sigue a un toque desde la cabecera y dentro de «Gestión».
+        ItemNavegacion(Ruta.AdminGestion, "Gestión", Icons.Filled.Dashboard)
     )
     Rol.EMPRENDEDORA -> listOf(
         ItemNavegacion(Ruta.EmpInicio, "Inicio", Icons.Filled.Home),
@@ -185,6 +193,8 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
         AccesoApp.mostrarLogin = true
         // La conversación del asistente no pasa a la próxima persona que use este celular.
         com.example.trabajodea10.ui.asistente.AsistenteMemoria.olvidar()
+        // Tampoco los datos de administración.
+        com.example.trabajodea10.data.AdminStore.limpiar()
         // Cierra también la sesión del servidor (o la conserva si la huella está activada)
         SesionManager.cerrarSesion()
         if (pila.isNotEmpty()) {
@@ -216,6 +226,7 @@ private fun rutaInicialDe(rol: Rol?): Ruta = when (rol) {
 object CodigoRuta {
     private val SIMPLES: Map<String, Ruta> = listOf(
         Ruta.Login, Ruta.AdminInicio, Ruta.AdminFerias, Ruta.AdminEmprendedoras, Ruta.Ajustes,
+        Ruta.AdminGestion, Ruta.AdminAsociaciones, Ruta.AdminTipos, Ruta.AdminEquipo, Ruta.AdminBitacora,
         Ruta.EmpInicio, Ruta.EmpCatalogo, Ruta.EmpVenta, Ruta.PagoVenta, Ruta.EmpFerias, Ruta.EmpTienda,
         Ruta.VistaPrevia, Ruta.HistorialVentas, Ruta.ConfigVentas, Ruta.VisInicio, Ruta.VisProductos, Ruta.VisAyuda,
         Ruta.VisMarketplaceClasico, Ruta.ConfigVitrina, Ruta.BandejaContactos, Ruta.Asistente, Ruta.CentroAyuda
@@ -329,9 +340,10 @@ fun BarraInferior(
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Berenjena,
-                    selectedTextColor = Berenjena,
-                    indicatorColor = com.example.trabajodea10.ui.theme.BerenjenaContenedor,
+                    // Rediseño v2: pestaña activa en bosque con ícono blanco (antes, pastilla verde clara).
+                    selectedIconColor = androidx.compose.ui.graphics.Color.White,
+                    selectedTextColor = com.example.trabajodea10.ui.theme.Bosque,
+                    indicatorColor = com.example.trabajodea10.ui.theme.Bosque,
                     unselectedIconColor = TextoSecundario,
                     unselectedTextColor = TextoSecundario
                 )

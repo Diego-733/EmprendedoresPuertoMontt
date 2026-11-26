@@ -327,7 +327,7 @@ object SesionManager {
     /** Acceso a las tiendas de ejemplo sin servidor (solo en el APK de pruebas). */
     fun entrarModoDesarrolladorPrueba(tiendaId: String, rol: Rol) {
         val tiendaPrueba = TIENDAS_INICIALES_ALERCE.find { it.id == tiendaId } ?: TIENDAS_INICIALES_ALERCE.first()
-        nombreUsuarioActual = tiendaPrueba.nombre
+        nombreUsuarioActual = if (rol == Rol.ADMIN) "Administración de prueba" else tiendaPrueba.nombre
         rolUsuarioActual = rol
         if (rol == Rol.EMPRENDEDORA) TramaStore.guardarTienda(tiendaPrueba)
         TramaStore.iniciarSesion(rol)

@@ -1,5 +1,6 @@
 package com.example.trabajodea10.ui.admin
 
+import androidx.core.net.toUri
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -61,37 +62,57 @@ fun PantallaAdminFerias(
 ) {
     val contexto = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) { com.example.trabajodea10.data.VitrinaStore.cargar() }
-    val ferias = com.example.trabajodea10.data.VitrinaStore.ferias.sortedBy { it.fechaInicio ?: "9999" }
+    // Rediseño v2: agrupadas por momento (hoy, próximas, anteriores, canceladas) con bloque de fecha.
+    val grupos = com.example.trabajodea10.data.ReglasAdmin.clasificarFerias(
+        com.example.trabajodea10.data.VitrinaStore.ferias.toList(), com.example.trabajodea10.data.ReglasFerias.fechaSantiago())
+    val total = com.example.trabajodea10.data.VitrinaStore.ferias.size
     Column(modifier = Modifier.fillMaxSize().background(FondoLimpio)) {
-        BarraSuperior(titulo = "Ferias", subtitulo = "${ferias.size} en el servidor")
         LazyColumn(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Tarjeta {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("La gestión de ferias se hace en la web", fontWeight = FontWeight.Bold)
-                        Text("Publicar, cancelar, invitar o agregar emprendedoras y asociaciones, el checklist, los avisos y la asistencia están en el Panel Admin de la web.",
-                            style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
-                        com.example.trabajodea10.ui.componentes.BotonPrimario(texto = "Abrir la web de administración", onClick = {
-                            runCatching {
-                                contexto.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://diego-733.github.io/EmprendedoresPuertoMontt/")))
-                            }.onFailure { avisar("No hay un navegador para abrir la web.") }
-                        })
-                    }
+                com.example.trabajodea10.ui.componentes.CabeceraMarca(
+                    sobretitulo = "Calendario",
+                    titulo = "Ferias",
+                    subtitulo = "$total en el servidor · ${grupos.enCurso.size + grupos.proximas.size} por venir"
+                ) {
+                    com.example.trabajodea10.ui.componentes.FilaCifras(
+                        grupos.enCurso.size.toString() to "Hoy",
+                        grupos.proximas.size.toString() to "Próximas",
+                        grupos.anteriores.size.toString() to "Anteriores"
+                    )
                 }
             }
-            if (ferias.isEmpty()) item { Vacio(titulo = "Sin ferias", mensaje = "Aún no hay ferias publicadas en el servidor.") }
-            items(ferias, key = { it.id }) { f ->
-                Tarjeta(onClick = { nav.irA(Ruta.FeriaPublica(f.id)) }) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(f.nombre, fontWeight = FontWeight.SemiBold)
-                        Text(com.example.trabajodea10.data.ReglasVitrina.rangoFechas(f) + " · " + when (f.estado) {
-                            "CANCELADA" -> "Cancelada"; "FINALIZADA" -> "Finalizada"; "BORRADOR" -> "Borrador"; else -> "Publicada"
-                        }, style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
-                        if (f.lugar.isNotBlank()) Text("📍 ${f.lugar}", style = MaterialTheme.typography.bodySmall, color = TextoSecundario)
+            item {
+                com.example.trabajodea10.ui.componentes.AvisoAccion(
+                    "Crear, publicar, cancelar, invitar, el checklist, los avisos y la asistencia se hacen en el panel web.",
+                    com.example.trabajodea10.ui.componentes.Tono.AZUL, Modifier.padding(horizontal = 16.dp),
+                    accion = "Abrir web",
+                    onAccion = {
+                        runCatching {
+                            contexto.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                URL_PANEL_WEB.toUri()))
+                        }.onFailure { avisar("No hay un navegador para abrir la web.") }
+                    }
+                )
+            }
+            if (total == 0) item { Vacio(titulo = "Sin ferias", mensaje = "Aún no hay ferias publicadas en el servidor.") }
+            listOf(
+                Triple("Hoy", grupos.enCurso, true), Triple("Próximas", grupos.proximas, false),
+                Triple("Anteriores", grupos.anteriores, false), Triple("Canceladas", grupos.canceladas, false)
+            ).filter { it.second.isNotEmpty() }.forEach { (titulo, lista, hoy) ->
+                item {
+                    com.example.trabajodea10.ui.componentes.EncabezadoSeccion(
+                        "$titulo (${lista.size})", Modifier.padding(horizontal = 16.dp))
+                }
+                item {
+                    com.example.trabajodea10.ui.componentes.GrupoFilas(Modifier.padding(horizontal = 16.dp)) {
+                        lista.forEachIndexed { i, f ->
+                            if (i > 0) androidx.compose.material3.HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                            FilaFeria(f, enCurso = hoy) { nav.irA(Ruta.FeriaPublica(f.id)) }
+                        }
                     }
                 }
             }

@@ -341,9 +341,9 @@ fun PantallaLogin(nav: ControladorNavegacion) {
 
                     Text(
                         text = if (pestanaModo == 0)
-                            "Accede a tu panel para publicar productos, crear afiches comerciales y gestionar tus pedidos en línea."
+                            "Entra a tu tienda para agregar productos, registrar ventas, ver tus ferias y compartir tu tienda."
                         else
-                            "Conéctate para comprar con carrito directo, seguir tus tiendas favoritas y recibir avisos de ferias.",
+                            "Entra para seguir tus tiendas favoritas, calificar y recibir avisos de ferias.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextoSecundario
                     )
@@ -797,12 +797,18 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                                     }
 
                                     OutlinedButton(
-                                        onClick = { Toast.makeText(contexto, "Acceso exclusivo Web: La administración de plataforma opera solo vía web (Requisito W03).", Toast.LENGTH_LONG).show() },
+                                        // Solo en depuración y sin servidor: permite revisar el panel de administración
+                                        // con datos de ejemplo rotulados como tales. En la versión conectada el rol lo
+                                        // asigna siempre el servidor.
+                                        onClick = {
+                                            SesionManager.entrarModoDesarrolladorPrueba("t_minimarket_rosa", Rol.ADMIN)
+                                            nav.iniciarSesion(Rol.ADMIN)
+                                        },
                                         shape = RoundedCornerShape(10.dp),
                                         border = BorderStroke(1.dp, GrisBorde),
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        Text("Admin (Solo Web W03)", fontSize = 10.sp, color = NegroApple, fontWeight = FontWeight.Bold)
+                                        Text("Entrar Administración", fontSize = 11.sp, color = NegroApple, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }

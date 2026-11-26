@@ -1,0 +1,222 @@
+/* ============================================================
+   ALERCE — Nueva generación (rediseño v2, 26-nov-2026)
+   Se carga al final: ordena la apariencia sin tocar el HTML de las funciones ni los permisos.
+   Dirección: bosque profundo para la marca (cabeceras, portada, pie), ámbar como acento comercial
+   (sellos y cifras, siempre con texto oscuro), fondo cálido, tarjetas sin borde con sombra suave,
+   jerarquía editorial (sobretítulo en mayúsculas + título fuerte). Igual que Android:
+   ui/componentes/SistemaAlerce.kt y ui/theme/Color.kt.
+   Accesibilidad: contrastes ≥ 4,5:1 (texto blanco sobre bosque 12,9:1; tinta sobre ámbar 10:1),
+   objetivos de 44–48 px y todo en rem (sigue A+/A++ y el zoom del navegador).
+   ============================================================ */
+
+:root {
+  --neblina: #F5F3EE;          /* fondo cálido (antes gris verdoso) */
+  --linea: #DDD8CE;
+  --bosque: #0E3B2E;
+  --bosque-profundo: #09271E;
+  --brote: #2F7A5A;
+  --sobre-bosque: #CFE3DA;     /* texto secundario sobre bosque · 10:1 */
+  --ambar: #F4B740;
+  --ambar-suave: #FFF1D1;
+  --ambar-texto: #6B4500;
+  --sombra-1: 0 1px 2px rgba(14, 59, 46, .06), 0 2px 8px rgba(14, 59, 46, .07);
+  --sombra-2: 0 2px 6px rgba(14, 59, 46, .08), 0 10px 28px rgba(14, 59, 46, .12);
+  --radio-card: 20px;
+  --radio-boton: 14px;
+  --degradado-marca: linear-gradient(135deg, var(--bosque) 0%, #164A39 55%, var(--brote) 100%);
+}
+body.alto-contraste { --bosque: #062218; --brote: #0B3D2C; --sobre-bosque: #fff; --neblina: #fff; }
+
+body { background: var(--neblina); }
+
+/* ---------- Cabecera ---------- */
+.barra-superior-info { background: var(--bosque-profundo); }
+.encabezado { background: rgba(255, 255, 255, .96); border-bottom: 0; box-shadow: var(--sombra-1); position: relative; z-index: 20; }
+.logo-alerce { letter-spacing: .18em; font-weight: 800; }
+.punto-rojo { background: var(--ambar) !important; }
+
+/* Navegación por secciones: pestañas tipo píldora (antes, subrayado). */
+.navegacion-principal { border-top: 1px solid var(--linea); }
+.menu-navegacion { gap: 6px 8px; padding-top: 8px; padding-bottom: 8px; }
+.enlace-seccion {
+  padding: 10px 16px; border-radius: 999px; font-weight: 700; color: var(--tinta-suave);
+  display: inline-flex; align-items: center; min-height: 44px;
+}
+.enlace-seccion:hover { background: var(--musgo-claro); color: var(--bosque); }
+.enlace-seccion.activo { background: var(--bosque); color: #fff; }
+.enlace-seccion.activo::after { display: none; }
+
+/* Botones */
+.btn-accion-pill { border-radius: var(--radio-boton); font-weight: 700; }
+.btn-carrito-pill { border-radius: var(--radio-boton); background: var(--bosque); border-color: var(--bosque); box-shadow: var(--sombra-1); }
+.contador-carrito { background: var(--ambar); color: var(--tinta); }
+.btn-usuario-cabecera { border-radius: var(--radio-boton); }
+
+/* ---------- Portada: panel de marca con el buscador adentro ---------- */
+.portada { gap: 18px; margin: 14px 0 32px; }
+.portada-texto {
+  position: relative; overflow: hidden; isolation: isolate;
+  background: var(--degradado-marca); color: #fff; border: 0; border-radius: 28px; padding: clamp(22px, 4vw, 40px);
+  box-shadow: var(--sombra-2);
+}
+.portada-texto::before, .portada-texto::after {
+  content: ""; position: absolute; border-radius: 50%; background: rgba(255, 255, 255, .06); z-index: -1; pointer-events: none;
+}
+.portada-texto::before { width: 420px; height: 420px; right: -140px; top: -180px; }
+.portada-texto::after { width: 260px; height: 260px; right: 8%; bottom: -170px; background: rgba(255, 255, 255, .05); }
+.portada-sobretitulo {
+  display: inline-block; margin: 0 0 12px; padding: 6px 14px; border-radius: 999px;
+  background: var(--ambar); color: var(--tinta); font-weight: 800; font-size: 0.875rem; letter-spacing: .02em;
+}
+.portada-titulo { color: #fff; font-weight: 800; letter-spacing: -0.02em; font-size: clamp(28px, 4.4vw, 46px); }
+.portada-bajada { color: var(--sobre-bosque); }
+.buscador-etiqueta { color: #fff; }
+.buscador-portada .input-buscador-pill { background: #fff; border-color: transparent; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.buscador-portada .input-buscador-pill:focus { border-color: var(--ambar); }
+.estado-buscar-voz { color: var(--sobre-bosque); }
+.portada-texto a:focus-visible, .portada-texto button:focus-visible, .portada-texto input:focus-visible { outline-color: var(--ambar); }
+.atajo { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .35); color: #fff; }
+.atajo:hover { background: rgba(255, 255, 255, .2); }
+.atajo[aria-pressed="true"] { background: var(--ambar); border-color: var(--ambar); color: var(--tinta); }
+
+/* Próxima feria: tarjeta blanca tipo «entrada», con franja ámbar. */
+.portada-feria {
+  background: #fff; color: var(--tinta); border-radius: 28px; box-shadow: var(--sombra-2);
+  background-image: none; border-top: 10px solid var(--ambar); justify-content: center;
+}
+.portada-feria-etiqueta { color: var(--musgo); text-transform: uppercase; letter-spacing: .08em; font-size: 0.8125rem; opacity: 1; }
+.portada-feria-nombre { color: var(--tinta); font-size: 1.625rem; font-weight: 800; }
+.portada-feria-fecha { color: var(--corteza); }
+.portada-feria-lugar { color: var(--tinta-suave); opacity: 1; }
+.portada .portada-feria .btn-secundario, .portada .portada-feria .btn-accion-pill {
+  background: var(--bosque) !important; border-color: var(--bosque) !important; color: #fff !important;
+}
+.portada-feria-cargando, .portada-feria-vacia { color: var(--tinta-suave); opacity: 1; }
+
+/* ---------- Títulos de sección: jerarquía editorial ---------- */
+.titulo-seccion-editorial { font-size: clamp(1.5rem, 2.6vw, 2rem); font-weight: 800; letter-spacing: -0.01em; }
+.titulo-seccion-editorial > span { position: relative; }
+.titulo-seccion-editorial > span::after {
+  content: ""; display: block; width: 44px; height: 5px; border-radius: 3px; background: var(--ambar); margin-top: 6px;
+}
+
+/* ---------- Productos ---------- */
+.grilla-productos { gap: 16px; }
+.portada-prod {
+  border: 0; border-radius: 20px; box-shadow: var(--sombra-1);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.portada-prod:hover { transform: translateY(-3px); box-shadow: var(--sombra-2); }
+.portada-prod-texto { padding: 12px 14px 16px; }
+.portada-prod-precio { font-weight: 800; font-size: 1.3125rem; }
+.portada-prod-nombre { font-weight: 700; }
+
+/* ---------- Emprendimientos ---------- */
+.tarjeta-tienda {
+  border: 0; border-top: 6px solid var(--color-tienda, var(--musgo)); border-radius: 20px; box-shadow: var(--sombra-1);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.tarjeta-tienda:hover { transform: translateY(-3px); box-shadow: var(--sombra-2); }
+.tarjeta-nombre { font-weight: 800; }
+.e6-tab { border-radius: 999px; }
+.e6-tab.activo { background: var(--bosque); border-color: var(--bosque); color: #fff; }
+.filtros-plegables { border: 0; border-radius: 18px; background: #fff; box-shadow: var(--sombra-1); }
+.e6-filtro-activo { border-radius: 999px; background: var(--ambar-suave); border-color: var(--ambar); color: var(--ambar-texto); }
+
+/* Franja para vender */
+.franja-vender { background: var(--degradado-marca); color: #fff; border: 0; border-radius: 28px; box-shadow: var(--sombra-2); }
+.franja-vender h2, .franja-vender p { color: #fff; }
+.franja-vender p { color: var(--sobre-bosque); }
+
+/* ---------- Panel de la emprendedora ---------- */
+.panel-emprendedora { border: 0; border-radius: 28px; box-shadow: var(--sombra-1); padding: 0; overflow: hidden; gap: 0; }
+.panel-emprendedora > *:not(.panel-emp-cabecera) { margin-left: 20px; margin-right: 20px; }
+.panel-emprendedora > *:last-child { margin-bottom: 20px; }
+.panel-emprendedora > * + * { margin-top: 14px; }
+.panel-emp-cabecera { background: var(--degradado-marca); color: #fff; padding: 24px 24px 22px; }
+.panel-emp-tienda { color: var(--ambar); text-transform: uppercase; letter-spacing: .08em; }
+.panel-emp-saludo { color: #fff; font-weight: 800; font-size: clamp(1.625rem, 3vw, 2.125rem); }
+.panel-emp-sub { color: var(--sobre-bosque); }
+.accion-grande { border: 0; border-radius: 20px; background: #fff; box-shadow: var(--sombra-1); }
+.accion-grande:hover { box-shadow: var(--sombra-2); }
+.accion-principal { background: var(--bosque); color: #fff; }
+.accion-icono { background: var(--musgo-claro); border-radius: 14px; width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 48px; }
+.accion-principal .accion-icono { background: rgba(255, 255, 255, .16); }
+
+/* ---------- Ventanas ---------- */
+.modal-panel-editorial { border-radius: 24px; box-shadow: 0 24px 60px rgba(9, 39, 30, .28); }
+.ficha-identidad { border-radius: 22px; }
+
+/* ---------- Panel de administración: herramienta de gestión ---------- */
+.panel-admin { background: transparent; border: 0; padding: 0; }
+.panel-admin-interior { max-width: 1240px; gap: 16px; }
+.panel-admin-cabecera {
+  background: var(--degradado-marca); color: #fff; border-radius: 28px; padding: 26px 28px; box-shadow: var(--sombra-2);
+  position: relative; overflow: hidden; isolation: isolate;
+}
+.panel-admin-cabecera::after {
+  content: ""; position: absolute; width: 360px; height: 360px; border-radius: 50%; right: -120px; top: -160px;
+  background: rgba(255, 255, 255, .07); z-index: -1; pointer-events: none;
+}
+.panel-admin-cuenta { color: var(--ambar); text-transform: uppercase; letter-spacing: .06em; font-size: 0.8125rem; }
+.panel-admin-titulo { color: #fff; font-weight: 800; font-size: clamp(1.625rem, 3vw, 2.25rem); }
+.panel-admin-sub { color: var(--sobre-bosque); }
+.panel-admin-cabecera .btn-terciario { background: #fff !important; color: var(--bosque) !important; border-color: #fff !important; }
+.panel-admin-cabecera a:focus-visible, .panel-admin-cabecera button:focus-visible { outline-color: var(--ambar); }
+.admin-kpis > div { background: #fff; box-shadow: var(--sombra-1); border-radius: 16px; }
+
+.admin-pestanas {
+  background: #fff; border: 0; border-radius: 22px; padding: 10px; box-shadow: var(--sombra-1); top: 8px;
+}
+.admin-pestana { border-color: transparent; background: transparent; border-radius: 14px; text-align: left; }
+.admin-pestana:hover { background: var(--musgo-claro); border-color: transparent; }
+.admin-pestana.activa, .admin-pestana[aria-selected="true"] { background: var(--bosque); border-color: var(--bosque); color: #fff; }
+.panel-admin-cuerpo {
+  background: #fff; border-radius: 22px; box-shadow: var(--sombra-1); padding: 20px !important;
+}
+.e6-admin-tarjeta { border: 0; background: var(--neblina); }
+
+/* Escritorio: navegación lateral fija y el área de trabajo a la derecha. */
+@media (min-width: 1024px) {
+  .panel-admin-interior {
+    display: grid; grid-template-columns: 250px minmax(0, 1fr); align-items: start; column-gap: 20px;
+  }
+  .panel-admin-cabecera, .admin-kpis { grid-column: 1 / -1; }
+  .admin-pestanas {
+    grid-column: 1; position: sticky; top: 16px; flex-direction: column; flex-wrap: nowrap; gap: 4px;
+  }
+  .admin-pestanas::before {
+    content: "Áreas de gestión"; display: block; padding: 6px 12px 8px; font-size: 0.75rem; font-weight: 800;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--musgo);
+  }
+  .admin-pestana { width: 100%; justify-content: flex-start; padding: 10px 14px; }
+  .panel-admin-cuerpo { grid-column: 2; min-width: 0; }
+}
+
+/* ---------- Pie ---------- */
+.pie-pagina { background: var(--bosque-profundo); border-top: 6px solid var(--ambar); }
+.pie-pagina .logo-alerce { letter-spacing: .18em; }
+
+/* Movimiento reducido: sin desplazamientos al pasar el mouse. */
+@media (prefers-reduced-motion: reduce) {
+  .portada-prod, .tarjeta-tienda { transition: none; }
+  .portada-prod:hover, .tarjeta-tienda:hover { transform: none; }
+}
+
+/* Ajustes finos */
+.enlace-seccion.enlace-admin.activo, .enlace-seccion.activo.enlace-admin { color: #fff; }
+@media (min-width: 900px) { .portada-titulo { hyphens: manual; -webkit-hyphens: manual; } }
+
+/* Administración en el celular: cabecera compacta y pestañas en una sola fila deslizable,
+   para que el listado y «crear» se vean apenas se toca cada pestaña. */
+@media (max-width: 1023px) {
+  .panel-admin-cabecera { padding: 16px 18px; border-radius: 22px; }
+  .panel-admin-titulo { font-size: 1.375rem; }
+  .panel-admin-cabecera .btn-terciario { min-height: 44px; }
+  .admin-pestanas {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding: 6px; border-radius: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-pestana { flex: 0 0 auto; white-space: nowrap; padding: 8px 14px; }
+  .panel-admin-cuerpo { padding: 12px !important; border-radius: 18px; }
+}

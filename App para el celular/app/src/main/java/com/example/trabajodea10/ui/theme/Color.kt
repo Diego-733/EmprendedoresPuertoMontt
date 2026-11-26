@@ -11,8 +11,19 @@ val MusgoClaro = Color(0xFFE4EFEA)
 val Corteza = Color(0xFF8C3B22)          // precios y marca · 7,6:1 sobre blanco
 val Tinta = Color(0xFF1E2421)            // texto
 val TintaSuave = Color(0xFF4F5B55)       // texto secundario · 7:1 sobre blanco
-val Neblina = Color(0xFFF3F5F2)          // fondo
-val Linea = Color(0xFFD5DCD6)
+val Neblina = Color(0xFFF5F3EE)          // fondo cálido (antes gris verdoso F3F5F2)
+val Linea = Color(0xFFDDD8CE)
+
+// Nueva generación (rediseño v2): bosque profundo para cabeceras de marca, brote para degradados
+// y ámbar como acento comercial (insignias, cifras destacadas). El ámbar se usa siempre con texto oscuro.
+val Bosque = Color(0xFF0E3B2E)           // cabeceras · texto blanco 12,9:1
+val BosqueProfundo = Color(0xFF09271E)
+val Brote = Color(0xFF2F7A5A)            // extremo claro del degradado de cabecera · blanco 5,4:1
+val SobreBosqueSuave = Color(0xFFCFE3DA) // texto secundario sobre Bosque · 10:1
+val Ambar = Color(0xFFF4B740)            // acento · Tinta sobre ámbar 10:1
+val AmbarSuave = Color(0xFFFFF1D1)
+val AmbarTexto = Color(0xFF6B4500)       // sobre AmbarSuave 7,4:1
+val Superficie2 = Color(0xFFFBFAF7)      // segundo nivel dentro de tarjetas
 
 // Estados: «Disponible / Guardado», «Pendiente / Quedan pocos», «Se acabó», «A pedido».
 val EstadoOkTexto = Color(0xFF1E6B3A)

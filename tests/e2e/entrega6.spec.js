@@ -201,8 +201,21 @@ test.describe("Entrega 6 · vitrina pública", () => {
     expect(alto).toBeGreaterThanOrEqual(44);
     await page.locator("#e6-filtro-tipo").selectOption("Artesanía");
     await expect(page.locator("#grilla-tiendas-marketplace .tarjeta-tienda")).toHaveCount(1);
+    // Rediseño: el resumen cuenta los filtros activos y cada uno se ve como chip que se puede quitar.
+    await expect(page.locator("#filtros-tiendas > summary")).toHaveText("Filtros (1)");
+    const chips = page.locator("#e6-filtros-activos");
+    await expect(chips).toBeVisible();
+    await expect(chips.locator("button").first()).toHaveText(/Tipo: Artesanía/);
+    await expect(chips.locator("button").first()).toHaveAttribute("aria-label", /Quitar el filtro/);
+    const altoChip = await chips.locator("button").first().evaluate((el) => el.getBoundingClientRect().height);
+    expect(altoChip).toBeGreaterThanOrEqual(44);
+    await chips.locator("button").first().click();
+    await expect(page.locator("#grilla-tiendas-marketplace .tarjeta-tienda")).toHaveCount(3);
+    await expect(chips).toBeHidden();
+    await expect(page.locator("#filtros-tiendas > summary")).toHaveText("Filtros: tipo, sector o asociación");
+    await page.locator("#e6-filtro-tipo").selectOption("Artesanía");
     await page.evaluate(() => window.TramaWeb.abrirVitrinaTienda("t_tejidos"));
-    const panel = await page.locator("#modal-tienda-vitrina .modal-panel-editorial").evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
+    const panel =await page.locator("#modal-tienda-vitrina .modal-panel-editorial").evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth }));
     expect(panel.sw).toBeLessThanOrEqual(panel.cw + 1);
   });
 });

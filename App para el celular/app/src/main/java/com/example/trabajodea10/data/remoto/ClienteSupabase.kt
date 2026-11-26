@@ -145,7 +145,7 @@ object ClienteSupabase {
         conToken: Boolean = true
     ): String = withContext(Dispatchers.IO) {
         if (!ConfigSupabase.configurado) {
-            throw ErrorSupabase(0, "La app no tiene configurada la conexión (supabase.properties).")
+            throw ErrorSupabase(0, "Esta versión de la app no está conectada al servidor. Usa una versión conectada o las tiendas de prueba.")
         }
         fun cuerpo(): RequestBody? = when {
             bytes != null -> bytes.toRequestBody(tipoBytes.toMediaType())

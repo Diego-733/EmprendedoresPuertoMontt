@@ -17,19 +17,19 @@ val Typography = Typography(
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.ExtraBold,
         fontSize = 30.sp,
         lineHeight = 38.sp
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.ExtraBold,
         fontSize = 24.sp,
         lineHeight = 32.sp
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 20.sp,
         lineHeight = 27.sp
     ),

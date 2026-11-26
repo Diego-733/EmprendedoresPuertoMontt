@@ -214,53 +214,48 @@ fun PantallaCatalogo(
             Text(problema, color = TextoSecundario, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
         }
 
-        // Botón sobrio para añadir producto
-        androidx.compose.material3.Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .clickable {
-                    val id = TramaStore.crearProductoBorrador()
-                    nav.irA(Ruta.ProductoDetalle(id))
-                },
-            colors = androidx.compose.material3.CardDefaults.cardColors(
-                containerColor = com.example.trabajodea10.ui.theme.Musgo
-            ),
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+        // Añadir producto (acción principal) y la guía (alternativa) en una sola fila: antes eran dos
+        // botones de ancho completo que empujaban los productos hacia abajo.
+        // Con letra grande (130 % o más) van uno debajo del otro, a lo ancho, para que no se corten.
+        val letraGrande = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.3f
+        val botonAnadir: @Composable (Modifier) -> Unit = { m ->
+            androidx.compose.material3.Button(
+                onClick = { val id = TramaStore.crearProductoBorrador(); nav.irA(Ruta.ProductoDetalle(id)) },
+                modifier = m.heightIn(min = 52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = com.example.trabajodea10.ui.theme.Musgo, contentColor = Color.White)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(com.example.trabajodea10.ui.theme.MusgoOscuro, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("➕", fontSize = 16.sp)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Añadir producto",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("➔", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text("➕  Añadir producto", fontWeight = FontWeight.Bold, fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
         // Guía opcional: entiende frases escritas o dictadas y acompaña el alta de siempre.
-        androidx.compose.material3.OutlinedButton(
-            onClick = { mostrarGuia = true },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).heightIn(min = 48.dp),
-            shape = RoundedCornerShape(14.dp),
-            border = androidx.compose.foundation.BorderStroke(1.5.dp, com.example.trabajodea10.ui.theme.Musgo)
-        ) {
-            Text("🧭 Guíame paso a paso", fontWeight = FontWeight.Bold, color = com.example.trabajodea10.ui.theme.Musgo)
+        val botonGuia: @Composable (Modifier) -> Unit = { m ->
+            androidx.compose.material3.OutlinedButton(
+                onClick = { mostrarGuia = true },
+                modifier = m.heightIn(min = 52.dp),
+                shape = RoundedCornerShape(14.dp),
+                border = androidx.compose.foundation.BorderStroke(1.5.dp, com.example.trabajodea10.ui.theme.Musgo)
+            ) {
+                Text("🧭 Guíame paso a paso", fontWeight = FontWeight.Bold, color = com.example.trabajodea10.ui.theme.Musgo, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
+        if (letraGrande) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                botonAnadir(Modifier.fillMaxWidth())
+                botonGuia(Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                botonAnadir(Modifier.weight(1.3f))
+                botonGuia(Modifier.weight(1f))
+            }
         }
 
         CampoBusqueda(
@@ -286,20 +281,22 @@ fun PantallaCatalogo(
                     onClick = { filtro = opcion }
                 )
             }
+            // «Cambiar varios a la vez» (RF-PRO-10): ahora es un chip más de la fila, no una línea aparte.
+            ChipFiltro(texto = "☑ Elegir varios", seleccionado = seleccionando, onClick = { seleccionando = !seleccionando; seleccion.clear() })
         }
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        Row(
+        if (seleccionando) Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (seleccionando) "${seleccion.size} elegidos" else "Cambiar varios a la vez",
+                text = "Cambiar varios a la vez: ${seleccion.size} elegidos",
                 modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold
             )
-            TextButton(onClick = { seleccionando = !seleccionando; seleccion.clear() }, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(if (seleccionando) "Listo" else "Elegir varios", fontWeight = FontWeight.Bold)
+            TextButton(onClick = { seleccionando = false; seleccion.clear() }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text("Listo", fontWeight = FontWeight.Bold)
             }
         }
         if (seleccionando) {

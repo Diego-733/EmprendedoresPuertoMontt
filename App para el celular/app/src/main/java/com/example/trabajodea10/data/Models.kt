@@ -421,7 +421,9 @@ data class ConfigSistema(
 data class PreferenciasEmprendedora(
     val alertasStock: Boolean = true,
     val recordatoriosFeria: Boolean = true,
-    val resumenVentas: Boolean = false
+    val resumenVentas: Boolean = false,
+    /** Inicio con botones grandes y pocas opciones (opcional y reversible; se guarda por cuenta). */
+    val modoSencillo: Boolean = false
 )
 
 /**

@@ -27,7 +27,7 @@ function estadoPrimeraVez() {
   };
 }
 
-async function preparar(page, { voz = { texto: "chal de lana" } } = {}) {
+async function preparar(page, { voz = { texto: "chal de lana" }, lectura } = {}) {
   page.on("pageerror", (e) => console.log("ERROR DE PÁGINA:", e.message));
   await page.route(ORIGEN + "/**", (route) => {
     const ruta = decodeURIComponent(new URL(route.request().url()).pathname);
@@ -39,9 +39,23 @@ async function preparar(page, { voz = { texto: "chal de lana" } } = {}) {
   await page.route("https://cdn.jsdelivr.net/npm/@supabase/**", (r) => r.fulfill({ contentType: "text/javascript", body: FALSO }));
   await page.route("https://falso.supabase.co/auth/v1/settings", (r) => r.fulfill({ contentType: "application/json", body: JSON.stringify({ external: { google: false } }) }));
   await page.route(/^https:\/\/(unpkg\.com|tile\.openstreetmap\.org|fonts\.|picsum|images\.unsplash)/, (r) => r.fulfill({ status: 404, body: "" }));
-  await page.addInitScript(({ estado, voz }) => {
+  await page.addInitScript(({ estado, voz, lectura }) => {
     window.__FALSO__ = estado;
     Object.defineProperty(window, "isSecureContext", { value: true, configurable: true });
+    // Lectura en voz alta: null = el navegador no la tiene; { voces } = SIMULADA (registra lo leído, no suena).
+    if (lectura === null) {
+      Object.defineProperty(window, "speechSynthesis", { value: undefined, configurable: true });
+      window.SpeechSynthesisUtterance = undefined;
+    } else if (lectura) {
+      var L = window.__LECTURA__ = { dichos: [], cancelaciones: 0, actual: null };
+      var fin = function (u) { if (L.actual === u) { L.actual = null; if (u.onend) u.onend(); } };
+      Object.defineProperty(window, "speechSynthesis", { configurable: true, value: {
+        getVoices: function () { return lectura.voces.map(function (l) { return { lang: l, name: "Voz " + l }; }); },
+        speak: function (u) { L.dichos.push({ texto: u.text, lang: u.lang, voz: u.voice && u.voice.lang }); L.actual = u; setTimeout(function () { fin(u); }, 400); },
+        cancel: function () { L.cancelaciones++; if (L.actual) fin(L.actual); }
+      } });
+      window.SpeechSynthesisUtterance = function (t) { this.text = t; };
+    }
     if (!voz) { window.SpeechRecognition = undefined; window.webkitSpeechRecognition = undefined; return; }
     window.__VOZ__ = { textos: [].concat(voz.texto), usados: 0 };
     function Simulado() {}
@@ -53,7 +67,7 @@ async function preparar(page, { voz = { texto: "chal de lana" } } = {}) {
     Simulado.prototype.abort = function () { var yo = this; setTimeout(function () { yo.onerror({ error: "aborted" }); yo.onend(); }, 10); };
     window.SpeechRecognition = undefined;
     window.webkitSpeechRecognition = Simulado;
-  }, { estado: estadoPrimeraVez(), voz });
+  }, { estado: estadoPrimeraVez(), voz, lectura });
   await page.goto(ORIGEN + "/");
   await expect(page.locator("#btn-abrir-catalogo-nav")).toBeVisible();
 }
@@ -171,4 +185,106 @@ test("celular angosto y letra grande: la tarjeta de ayuda cabe y sus botones mid
   });
   expect(medidas.cabe).toBe(true);
   for (const alto of medidas.botones) expect(alto).toBeGreaterThanOrEqual(48);
+});
+
+// ------------------------------------------------------------------ Lectura en voz alta (Etapa 1)
+
+const lectura = (page) => page.evaluate(() => window.__LECTURA__);
+
+test("«🔊 Escuchar este paso» lee con voz de Chile, se detiene, se calla al cambiar de paso y antes del micrófono", async ({ page }) => {
+  await preparar(page, { lectura: { voces: ["en-US", "es-ES", "es-CL"] } });
+  await page.locator("#btn-abrir-publicar-nav").click();
+  await page.locator("#pub-abrir-guia").click();
+  const escuchar = page.locator("#guia-escuchar");
+  await expect(escuchar).toHaveText("🔊 Escuchar este paso");
+  expect((await lectura(page)).dichos).toEqual([]);                       // nunca habla sola
+  await escuchar.click();
+  await expect(escuchar).toHaveText("⏹ Detener");
+  await expect(escuchar).toHaveAttribute("aria-pressed", "true");
+  let l = await lectura(page);
+  expect(l.dichos[0].texto).toContain("Primero, vamos a agregar una foto");
+  expect(l.dichos[0].voz).toBe("es-CL");
+  expect(l.dichos[0].texto).not.toMatch(/[«»📁]/);                        // sin símbolos que la voz deletrearía
+  await escuchar.click();                                                   // Detener
+  await expect(escuchar).toHaveText("🔊 Escuchar este paso");
+  await escuchar.click();
+  await expect(escuchar).toHaveText("⏹ Detener");
+  await expect(escuchar).toHaveText("🔊 Escuchar este paso", { timeout: 3000 });   // termina sola al acabar
+  // Cambiar de paso mientras lee: se calla.
+  await escuchar.click();
+  const antes = (await lectura(page)).cancelaciones;
+  await page.locator("#guia-siguiente").click();
+  expect((await lectura(page)).cancelaciones).toBeGreaterThan(antes);
+  await expect(guia(page)).toHaveAttribute("data-paso", "datos");
+  // Leer y luego dictar: la página se calla antes de abrir el micrófono.
+  await page.locator("#guia-escuchar").click();
+  const antesMic = (await lectura(page)).cancelaciones;
+  await page.getByRole("button", { name: "Dictar el nombre del producto" }).click();
+  await expect(page.locator("#pub-nombre")).toHaveValue("chal de lana");
+  expect((await lectura(page)).cancelaciones).toBeGreaterThan(antesMic);
+  // Revisión: también lee el resumen, con el precio en pesos. Nada se guarda por escuchar.
+  await page.locator("#pub-precio").fill("15000");
+  await page.locator("#guia-siguiente").click();
+  await page.locator("#guia-siguiente").click();
+  await expect(guia(page)).toHaveAttribute("data-paso", "guardar");
+  await page.locator("#guia-escuchar").click();
+  l = await lectura(page);
+  const ultimo = l.dichos[l.dichos.length - 1].texto;
+  expect(ultimo).toContain("Guardar producto");
+  expect(ultimo).toContain("Nombre: chal de lana");
+  expect(ultimo).toContain("15000 pesos");
+  expect(await page.evaluate(() => window.__FALSO__.llamadas.some((x) => x.rpc === "guardar_producto"))).toBe(false);
+  // Cerrar el formulario: se calla.
+  const antesCerrar = (await lectura(page)).cancelaciones;
+  await page.locator("#guia-salir").click();
+  expect((await lectura(page)).cancelaciones).toBeGreaterThan(antesCerrar);
+});
+
+test("navegador sin lectura en voz alta o sin voz en español: no aparece «Escuchar» y la guía funciona igual", async ({ page, browser }) => {
+  await preparar(page, { lectura: null });
+  await page.locator("#btn-abrir-publicar-nav").click();
+  await page.locator("#pub-abrir-guia").click();
+  await expect(guia(page)).toHaveAttribute("data-paso", "foto");
+  await expect(page.locator("#guia-escuchar")).toHaveCount(0);
+  await page.locator("#guia-siguiente").click();
+  await expect(guia(page)).toHaveAttribute("data-paso", "datos");
+
+  const otra = await browser.newPage();
+  await preparar(otra, { lectura: { voces: ["en-US", "fr-FR"] } });
+  await otra.locator("#btn-abrir-publicar-nav").click();
+  await otra.locator("#pub-abrir-guia").click();
+  await expect(guia(otra)).toHaveAttribute("data-paso", "foto");
+  await expect(otra.locator("#guia-escuchar")).toHaveCount(0);              // no lee con acento de otro idioma
+  await otra.close();
+});
+
+// ---------------------------------------------------------------- Asistente Alerce (web)
+
+test("asistente web: dictar un producto llena «Añadir producto» sin guardar nada", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await preparar(page, { voz: { texto: "quiero agregar un chaleco de lana a quince lucas" } });
+  const mic = page.locator("#aw-mic");
+  await mic.scrollIntoViewIfNeeded();
+  await expect(mic).toBeVisible();                                         // el micrófono aparece solo si el navegador puede dictar
+  await mic.click();
+  await expect(page.locator("#modal-publicar-producto")).toHaveClass(/abierto/);
+  await expect(page.locator("#pub-nombre")).toHaveValue("Chaleco de lana");
+  await expect(page.locator("#pub-precio")).toHaveValue("15000");
+  await expect(page.locator("#aw-conversacion")).toContainText("antes de eso no se guarda nada");
+  // Nada se guardó: el servidor simulado no recibió productos.
+  expect(await page.evaluate(() => window.__FALSO__.tablas.productos.length)).toBe(0);
+});
+
+test("asistente web: «¿cómo registro una venta?» da pasos, se puede escuchar y abre la venta de siempre", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await preparar(page, { voz: null, lectura: { voces: ["es-CL"] } });
+  await expect(page.locator("#aw-mic")).toBeHidden();                     // sin dictado: se escribe
+  await page.locator("#aw-entrada").fill("¿cómo registro una venta?");
+  await page.locator("#aw-entrada").press("Enter");
+  const ultima = page.locator("#aw-conversacion .aw-asistente").last();
+  await expect(ultima.locator(".aw-pasos li")).toHaveCount(3);
+  await ultima.getByRole("button", { name: "Escuchar la respuesta en voz alta" }).click();
+  expect(await page.evaluate(() => window.__LECTURA__.dichos.map((d) => d.texto).join(" "))).toContain("Paso 1");
+  await ultima.getByRole("button", { name: "Abrir «Registrar una venta»" }).click();
+  await expect(page.locator("#modal-pos")).toHaveClass(/abierto/);
 });

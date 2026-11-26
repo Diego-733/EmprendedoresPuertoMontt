@@ -18,7 +18,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
@@ -36,11 +40,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -122,6 +126,14 @@ fun PantallaEmprendedoraInicio(
                 )
             }
 
+            // Modo sencillo (opcional, en Ajustes): botones grandes con lo esencial. No quita nada:
+            // la barra de abajo, Ajustes y «Ver el inicio completo» siguen llevando a todo lo demás.
+            var verCompleto by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+            if (TramaStore.prefs.modoSencillo && !verCompleto) {
+                InicioSencillo(nav, onVerCompleto = { verCompleto = true })
+                return@Column
+            }
+
             // 2. Las dos tareas de todos los días
             BotonTarea(
                 titulo = "Registrar una venta",
@@ -136,6 +148,14 @@ fun PantallaEmprendedoraInicio(
                 icono = Icons.Filled.Inventory2,
                 principal = false,
                 onClick = { nav.seleccionarTab(Ruta.EmpCatalogo) }
+            )
+            // Asistente Alerce (opcional): enseña cómo se hace o prepara los datos; nunca reemplaza los botones de siempre.
+            BotonTarea(
+                titulo = "Asistente Alerce",
+                detalle = "Dime qué necesitas: te enseño o te ayudo a hacerlo",
+                icono = Icons.Filled.RecordVoiceOver,
+                principal = false,
+                onClick = { nav.irA(Ruta.Asistente) }
             )
 
             // 3. Lo que conviene revisar
@@ -244,6 +264,24 @@ private fun BotonTarea(titulo: String, detalle: String, icono: ImageVector, prin
     }
 }
 
+/** Inicio del modo sencillo: siete accesos grandes, con texto visible y en el orden de uso diario. */
+@Composable
+private fun InicioSencillo(nav: ControladorNavegacion, onVerCompleto: () -> Unit) {
+    BotonTarea("Hablar con mi asistente", "Dime qué necesitas, con tu voz o escribiendo", Icons.Filled.RecordVoiceOver, principal = true) { nav.irA(Ruta.Asistente) }
+    BotonTarea("Registrar una venta", "Descuenta lo que vendiste", Icons.Filled.PointOfSale, principal = false) { nav.seleccionarTab(Ruta.EmpVenta) }
+    BotonTarea("Agregar un producto", "Foto, nombre y precio", Icons.Filled.AddCircle, principal = false) {
+        nav.irA(Ruta.ProductoDetalle(TramaStore.crearProductoBorrador()))
+    }
+    BotonTarea("Ver mis productos", "Cuántos tengo y quién los ve", Icons.Filled.Inventory2, principal = false) { nav.seleccionarTab(Ruta.EmpCatalogo) }
+    BotonTarea("Ver mis ferias", "Invitaciones y fechas", Icons.Filled.EventAvailable, principal = false) { nav.seleccionarTab(Ruta.EmpFerias) }
+    BotonTarea("Compartir mi tienda", "Código QR y enlace", Icons.Filled.QrCode2, principal = false) { nav.irA(Ruta.EmpTiendaQR(TramaStore.tienda.id)) }
+    BotonTarea("Necesito ayuda", "Te explico paso a paso", Icons.AutoMirrored.Filled.HelpOutline, principal = false) { nav.irA(Ruta.CentroAyuda) }
+    TextButton(onClick = onVerCompleto, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        Text("Ver el inicio completo", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+    }
+    Text("El modo sencillo se apaga en Ajustes › Accesibilidad.", color = TextoSecundario, fontSize = 14.sp, modifier = Modifier.padding(bottom = 24.dp))
+}
+
 /** Aviso con texto y una acción con nombre (no solo color). */
 @Composable
 private fun AvisoConAccion(
@@ -257,7 +295,7 @@ private fun AvisoConAccion(
                 Spacer(modifier = Modifier.width(10.dp))
             }
             Text(text = texto, color = colorTexto, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f).semantics { heading() })
+                modifier = Modifier.weight(1f))
             TextButton(onClick = onAccion, modifier = Modifier.heightIn(min = 48.dp)) {
                 Text(accion, fontWeight = FontWeight.Bold, color = colorTexto, fontSize = 16.sp)
             }

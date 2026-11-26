@@ -158,11 +158,11 @@ fun PantallaVenta(
                                 )
                                 IconButton(
                                     onClick = { carrito.removeAll { it === item } },
-                                    modifier = Modifier.size(36.dp)
+                                    modifier = Modifier.size(48.dp)
                                 ) {
                                     Icon(
                                         Icons.Filled.Delete,
-                                        contentDescription = "Quitar",
+                                        contentDescription = "Quitar ${item.nombre} del carrito",
                                         tint = TextoSecundario,
                                         modifier = Modifier.size(18.dp)
                                     )

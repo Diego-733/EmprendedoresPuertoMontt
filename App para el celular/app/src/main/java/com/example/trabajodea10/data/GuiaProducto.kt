@@ -90,6 +90,24 @@ object GuiaProducto {
         )
     )
 
+    /**
+     * Lo mismo que [AYUDAS], dicho como lo diría una persona (para «🔊 Escuchar» y la lectura
+     * automática). Usa los nombres reales de los botones para que se puedan encontrar.
+     */
+    val LOCUCIONES = listOf(
+        "Primero, vamos a agregar una foto. Busca un lugar con buena luz y deja el producto al centro. " +
+            "Toca Tomar foto, o Elegir de la galería. Si ahora no tienes una, toca Siguiente y sigue sin foto.",
+        "Ahora escribe o dime cómo se llama tu producto y cuánto cuesta. " +
+            "Puedes tocar el micrófono para dictarlo. Cuando esté listo, toca Siguiente.",
+        "Si tu producto viene en tallas, colores o sabores, agrégalos aquí. Si no, toca Siguiente.",
+        "Ahora indica cuántos tienes. Si no lo sabes, déjalo como está y toca Siguiente. Lo puedes cambiar después.",
+        "Último paso. Elige si lo ven todos o solo tú, y toca Guardar en Mis productos. Antes de eso no se guarda nada."
+    )
+
+    /** Texto para leer en voz alta en un paso; [resumen] (si viene) se agrega al final. */
+    fun locucion(paso: Int, resumen: String? = null): String =
+        listOfNotNull(LOCUCIONES.getOrNull(paso), resumen?.takeIf { it.isNotBlank() }).joinToString(" ")
+
     // ---------- Estado de la guía en esta sesión (no se guarda en el servidor ni en el celular)
     var activa by mutableStateOf(false)
         private set

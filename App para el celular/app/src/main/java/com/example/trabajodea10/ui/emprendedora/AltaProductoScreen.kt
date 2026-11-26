@@ -169,13 +169,20 @@ fun PantallaProductoDetalle(
         TramaStore.actualizarBorrador(producto, paso)
     }
     LaunchedEffect(paso) { desplazamiento.scrollTo(0) }
+    // Al salir o al recrearse la pantalla (girar, cambiar la letra) se guarda lo último escrito, sin esperar.
+    // Si el producto ya se guardó o se descartó, no hay borrador y esto no hace nada.
+    val ultimoEstado = androidx.compose.runtime.rememberUpdatedState(producto to paso)
+    androidx.compose.runtime.DisposableEffect(productoId) {
+        onDispose { ultimoEstado.value.let { (p, s) -> TramaStore.actualizarBorrador(p, s) } }
+    }
 
     // El botón atrás del celular vuelve al paso anterior; desde el primero sale (lo ingresado queda guardado).
     BackHandler(enabled = paso > 0) { mostrarErrores = false; paso-- }
 
     // ---------- Fotos: cámara y galería, para el producto o para una opción ----------
-    var destinoFoto by remember { mutableStateOf<String?>(null) } // null = producto; si no, id de la opción
-    var archivoCamara by remember { mutableStateOf<File?>(null) }
+    // rememberSaveable: si Android recrea la pantalla mientras la cámara está abierta, la foto no se pierde.
+    var destinoFoto by rememberSaveable { mutableStateOf<String?>(null) } // null = producto; si no, id de la opción
+    var archivoCamara by rememberSaveable { mutableStateOf<File?>(null) }
 
     fun recibirFoto(uri: Uri) {
         val destino = destinoFoto
@@ -321,8 +328,18 @@ fun PantallaProductoDetalle(
                     4 -> if (producto.publicado) "Ahora: lo ven todos." else "Ahora: solo tú lo ves."
                     else -> null
                 }
+                // En la revisión, «Escuchar este paso» también lee lo que se va a guardar.
+                val resumenVoz = if (paso == 4) buildString {
+                    append("Vas a guardar: ")
+                    append(producto.nombre.ifBlank { "un producto sin nombre" })
+                    if (producto.precio > 0) append(", a " + com.example.trabajodea10.data.asistente.NumerosEs.pesos(producto.precio.toLong()))
+                    append(". ")
+                    append(resumen(producto).replace(" · ", ". "))
+                    append(if (producto.publicado) ". Lo ven todos." else ". Solo tú lo ves.")
+                } else null
                 TarjetaGuiaPaso(paso = paso, totalPasos = PASOS.size, nombrePaso = PASOS[paso], estado = estadoGuia,
-                    abrirEjemplo = paso == 0 && GuiaProducto.abrirEjemploFoto, onSalir = { GuiaProducto.salir() })
+                    abrirEjemplo = paso == 0 && GuiaProducto.abrirEjemploFoto, onSalir = { GuiaProducto.salir() },
+                    resumenParaLeer = resumenVoz)
             }
             when (paso) {
                 0 -> PasoFoto(producto, avisoCamara = avisoCamara, onCamara = { pedirCamara(null) }, onGaleria = { camaraRechazada = false; pedirGaleria(null) }, onQuitar = { producto = producto.copy(fotoUrl = null) })
@@ -586,6 +603,7 @@ private fun compartirProducto(context: Context, p: Producto) {
 @Composable
 private fun PasoFoto(p: Producto, avisoCamara: String?, onCamara: () -> Unit, onGaleria: () -> Unit, onQuitar: () -> Unit) {
     TituloPaso("Foto del producto", "Una foto clara ayuda a vender. Si no la tienes ahora, puedes agregarla después.")
+    ConsejosFoto()
     if (p.fotoUrl != null) {
         FotoProducto(
             fotoUrl = p.fotoUrl, colorRespaldo = p.colorFoto, inicial = p.nombre.ifBlank { " " },
@@ -610,10 +628,40 @@ private fun PasoFoto(p: Producto, avisoCamara: String?, onCamara: () -> Unit, on
         icono = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null, tint = NegroApple) })
     if (p.fotoUrl != null) {
         TextButton(onClick = onQuitar, modifier = Modifier.heightIn(min = 48.dp)) { Text("Quitar la foto", color = TextoSecundario) }
+        // Revisión local de la luz (solo un consejo: nunca impide guardar).
+        var consejo by remember(p.fotoUrl) { mutableStateOf<String?>(null) }
+        LaunchedEffect(p.fotoUrl) {
+            consejo = withContext(Dispatchers.IO) { com.example.trabajodea10.data.RevisionFoto.revisarArchivo(p.fotoUrl) }
+        }
+        consejo?.let {
+            Text("💡 $it", color = com.example.trabajodea10.ui.theme.EstadoPendTexto, style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
+        }
     }
     if (avisoCamara != null) {
         Text(avisoCamara, color = com.example.trabajodea10.ui.theme.EstadoPendTexto, style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite })
+    }
+}
+
+/** «Consejos para una buena foto»: se abren al tocar, se pueden escuchar y no tapan los botones. */
+@Composable
+private fun ConsejosFoto() {
+    var abiertos by rememberSaveable { mutableStateOf(false) }
+    val consejos = listOf(
+        "Busca buena luz: cerca de una ventana, de día. Evita el flash directo.",
+        "Deja el producto al centro y que se vea completo.",
+        "Usa un fondo liso (una mesa, una tela o una pared) para que el producto se note.",
+        "Mira la foto antes de seguir: si no te gusta, toca «Tomar otra foto»."
+    )
+    TextButton(onClick = { abiertos = !abiertos }, modifier = Modifier.heightIn(min = 48.dp)) {
+        Text(if (abiertos) "💡 Ocultar consejos para una buena foto" else "💡 Consejos para una buena foto", fontWeight = FontWeight.Bold)
+    }
+    if (abiertos) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            consejos.forEachIndexed { i, c -> Text((i + 1).toString() + ". " + c, style = MaterialTheme.typography.bodyLarge) }
+            com.example.trabajodea10.voz.BotonEscuchar(id = "consejos-foto", texto = "Consejos para una buena foto. " + consejos.joinToString(" "), etiqueta = "Escuchar los consejos")
+        }
     }
 }
 

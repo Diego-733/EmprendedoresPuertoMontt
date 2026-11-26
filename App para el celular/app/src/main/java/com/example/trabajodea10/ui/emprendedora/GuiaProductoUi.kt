@@ -54,21 +54,36 @@ import com.example.trabajodea10.ui.theme.MusgoClaro
 import com.example.trabajodea10.ui.theme.MusgoOscuro
 import com.example.trabajodea10.ui.theme.Neblina
 import com.example.trabajodea10.ui.theme.TintaSuave
+import com.example.trabajodea10.voz.BotonEscuchar
+import com.example.trabajodea10.voz.LectorVoz
+import androidx.compose.runtime.LaunchedEffect
 
 /**
  * Tarjeta de la guía dentro del alta de producto. Va en el contenido que se desplaza (no flota):
  * así no tapa el teclado, la foto ni los botones «Atrás» y «Siguiente».
  */
 @Composable
-fun TarjetaGuiaPaso(paso: Int, totalPasos: Int, nombrePaso: String, estado: String?, abrirEjemplo: Boolean, onSalir: () -> Unit) {
+fun TarjetaGuiaPaso(
+    paso: Int, totalPasos: Int, nombrePaso: String, estado: String?, abrirEjemplo: Boolean, onSalir: () -> Unit,
+    /** Resumen del producto para leerlo en voz alta en la revisión (opcional). */
+    resumenParaLeer: String? = null
+) {
     val ayuda = GuiaProducto.AYUDAS.getOrNull(paso) ?: return
     var verEjemplo by rememberSaveable(paso) { mutableStateOf(abrirEjemplo) }
     var verAyuda by rememberSaveable(paso) { mutableStateOf(abrirEjemplo) }
+    val contexto = LocalContext.current
+    val locucion = GuiaProducto.locucion(paso, resumenParaLeer)
+    // Lectura automática al llegar a cada paso: solo si la persona la activó en Ajustes
+    // y no hay TalkBack (para no hablar encima del lector de pantalla).
+    LaunchedEffect(paso) {
+        if (LectorVoz.debeLeerSolo(contexto)) LectorVoz.hablar("guia-paso", locucion)
+    }
     Surface(shape = RoundedCornerShape(14.dp), color = MusgoClaro, border = BorderStroke(2.dp, Musgo), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("🧭 Guía · Paso ${paso + 1} de $totalPasos: $nombrePaso", fontWeight = FontWeight.Bold,
                 color = MusgoOscuro, style = MaterialTheme.typography.titleSmall, modifier = Modifier.semantics { heading() })
             Text(ayuda.indicacion, style = MaterialTheme.typography.bodyLarge)
+            BotonEscuchar(id = "guia-paso", texto = locucion, etiqueta = "Escuchar este paso")
             if (!estado.isNullOrBlank()) {
                 Text(estado, fontWeight = FontWeight.Bold, color = MusgoOscuro, style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })

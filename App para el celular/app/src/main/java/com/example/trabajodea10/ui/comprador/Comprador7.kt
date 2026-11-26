@@ -255,7 +255,7 @@ fun SeccionCalificaciones(tienda: Tienda, productoId: String?, nav: ControladorN
                     Row {
                         (1..5).forEach { n ->
                             IconButton(onClick = { estrellas = n }, modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                                .semantics { contentDescription = "$n estrella${if (n == 1) "" else "s"}" }) {
+                                .semantics { contentDescription = "$n estrella${if (n == 1) "" else "s"}"; stateDescription = if (n <= estrellas) "marcada" else "sin marcar" }) {
                                 Icon(if (n <= estrellas) Icons.Filled.Star else Icons.Filled.StarBorder, contentDescription = null, modifier = Modifier.size(32.dp))
                             }
                         }

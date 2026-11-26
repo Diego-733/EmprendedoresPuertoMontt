@@ -18,6 +18,8 @@ class AplicacionTrama : Application() {
         com.example.trabajodea10.data.remoto.EstadoConexion.inicializar(this)
         Sincronizador.inicializar(this)
         TramaStore.inicializar(this)
+        // Preferencias de lectura en voz alta (el motor de voz se crea recién al primer uso).
+        com.example.trabajodea10.voz.LectorVoz.prepararPreferencias(this)
         // Entrega 6: vitrina (navegación anónima guardada) y mapas OpenStreetMap.
         com.example.trabajodea10.data.VitrinaStore.inicializar(this)
         com.example.trabajodea10.ui.comprador.configurarMapas(this)

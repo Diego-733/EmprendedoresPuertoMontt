@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -361,6 +362,9 @@ fun rememberDictadoPorVoz(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-CL")
             putExtra(RecognizerIntent.EXTRA_PROMPT, indicacion)
         }
+        // Si la app estaba leyendo en voz alta, se calla antes de abrir el micrófono
+        // (así el dictado no escucha a la propia app).
+        com.example.trabajodea10.voz.LectorVoz.detener()
         try {
             lanzador.launch(intent)
         } catch (_: ActivityNotFoundException) {
@@ -600,9 +604,13 @@ fun FilaSwitch(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Toda la fila es el interruptor: se puede tocar el texto (área grande) y TalkBack la lee como
+    // un solo control con su título, su descripción y si está activado.
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -617,7 +625,7 @@ fun FilaSwitch(
         Spacer(modifier = Modifier.width(12.dp))
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(checkedTrackColor = Berenjena)
         )
     }

@@ -227,5 +227,7 @@ private fun ContenidoSegunRuta(
         is Ruta.FeriaPublica -> com.example.trabajodea10.ui.comprador.PantallaFeriaPublica(ruta.feriaId, nav)
         Ruta.ConfigVitrina -> com.example.trabajodea10.ui.emprendedora.PantallaConfigVitrina(nav, avisar)
         Ruta.BandejaContactos -> com.example.trabajodea10.ui.emprendedora.PantallaBandejaContactos(nav, avisar)
+        Ruta.Asistente -> com.example.trabajodea10.ui.asistente.PantallaAsistente(nav, avisar)
+        Ruta.CentroAyuda -> com.example.trabajodea10.ui.asistente.PantallaCentroAyuda(nav)
     }
 }

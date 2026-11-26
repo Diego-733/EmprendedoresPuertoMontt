@@ -64,16 +64,20 @@
   var PASOS = [
     { id: "foto", titulo: "Paso 1 de 4 · Foto", campo: "pub-foto-input",
       indicacion: "Toca «📁 Elegir foto» y elige una foto del producto. Si ahora no tienes una, puedes seguir sin foto.",
+      locucion: "Primero, vamos a agregar una foto. Busca un lugar con buena luz y deja el producto al centro. Toca Elegir foto. Si ahora no tienes una, toca Seguir sin foto.",
       ayuda: "En el celular, «📁 Elegir foto» te deja usar la cámara o la galería. Si no das permiso a la cámara, elige la galería o tus archivos. También puedes seguir sin foto y agregarla después." },
     { id: "datos", titulo: "Paso 2 de 4 · Nombre y precio", campo: "pub-nombre",
       indicacion: "Escribe el «Nombre del producto» y el «Precio en pesos». Puedes dictar el nombre con 🎤 y corregirlo antes de guardar.",
       ejemplo: "Nombre: «Chal de lana gris». Precio: 15000 (sin puntos ni signo $).",
+      locucion: "Ahora escribe cómo se llama tu producto y cuánto cuesta. Puedes dictar el nombre con el micrófono. Cuando esté listo, toca Siguiente.",
       ayuda: "La categoría y la descripción ayudan a que te encuentren, pero puedes dejarlas como están. Tallas, colores y cantidades están en «3. Opciones»." },
     { id: "publicacion", titulo: "Paso 3 de 4 · Quién lo ve", campo: "pub-publicado",
       indicacion: "Marca «Lo ven todos» para mostrarlo en la vitrina. Déjalo sin marcar si por ahora solo tú lo ves.",
+      locucion: "Elige quién ve tu producto. Marca Lo ven todos para mostrarlo en la vitrina, o déjalo sin marcar si por ahora solo tú lo ves.",
       ayuda: "Puedes cambiarlo cuando quieras desde «Mis productos». «4. Disponibilidad» puede quedar como está." },
     { id: "guardar", titulo: "Paso 4 de 4 · Revisar y guardar", campo: "pub-guardar",
       indicacion: "Revisa los datos y toca «Guardar producto». Se guarda solo cuando tocas ese botón.",
+      locucion: "Último paso. Revisa los datos y toca Guardar producto. Antes de eso no se guarda nada.",
       ayuda: "Si algo falta, el formulario te avisa en rojo y no se guarda. Lo escrito no se pierde." }
   ];
 
@@ -96,10 +100,12 @@
   // ------------------------------------------------------------------ Interfaz
 
   /**
-   * ctx: { documento, ventana, abrirPublicar(), publicarAbierto(), abrirVenta(), ventaDisponible(), voz (AlerceVoz) }
+   * ctx: { documento, ventana, abrirPublicar(), publicarAbierto(), abrirVenta(), ventaDisponible(), voz (AlerceVoz),
+   *        lectura (AlerceLectura, opcional: «🔊 Escuchar este paso») }
    */
   function iniciar(ctx) {
     var doc = ctx.documento, win = ctx.ventana;
+    var lector = ctx.lectura && ctx.lectura.crear ? ctx.lectura.crear(win) : null;
     var el = function (id) { return doc.getElementById(id); };
     var pasoActual = -1, tarjeta = null;
 
@@ -228,6 +234,7 @@
       tarjeta = h("section", { id: "guia-paso", class: "guia-paso", "aria-label": "Guía: " + paso.titulo, "data-paso": paso.id }, [
         h("p", { class: "guia-paso-titulo", text: "🧭 " + paso.titulo }),
         h("p", { class: "guia-paso-indicacion", text: paso.indicacion }),
+        botonEscuchar(paso),
         extra
       ].concat(detalles).concat([h("div", { class: "guia-botones" }, botones)]));
       dest.padre.insertBefore(tarjeta, dest.antes);
@@ -235,6 +242,24 @@
       try { tarjeta.scrollIntoView({ block: "start", behavior: "auto" }); } catch (e) { /* sin scroll */ }
       var foco = tarjeta.querySelector(".guia-paso-titulo");
       if (foco) { foco.setAttribute("tabindex", "-1"); foco.focus({ preventScroll: true }); }
+    }
+    /** «🔊 Escuchar este paso» / «⏹ Detener». Sin lectura en voz alta en el navegador: no aparece. */
+    function botonEscuchar(paso) {
+      if (!lector || !lector.disponible || lector.hayVozEspanol() === false) return null;
+      var b = h("button", { type: "button", id: "guia-escuchar", class: "btn-accion-pill btn-secundario guia-escuchar", "aria-pressed": "false", text: "🔊 Escuchar este paso" });
+      function pintar(leyendo) {
+        b.textContent = leyendo ? "⏹ Detener" : "🔊 Escuchar este paso";
+        b.setAttribute("aria-pressed", leyendo ? "true" : "false");
+        b.setAttribute("aria-label", leyendo ? "Detener la lectura" : "Escuchar este paso en voz alta");
+      }
+      pintar(false);
+      b.addEventListener("click", function () {
+        if (lector.leyendo() === "guia") { lector.detener(); return; }
+        var texto = paso.locucion || paso.indicacion;
+        if (paso.id === "guardar") texto += " " + resumen().join(". ") + ".";
+        if (!lector.hablar("guia", texto, pintar)) pintar(false);
+      });
+      return b;
     }
     function siguiente() {
       var paso = PASOS[pasoActual];
@@ -250,6 +275,7 @@
       mostrarPaso(pasoActual + 1);
     }
     function quitarTarjeta() {
+      if (lector && lector.leyendo() === "guia") lector.detener();   // cambiar de paso o cerrar: se calla
       if (tarjeta && tarjeta.parentNode) {
         if (tarjeta.parentNode.classList) tarjeta.parentNode.classList.remove("guia-paso-actual");
         tarjeta.parentNode.removeChild(tarjeta);

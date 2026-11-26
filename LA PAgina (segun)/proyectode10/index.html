@@ -38,7 +38,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@400;600;700;800;900&family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600&display=swap" rel="stylesheet">
   <!-- Mapas (Entrega 6, RF-MAP): Leaflet + OpenStreetMap, sin clave de API -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=20261126_asistente">
   <link rel="stylesheet" href="css/vitrina6.css?v=20261119_e7">
   <link rel="stylesheet" href="css/ferias7.css?v=20261119_e7">
   <!-- Identidad Alerce (paleta, tipografía y distribución móvil primero). Va al final: ordena lo anterior. -->
@@ -310,6 +310,8 @@
         <span>📞 Asistencia y Mesa de Ayuda</span>
       </h2>
       <p class="subtitulo-seccion">¿Tienes dudas para comprar, contactar a una tienda o saber los horarios de ferias? Te asistimos con gusto.</p>
+      <!-- Asistente Alerce (web): lo arma js/asistenteWeb.js aquí mismo; no flota ni tapa controles. -->
+      <div id="asistente-web-lugar" class="asistente-web-lugar"></div>
 
       <!-- Entrega 8: se retiró un número fijo de «soporte» cuyo dueño no se conocía. La plataforma
            no tiene un contacto oficial configurado: la ayuda orienta a escribir a cada tienda. -->
@@ -1945,12 +1947,14 @@
   <!-- Scripts -->
   <script src="js/qrcode.min.js"></script>
   <script src="js/catalogo.js?v=20261125_voz"></script>
-  <script src="js/busquedaVoz.js?v=20261125_voz"></script>
-  <script src="js/guiaProducto.js?v=20261125_voz"></script>
+  <script src="js/busquedaVoz.js?v=20261125_lectura"></script>
+  <script src="js/lecturaVoz.js?v=20261125_lectura"></script>
+  <script src="js/guiaProducto.js?v=20261125_lectura"></script>
+  <script src="js/asistenteWeb.js?v=20261126_asistente"></script>
   <script src="js/servicio.js?v=20261119_e7"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="js/vitrina6.js?v=20261125_fotos"></script>
   <script src="js/ferias7.js?v=20261119_e7"></script>
-  <script src="js/main.js?v=20261125_fotos"></script>
+  <script src="js/main.js?v=20261126_asistente"></script>
 </body>
 </html>

@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,11 +65,13 @@ fun PantallaPagoVenta(
 ) {
     val context = LocalContext.current
     val carrito = TramaStore.carritoVenta
-    var medio by remember { mutableStateOf<MedioPago?>(null) }
+    // rememberSaveable: girar el celular o cambiar la letra no borra lo elegido. Lo que preparó el
+    // Asistente Alerce («fue en efectivo», «en la feria») llega como valor inicial y la persona lo puede cambiar.
+    var medio by rememberSaveable { mutableStateOf(com.example.trabajodea10.data.asistente.SugerenciaVenta.tomarMedio()) }
     var ventaConfirmada by remember { mutableStateOf<Venta?>(null) }
     // Lugar de la venta (RF-VEN-03): feria de la plataforma, otro lugar o sin indicar.
-    var lugar by remember { mutableStateOf<String?>(null) }
-    var lugarOtro by remember { mutableStateOf("") }
+    var lugar by rememberSaveable { mutableStateOf(com.example.trabajodea10.data.asistente.SugerenciaVenta.tomarLugar()) }
+    var lugarOtro by rememberSaveable { mutableStateOf("") }
     var problema by remember { mutableStateOf<String?>(null) }
     val historialActivo = TramaStore.tienda.historialActivo
     val total = carrito.sumOf { it.precio * it.cantidad }
@@ -127,16 +130,13 @@ fun PantallaPagoVenta(
 
             TituloSeccion(texto = "Método de pago")
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            // Se acomodan en varias líneas si no caben (antes «Transferencia» se partía en «Transfere / ncia»).
+            com.example.trabajodea10.ui.componentes.ContenedorChips(modifier = Modifier.fillMaxWidth(), espacioHorizontal = 8.dp, espacioVertical = 8.dp) {
                 MedioPago.entries.forEach { opcion ->
                     ChipFiltro(
                         texto = opcion.etiqueta,
                         seleccionado = medio == opcion,
-                        onClick = { medio = opcion },
-                        modifier = Modifier.weight(1f)
+                        onClick = { medio = opcion }
                     )
                 }
             }

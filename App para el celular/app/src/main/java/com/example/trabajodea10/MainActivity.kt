@@ -57,6 +57,12 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    // Al salir de la app (o bloquear la pantalla) la lectura en voz alta se detiene.
+    override fun onStop() {
+        super.onStop()
+        com.example.trabajodea10.voz.LectorVoz.detener()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // El manifiesto abre con Theme.TrabajoDeA10.Arranque (logo sobre musgo mientras carga);
         // apenas la actividad existe se vuelve al tema normal, sin esperas añadidas.

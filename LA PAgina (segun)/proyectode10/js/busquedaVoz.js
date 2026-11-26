@@ -88,6 +88,8 @@
     }
 
     function iniciar() {
+      // Si la página estaba leyendo en voz alta, se calla antes de abrir el micrófono.
+      try { if (ventana.speechSynthesis) ventana.speechSynthesis.cancel(); } catch (e) { /* sin lectura */ }
       anterior = campo.value; obtuvoTexto = false; avisado = false; cancelando = false;
       try { rec = new Reconocimiento(); } catch (e) { rec = null; decir(T.error); return; }
       rec.lang = "es-CL";

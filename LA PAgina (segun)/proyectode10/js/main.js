@@ -434,11 +434,48 @@
     al("pub-abrir-afiche", "click", function () { abrirEstudioFlyerDesdePublicar(); });
     al("gestion-nuevo", "click", function () { abrirModalPublicarProducto(); });
     // «Guíame paso a paso»: guía opcional sobre el mismo formulario y el mismo guardado.
-    if (window.AlerceGuiaProducto) window.AlerceGuiaProducto.iniciar({ documento: document, ventana: window, voz: window.AlerceVoz,
+    if (window.AlerceGuiaProducto) window.AlerceGuiaProducto.iniciar({ documento: document, ventana: window, voz: window.AlerceVoz, lectura: window.AlerceLectura,
       abrirPublicar: function () { abrirModalPublicarProducto(); },
       publicarAbierto: function () { var m = document.getElementById("modal-publicar-producto"); return !!(m && m.classList.contains("abierto")); },
       ventaDisponible: function () { var b = document.getElementById("btn-abrir-pos-nav"); return !!(b && b.style.display !== "none"); },
       abrirVenta: function () { cerrarModal("modal-gestion-catalogo"); abrirModalPOS(); } });
+    // Asistente Alerce (web): ayuda por tareas y navegación a lo que existe. Vive en js/asistenteWeb.js;
+    // aquí solo se le pasan las funciones de siempre. Nunca guarda ni registra nada por su cuenta.
+    if (window.AlerceAsistenteWeb) window.AlerceAsistenteWeb.iniciar({ documento: document, ventana: window,
+      contenedor: document.getElementById("asistente-web-lugar"), esEmprendedora: esUsuarioEmprendedora,
+      voz: window.AlerceVoz, lectura: window.AlerceLectura,
+      acciones: {
+        // «Añadir producto» con lo dicho (nombre y precio). La persona revisa y toca «Guardar producto».
+        publicar: function (d) {
+          if (!esUsuarioEmprendedora()) { abrirModalAuthEmprendedora(); return; }
+          abrirModalPublicarProducto();
+          [["pub-nombre", d && d.nombre], ["pub-precio", d && d.precio]].forEach(function (par) {
+            var campo = document.getElementById(par[0]);
+            if (campo && par[1] != null && par[1] !== "") { campo.value = String(par[1]); campo.dispatchEvent(new Event("input", { bubbles: true })); }
+          });
+        },
+        venta: function () { if (esUsuarioEmprendedora()) abrirModalPOS(); else abrirModalAuthEmprendedora(); },
+        productos: function () { if (esUsuarioEmprendedora()) abrirModalGestionCatalogo(); else abrirModalAuthEmprendedora(); },
+        qr: function () { if (esUsuarioEmprendedora()) abrirQRTiendaActual(); else abrirModalAuthEmprendedora(); },
+        tienda: function () { if (esUsuarioEmprendedora()) abrirModalEditarTienda(); else abrirModalAuthEmprendedora(); },
+        misFerias: function () { abrirModalMisFerias(); },
+        ferias: function () { var s = document.getElementById("ferias"); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); },
+        buscar: function (d) {
+          var campo = document.getElementById("campo-busqueda-principal");
+          if (!campo) return;
+          campo.value = (d && d.busqueda) || "";
+          campo.dispatchEvent(new Event("input", { bubbles: true }));
+          campo.scrollIntoView({ behavior: "smooth", block: "center" });
+          campo.focus({ preventScroll: true });
+        },
+        carrito: function () { var b = document.getElementById("btn-abrir-carrito"); if (b) b.click(); },
+        entrar: function () { abrirModalAuthEmprendedora(); },
+        guia: function () {
+          if (!esUsuarioEmprendedora()) { abrirModalAuthEmprendedora(); return; }
+          abrirModalPublicarProducto();
+          var b = document.getElementById("pub-abrir-guia"); if (b) b.click();
+        }
+      } });
     al("gestion-disponibles", "click", function () { cambiarDisponibleSeleccion(true); });
     al("gestion-no-disponibles", "click", function () { cambiarDisponibleSeleccion(false); });
     al("gestion-filtro-categoria", "change", renderizarGestionCatalogo);

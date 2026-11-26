@@ -590,6 +590,53 @@ object TramaStore {
         persistir()
     }
 
+    /** Resultado de preparar un producto con el Asistente Alerce. */
+    sealed class PreparacionAsistida {
+        /** Borrador listo: abrir «Añadir producto» con este id. */
+        data class Listo(val id: String) : PreparacionAsistida()
+        /**
+         * Ya hay un producto a medio hacer con datos: preguntar antes de reemplazarlo.
+         * [esNuevo] = false: son cambios sin guardar de un producto que ya existe (descartarlos no lo borra).
+         */
+        data class HayBorrador(val nombre: String, val esNuevo: Boolean = true) : PreparacionAsistida()
+    }
+
+    /**
+     * Asistente Alerce: llena el borrador de siempre con lo que la persona dijo, para que lo revise
+     * en el formulario de siempre (mismas validaciones) y lo guarde ella con «Guardar en Mis
+     * productos». No guarda en el catálogo ni sube nada al servidor.
+     * Nunca pisa un borrador con datos sin que la persona lo confirme ([reemplazar]).
+     */
+    fun prepararProductoAsistido(
+        nombre: String, descripcion: String?, precio: Long?, cantidad: Int?, reemplazar: Boolean = false
+    ): PreparacionAsistida {
+        val actual = borrador
+        if (actual != null && !reemplazar) {
+            val p = actual.producto
+            val conDatos = !actual.esNuevo || p.nombre.isNotBlank() || p.precio > 0 || p.descripcion.isNotBlank() ||
+                p.fotoUrl != null || p.variantes.any { it.fotoUrl != null }
+            if (conDatos) return PreparacionAsistida.HayBorrador(p.nombre.ifBlank { "un producto sin nombre" }, actual.esNuevo)
+        }
+        if (actual != null) descartarBorrador()
+        val id = crearProductoBorrador()
+        val base = borrador?.producto ?: return PreparacionAsistida.Listo(id)
+        var p = base.copy(
+            nombre = nombre.trim(),
+            descripcion = descripcion?.trim().orEmpty(),
+            precio = precio?.takeIf { it > 0 }?.toDouble() ?: base.precio
+        )
+        if (cantidad != null && cantidad >= 0) {
+            // Dijo cuántos tiene: lleva la cuenta (si la tienda vende a pedido por defecto, este producto no).
+            p = p.copy(
+                manejaStock = true,
+                modalidad = if (p.modalidad == Modalidad.A_PEDIDO) Modalidad.REGULAR else p.modalidad,
+                variantes = p.variantes.mapIndexed { i, v -> if (i == 0) v.copy(stock = cantidad) else v }
+            )
+        }
+        actualizarBorrador(ReglasCatalogo.normalizar(p), 0)
+        return PreparacionAsistida.Listo(id)
+    }
+
     /** Disponible / no disponible para varios productos a la vez (RF-PRO-10). */
     fun cambiarDisponibilidad(ids: Collection<String>, disponible: Boolean): Int {
         var cambiados = 0

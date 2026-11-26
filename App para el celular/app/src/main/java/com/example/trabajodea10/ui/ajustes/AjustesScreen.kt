@@ -63,6 +63,9 @@ import com.example.trabajodea10.ui.componentes.BarraSuperior
 import com.example.trabajodea10.ui.componentes.BotonSecundario
 import com.example.trabajodea10.ui.componentes.BotonesTamanoTexto
 import com.example.trabajodea10.ui.componentes.ChipEstado
+import com.example.trabajodea10.ui.componentes.ChipFiltro
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import com.example.trabajodea10.ui.componentes.DatoFila
 import com.example.trabajodea10.ui.componentes.FilaSwitch
 import com.example.trabajodea10.ui.componentes.LineaSeparadora
@@ -167,7 +170,7 @@ fun PantallaAjustes(
             }
 
             // Accesibilidad: disponible para todos los perfiles.
-            AjustesAccesibilidad()
+            AjustesAccesibilidad(nav)
 
             // Entrega 8 (A11): comprobación de Firebase App Check (solo si está configurada).
             AjustesProteccionApp(avisar)
@@ -745,7 +748,7 @@ private fun AjustesNotificaciones() {
 
 /** Control de accesibilidad para agrandar el texto, disponible para todos los perfiles. */
 @Composable
-private fun AjustesAccesibilidad() {
+private fun AjustesAccesibilidad(nav: ControladorNavegacion) {
     TituloSeccion(texto = "Accesibilidad")
     Tarjeta {
         Column(
@@ -765,6 +768,80 @@ private fun AjustesAccesibilidad() {
             )
             Spacer(modifier = Modifier.height(10.dp))
             BotonesTamanoTexto()
+        }
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    AjustesLecturaVoz()
+    if (TramaStore.rol == com.example.trabajodea10.data.Rol.EMPRENDEDORA) {
+        Spacer(modifier = Modifier.height(12.dp))
+        AjustesModoSencillo(nav)
+    }
+}
+
+/**
+ * Modo sencillo (opcional y reversible): Inicio con botones grandes. Se guarda por cuenta
+ * (en las preferencias de la emprendedora), así que no pasa a otra cuenta del mismo celular.
+ */
+@Composable
+private fun AjustesModoSencillo(nav: ControladorNavegacion) {
+    val prefs = TramaStore.prefs
+    Tarjeta {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilaSwitch(
+                titulo = "Modo sencillo",
+                descripcion = "Inicio con botones grandes: hablar con el asistente, vender, agregar un producto, ver productos y ferias, compartir y ayuda. Todo lo demás sigue en la barra de abajo.",
+                checked = prefs.modoSencillo,
+                onCheckedChange = { TramaStore.guardarPrefs(prefs.copy(modoSencillo = it)) }
+            )
+            BotonSecundario(texto = "Abrir el centro de ayuda", onClick = { nav.irA(com.example.trabajodea10.ui.navegacion.Ruta.CentroAyuda) })
+        }
+    }
+}
+
+/**
+ * Lectura en voz alta (guía y Asistente Alerce): con la voz del propio celular, sin costo.
+ * Si el celular no tiene voz en español, se avisa y la app sigue igual con el texto.
+ */
+@Composable
+private fun AjustesLecturaVoz() {
+    val contexto = androidx.compose.ui.platform.LocalContext.current
+    val voz = com.example.trabajodea10.voz.LectorVoz
+    val talkBack = remember { voz.lectorDePantallaActivo(contexto) }
+    // Si antes no había voz en español, al volver a Ajustes se intenta de nuevo (pudo instalarse una).
+    androidx.compose.runtime.LaunchedEffect(Unit) { voz.reintentarSiNoHabia() }
+    Tarjeta {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Lectura en voz alta", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                "En la guía y en el Asistente Alerce aparece «🔊 Escuchar». Usa la voz de tu celular.",
+                style = MaterialTheme.typography.bodyMedium, color = TextoSecundario
+            )
+            FilaSwitch(
+                titulo = "Leer en voz alta sin tocar «Escuchar»",
+                descripcion = if (talkBack) "Con TalkBack activo no se lee solo, para no hablar encima del lector de pantalla."
+                    else "Al pasar de paso o recibir una respuesta, se lee solo.",
+                checked = voz.lecturaAutomatica,
+                onCheckedChange = { voz.cambiarLecturaAutomatica(it) }
+            )
+            Text("Velocidad", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.example.trabajodea10.voz.LectorVoz.Velocidad.entries.forEach { v ->
+                    ChipFiltro(texto = v.etiqueta, seleccionado = voz.velocidad == v, onClick = { voz.cambiarVelocidad(v) })
+                }
+            }
+            if (voz.disponible == false) {
+                Text(
+                    "Este celular no tiene una voz en español instalada. Puedes agregarla en Ajustes del celular › Idioma › Texto a voz. Mientras tanto, todo se muestra por escrito.",
+                    style = MaterialTheme.typography.bodyMedium, color = TextoSecundario,
+                    modifier = Modifier.semantics { liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite }
+                )
+            } else {
+                com.example.trabajodea10.voz.BotonEscuchar(
+                    id = "ajustes-prueba",
+                    texto = "Hola. Así suena la lectura en voz alta de Alerce. Un chaleco de lana cuesta \$15.000.",
+                    etiqueta = "Probar la voz"
+                )
+            }
         }
     }
 }

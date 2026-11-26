@@ -1,0 +1,42 @@
+{
+  "descripcion": "Contrato del Asistente Alerce compartido entre Android (InterpreteAlerce.kt) y la web (js/asistenteWeb.js). Cada frase debe interpretarse con la misma intención, clase y datos en ambas plataformas. Las intenciones que solo existen en una plataforma se prueban en su propia suite.",
+  "clases": {
+    "CREAR_PRODUCTO": "ACCION",
+    "REGISTRAR_VENTA": "ACCION",
+    "VER_PRODUCTOS": "NAVEGACION",
+    "VER_FERIAS": "NAVEGACION",
+    "COMPARTIR_TIENDA": "NAVEGACION",
+    "CAMBIAR_WHATSAPP": "NAVEGACION",
+    "CONSULTAR_VENTAS_MES": "CONSULTA",
+    "ENSENAME": "AYUDA",
+    "SALUDO": "CONVERSACION",
+    "RECHAZAR": "CONVERSACION",
+    "OTRA_COSA": "CONVERSACION",
+    "DESCONOCIDA": "CONVERSACION"
+  },
+  "casos": [
+    { "frase": "Quiero agregar un chaleco de lana a quince lucas", "intencion": "CREAR_PRODUCTO", "nombre": "Chaleco de lana", "precio": 15000 },
+    { "frase": "agrégame un collar de plata, cuesta 18 lucas", "intencion": "CREAR_PRODUCTO", "nombre": "Collar de plata", "precio": 18000 },
+    { "frase": "publica una tabla de quesos en 12.990", "intencion": "CREAR_PRODUCTO", "nombre": "Tabla de quesos", "precio": 12990 },
+    { "frase": "quiero poner unos aros de cobre a $8,500", "intencion": "CREAR_PRODUCTO", "nombre": "Aros de cobre", "precio": 8500 },
+    { "frase": "subir mermelada de murta a dos mil quinientos", "intencion": "CREAR_PRODUCTO", "nombre": "Mermelada de murta", "precio": 2500 },
+    { "frase": "Quiero agregar un producto", "intencion": "CREAR_PRODUCTO" },
+    { "frase": "Vendí dos gorros", "intencion": "REGISTRAR_VENTA" },
+    { "frase": "necesito anotar una venta", "intencion": "REGISTRAR_VENTA" },
+    { "frase": "¿Cómo registro una venta?", "intencion": "ENSENAME", "tema": "REGISTRAR_VENTA" },
+    { "frase": "¿Cómo agrego un producto?", "intencion": "ENSENAME", "tema": "AGREGAR_PRODUCTO" },
+    { "frase": "¿Cómo comparto mi tienda?", "intencion": "ENSENAME", "tema": "COMPARTIR_TIENDA" },
+    { "frase": "¿Cómo participo en una feria?", "intencion": "ENSENAME", "tema": "PARTICIPAR_FERIA" },
+    { "frase": "¿Cómo agrando la letra?", "intencion": "ENSENAME", "tema": "TEXTO_Y_VOZ" },
+    { "frase": "¿Cómo agrego una fotografía?", "intencion": "ENSENAME", "tema": "AGREGAR_FOTO" },
+    { "frase": "No quiero registrar una venta", "intencion": "RECHAZAR" },
+    { "frase": "Quiero hacer otra cosa", "intencion": "OTRA_COSA" },
+    { "frase": "Muéstrame mis productos", "intencion": "VER_PRODUCTOS" },
+    { "frase": "Quiero participar en una feria", "intencion": "VER_FERIAS" },
+    { "frase": "Quiero compartir mi tienda", "intencion": "COMPARTIR_TIENDA" },
+    { "frase": "Quiero cambiar mi número de WhatsApp", "intencion": "CAMBIAR_WHATSAPP" },
+    { "frase": "¿Cuánto vendí este mes?", "intencion": "CONSULTAR_VENTAS_MES" },
+    { "frase": "hola", "intencion": "SALUDO" },
+    { "frase": "quiero cambiar mi contraseña", "intencion": "DESCONOCIDA" }
+  ]
+}

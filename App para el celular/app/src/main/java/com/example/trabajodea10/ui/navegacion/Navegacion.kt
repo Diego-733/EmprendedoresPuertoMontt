@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import com.example.trabajodea10.data.Rol
 import com.example.trabajodea10.data.SesionManager
@@ -63,6 +64,11 @@ sealed class Ruta(val grafica: String? = null) {
     data class FeriaPublica(val feriaId: String) : Ruta()
     data object ConfigVitrina : Ruta()
     data object BandejaContactos : Ruta()
+
+    // Asistente Alerce (enséñame / ayúdame a hacerlo): pantalla opcional, sin barra inferior.
+    data object Asistente : Ruta()
+    // Centro de ayuda por tareas (los mismos temas que «Enséñame» del asistente).
+    data object CentroAyuda : Ruta()
 }
 
 /** Estado de la pantalla de entrada sin sesión (RF-ACC-06). */
@@ -165,6 +171,7 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
     /** Desde el modo comprador sin cuenta: ir a la pantalla de ingreso con correo. */
     fun irAIngreso() {
         AccesoApp.mostrarLogin = true
+        com.example.trabajodea10.ui.asistente.AsistenteMemoria.olvidar()
         TramaStore.cerrarSesion()
         if (pila.isNotEmpty()) {
             pila[0] = Ruta.Login
@@ -176,6 +183,8 @@ class ControladorNavegacion(rutaInicial: Ruta = Ruta.Login) {
 
     fun cerrarSesion() {
         AccesoApp.mostrarLogin = true
+        // La conversación del asistente no pasa a la próxima persona que use este celular.
+        com.example.trabajodea10.ui.asistente.AsistenteMemoria.olvidar()
         // Cierra también la sesión del servidor (o la conserva si la huella está activada)
         SesionManager.cerrarSesion()
         if (pila.isNotEmpty()) {
@@ -199,9 +208,86 @@ private fun rutaInicialDe(rol: Rol?): Ruta = when (rol) {
     null -> Ruta.Login
 }
 
+/**
+ * Conversión de una ruta a texto y de vuelta, para guardar la pila cuando Android recrea la pantalla
+ * (girar el celular, cambiar el tamaño de letra o el modo oscuro, o cuando el sistema cierra la app
+ * en segundo plano). Solo se guardan nombres de pantalla e ids, nunca datos de la persona.
+ */
+object CodigoRuta {
+    private val SIMPLES: Map<String, Ruta> = listOf(
+        Ruta.Login, Ruta.AdminInicio, Ruta.AdminFerias, Ruta.AdminEmprendedoras, Ruta.Ajustes,
+        Ruta.EmpInicio, Ruta.EmpCatalogo, Ruta.EmpVenta, Ruta.PagoVenta, Ruta.EmpFerias, Ruta.EmpTienda,
+        Ruta.VistaPrevia, Ruta.HistorialVentas, Ruta.ConfigVentas, Ruta.VisInicio, Ruta.VisProductos, Ruta.VisAyuda,
+        Ruta.VisMarketplaceClasico, Ruta.ConfigVitrina, Ruta.BandejaContactos, Ruta.Asistente, Ruta.CentroAyuda
+    ).associateBy { it.toString() }
+
+    fun aTexto(r: Ruta): String = when (r) {
+        is Ruta.FeriaDetalle -> "FeriaDetalle|${r.feriaId}"
+        is Ruta.EmpTiendaQR -> "EmpTiendaQR|${r.tiendaId}"
+        is Ruta.ProductoDetalle -> "ProductoDetalle|${r.productoId}"
+        is Ruta.TiendaPublica -> "TiendaPublica|${r.tiendaId}"
+        is Ruta.ProductoPublico -> "ProductoPublico|${r.productoId}"
+        is Ruta.AsociacionPublica -> "AsociacionPublica|${r.asociacionId}"
+        is Ruta.FeriaPublica -> "FeriaPublica|${r.feriaId}"
+        else -> r.toString()
+    }
+
+    fun desdeTexto(t: String): Ruta? {
+        val partes = t.split("|", limit = 2)
+        val id = partes.getOrNull(1)
+        return when (partes[0]) {
+            "FeriaDetalle" -> id?.let { Ruta.FeriaDetalle(it) }
+            "EmpTiendaQR" -> id?.let { Ruta.EmpTiendaQR(it) }
+            "ProductoDetalle" -> id?.let { Ruta.ProductoDetalle(it) }
+            "TiendaPublica" -> id?.let { Ruta.TiendaPublica(it) }
+            "ProductoPublico" -> id?.let { Ruta.ProductoPublico(it) }
+            "AsociacionPublica" -> id?.let { Ruta.AsociacionPublica(it) }
+            "FeriaPublica" -> id?.let { Ruta.FeriaPublica(it) }
+            else -> SIMPLES[t]
+        }
+    }
+
+    /** Cuenta y rol a los que pertenece la pila: si cambiaron, no se restaura (nunca se muestra lo de otra cuenta). */
+    fun firmaSesion(): String = "${TramaStore.cuentaActual}|${TramaStore.rol}"
+
+    /**
+     * Pila para guardar (la firma va primero). Al restaurar, se descarta todo si cambió la sesión,
+     * y se quitan las pantallas que ya no tienen sentido (pago sin productos, producto que ya no existe).
+     */
+    fun guardar(pila: List<Ruta>): ArrayList<String> = ArrayList(listOf(firmaSesion()) + pila.map(::aTexto))
+
+    fun restaurar(guardado: List<String>, inicial: Ruta, valida: (Ruta) -> Boolean = ::rutaValida): List<Ruta> {
+        if (guardado.isEmpty() || guardado.first() != firmaSesion()) return listOf(inicial)
+        val rutas = guardado.drop(1).mapNotNull(::desdeTexto)
+        val raiz = rutas.firstOrNull() ?: return listOf(inicial)
+        // La pantalla de entrada nunca queda debajo de otra; y sin sesión solo vale la de entrada.
+        if (raiz == Ruta.Login && rutas.size > 1) return listOf(inicial)
+        return listOf(raiz) + rutas.drop(1).filter(valida)
+    }
+
+    private fun rutaValida(r: Ruta): Boolean = when (r) {
+        Ruta.PagoVenta -> TramaStore.carritoVenta.isNotEmpty()
+        is Ruta.ProductoDetalle -> TramaStore.borrador?.producto?.id == r.productoId || TramaStore.productoPorId(r.productoId) != null
+        else -> true
+    }
+}
+
+/**
+ * La pila de pantallas sobrevive cuando Android recrea la actividad (antes volvía a Inicio).
+ * No se guarda nada de la persona: solo nombres de pantalla e ids, ligados a la sesión.
+ */
 @Composable
 fun rememberControladorNavegacion(): ControladorNavegacion =
-    remember { ControladorNavegacion(rutaInicialDe(TramaStore.rol)) }
+    androidx.compose.runtime.saveable.rememberSaveable(
+        saver = androidx.compose.runtime.saveable.Saver<ControladorNavegacion, ArrayList<String>>(
+            save = { CodigoRuta.guardar(it.pila) },
+            restore = { guardado ->
+                val inicial = rutaInicialDe(TramaStore.rol)
+                val rutas = CodigoRuta.restaurar(guardado, inicial)
+                ControladorNavegacion(rutas.first()).also { c -> rutas.drop(1).forEach { c.pila.add(it) } }
+            }
+        )
+    ) { ControladorNavegacion(rutaInicialDe(TramaStore.rol)) }
 
 @Composable
 fun BarraInferior(
@@ -210,7 +296,14 @@ fun BarraInferior(
     onSeleccionar: (Ruta) -> Unit
 ) {
     val items = itemsSegunRol(rol)
-    NavigationBar(containerColor = SuperficieBlanca) {
+    // Escala común de las etiquetas; se recalcula si cambia la letra, el ancho de la barra (girar el celular) o el rol.
+    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+    var anchoBarra by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var escalaEtiquetas by remember(fontScale, anchoBarra, rol) { androidx.compose.runtime.mutableFloatStateOf(1f) }
+    NavigationBar(
+        containerColor = SuperficieBlanca,
+        modifier = androidx.compose.ui.Modifier.onSizeChanged { anchoBarra = it.width }
+    ) {
         items.forEach { item ->
             val seleccionado = rutaActual.grafica != null && rutaActual.grafica == item.ruta.grafica
             NavigationBarItem(
@@ -219,15 +312,20 @@ fun BarraInferior(
                 // La etiqueta ya nombra el botón (sin duplicarla para TalkBack).
                 icon = { Icon(item.icono, contentDescription = null) },
                 label = {
-                    // Entrega 8 (RNF-USA-03): una sola línea; con letra grande se acorta con «…»
-                    // en vez de partir la palabra («Producto / s») y empujar el ícono.
+                    // Entrega 8 (RNF-USA-03): una sola línea, sin partir la palabra («Producto / s») ni
+                    // empujar el ícono. La etiqueta crece con la letra del celular todo lo que cabe: si una
+                    // no cabe, las cinco se achican juntas (mismo tamaño) en vez de cortarse («Pro…»). Solo
+                    // si ya no se pueden achicar más (mitad del tamaño) se acortan con «…».
+                    val base = androidx.compose.material3.MaterialTheme.typography.labelSmall
                     Text(
                         text = item.etiqueta,
-                        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                        style = base.copy(fontSize = base.fontSize * escalaEtiquetas),
                         maxLines = 1,
                         softWrap = false,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                        fontWeight = if (seleccionado) FontWeight.SemiBold else FontWeight.Normal
+                        overflow = if (escalaEtiquetas > 0.5f) androidx.compose.ui.text.style.TextOverflow.Clip
+                            else androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        fontWeight = if (seleccionado) FontWeight.SemiBold else FontWeight.Normal,
+                        onTextLayout = { r -> if (r.hasVisualOverflow && escalaEtiquetas > 0.5f) escalaEtiquetas *= 0.92f }
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

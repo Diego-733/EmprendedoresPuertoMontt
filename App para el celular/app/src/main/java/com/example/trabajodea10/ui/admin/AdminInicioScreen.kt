@@ -151,6 +151,17 @@ fun PantallaAdminInicio(
                     onAccion = { AdminStore.filtroAlAbrir = EstadoCuentaAdmin.SIN_TIENDA; nav.seleccionarTab(Ruta.AdminEmprendedoras) }
                 )
             }
+            if (resumen.sinAutorizacion > 0) {
+                hayPendientes = true
+                AvisoAccion(
+                    "${resumen.sinAutorizacion} emprendedora(s) se registraron por la vía abierta anterior, sin autorización. Revisa y decide.",
+                    Tono.AZUL, icono = Icons.Filled.Storefront, accion = "Revisar",
+                    onAccion = { nav.seleccionarTab(Ruta.AdminEmprendedoras) }
+                )
+            }
+            if (!AdminStore.registroControlado && !AdminStore.sonEjemplo) {
+                AvisoAccion("El servidor todavía no tiene el registro controlado (migración 11). Ver docs/administracion.", Tono.AZUL)
+            }
             if (!hayPendientes && AdminStore.cargadoAlgunaVez && AdminStore.error == null) {
                 AvisoAccion("Todo al día: no hay cuentas ni ferias esperando una acción.", Tono.OK, icono = Icons.Filled.CheckCircle)
             }

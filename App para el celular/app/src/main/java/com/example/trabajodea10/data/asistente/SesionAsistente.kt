@@ -73,6 +73,12 @@ class SesionAsistente(
         data class ResponderFeria(val feriaId: String, val nombre: String, val participo: Boolean) : Accion()
         /** Abrir el mapa del celular con la ubicación de la feria. */
         data class ComoLlegar(val lat: Double, val lng: Double, val nombre: String) : Accion()
+        /** Asistente general: buscar en la vitrina pública (solo lectura). */
+        data class Buscar(val termino: String?, val verTiendas: Boolean, val verAsociaciones: Boolean = false, val limpiar: Boolean = false) : Accion()
+        /** Asistente general: abrir la ficha pública de una tienda. */
+        data class AbrirTienda(val tiendaId: String) : Accion()
+        /** Administración: abrir «Cuentas» filtrada (no cambia nada). */
+        data class BuscarCuenta(val texto: String?, val soloPendientes: Boolean) : Accion()
     }
 
     data class LineaPreparada(val productoId: String, val varianteId: String, val cantidad: Int)
@@ -179,7 +185,7 @@ class SesionAsistente(
         // Algo a medio hacer y llega otra cosa: si es otra operación, lo anterior se deja (y se dice);
         // si es una pregunta o ir a otra pantalla, lo preparado se conserva.
         val enCurso = operaciones.enCurso()
-        val resp = ejecutar(r, texto)
+        val resp = ejecutar(r, Canonizador.canonizar(texto))
         return when {
             enCurso == null -> resp
             r.intencion.clase == InterpreteAlerce.Clase.ACCION -> resp.copy(texto = "Dejé de lado lo anterior (no se hizo nada). " + resp.texto)
@@ -230,6 +236,11 @@ class SesionAsistente(
             Intencion.CONSULTAR_PROXIMA_FERIA -> consultarFeria()
             Intencion.SABER_SI_SE_GUARDO -> ensenar(Tema.SABER_SI_SE_GUARDO)
             Intencion.SALUDO -> Respuesta("Hola. ¿En qué te ayudo?", SUGERENCIAS)
+            Intencion.VER_HISTORIAL -> Respuesta("Te abro el historial: ahí están tus ventas y sus comprobantes en PDF.", accion = Accion.Navegar(Destino.HISTORIAL))
+            Intencion.CONSULTAR_SEGUIDORES -> Respuesta("Alerce todavía no muestra cuántas personas siguen tu tienda. Sí puedes ver tus ventas y tus mensajes recibidos.",
+                listOf(Opcion("Ver mis ventas del mes", "¿Cuánto vendí este mes?"), Opcion("Mensajes recibidos", ACCION_IR + Destino.MENSAJES.name)))
+            Intencion.CORREGIR -> Respuesta("No hay nada a medio hacer para corregir. Si una venta quedó mal anotada, revísala en el historial.",
+                listOf(Opcion("Ver el historial", ACCION_IR + Destino.HISTORIAL.name)) + SUGERENCIAS)
             Intencion.RECHAZAR, Intencion.OTRA_COSA -> { cancelarTodo(); Respuesta("Está bien, no hago nada. ¿Qué necesitas?", SUGERENCIAS) }
             else -> Respuesta(
                 "No entendí bien, o es algo que todavía no sé hacer. Puedo ayudarte a agregar un producto, anotar una venta, cambiar cuántos tienes, mostrarte tus productos o tus ferias, o compartir tu tienda.",

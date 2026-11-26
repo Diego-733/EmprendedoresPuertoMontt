@@ -16,6 +16,12 @@ La app Android y la web usan Supabase para cuentas (Auth), datos (tablas con RLS
 
 Los scripts SQL se pueden volver a ejecutar sin romper nada.
 
+> **11_registro_controlado.sql (26-nov-2026) — PREPARADA, NO APLICADA.** Corrige el registro abierto de 04 (RN-01): ser
+> emprendedora exige un código de activación de un solo uso que entrega la administración. Requiere 09 y 10. Reversión:
+> `11_revertir.sql` (no borra datos). Probada en local (`npm run test:sql`). Procedimiento y decisiones pendientes:
+> `docs/administracion/registro-controlado.md` y `docs/administracion/despliegue.md`. Mientras no se aplique, la indicación
+> del paso 5 sobre 04 (registro abierto) sigue describiendo el servidor real.
+
 ## Cuentas de prueba
 
 El rol lo crea el servidor (RN-01). En la app, elige “Emprendedora” para recibir una tienda propia o “Compradora” para entrar a la vitrina. ADMIN sigue reservado a la lista `cuentas_autorizadas`. Para usar una cuenta de prueba, regístrala una vez desde la app con cualquier contraseña de 6+ caracteres:

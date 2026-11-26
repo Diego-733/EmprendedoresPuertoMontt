@@ -94,7 +94,8 @@ fun itemsSegunRol(rol: Rol): List<ItemNavegacion> = when (rol) {
     Rol.ADMIN -> listOf(
         ItemNavegacion(Ruta.AdminInicio, "Inicio", Icons.Filled.Home),
         ItemNavegacion(Ruta.AdminFerias, "Ferias", Icons.Filled.CalendarMonth),
-        ItemNavegacion(Ruta.AdminEmprendedoras, "Emprendedoras", Icons.Filled.People),
+        // «Cuentas»: entra completa en la barra con letra al 200 % (antes «Emprendedoras» se cortaba).
+        ItemNavegacion(Ruta.AdminEmprendedoras, "Cuentas", Icons.Filled.People),
         // Ajustes sigue a un toque desde la cabecera y dentro de «Gestión».
         ItemNavegacion(Ruta.AdminGestion, "Gestión", Icons.Filled.Dashboard)
     )

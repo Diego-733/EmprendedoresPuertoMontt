@@ -3795,6 +3795,7 @@
       btnSubmit.textContent = "Registrando tu cuenta...";
     }
 
+    var avisoActivacion = "";
     if (supabaseClient && supabaseClient.auth) {
       supabaseClient.auth.signUp({
         email: email,
@@ -3813,7 +3814,10 @@
         var user = res.data ? res.data.user : null;
         if (!user) throw new Error("No se pudo obtener el usuario registrado.");
         if (!res.data || !res.data.session) {
-          throw new Error("Cuenta creada. Revisa la configuración de Supabase: la confirmación de correo debe estar desactivada para entrar de inmediato.");
+          // Con «Confirm email» activo (requisito de publicación) no hay sesión hasta confirmar el correo.
+          cerrarModal("modal-registro-emprendedor");
+          alert("Tu cuenta se creó. Te enviamos un correo para confirmarla: ábrelo y luego entra con tu correo y contraseña. Si tienes un código de activación, escríbelo en «Mi perfil».");
+          return null;
         }
 
         var cargaAvatar = archivoAvatar
@@ -3830,7 +3834,17 @@
             p_foto_url: fotoUrl || null
           }).then(function (resPerfil) {
             if (resPerfil.error) throw resPerfil.error;
-            return supabaseClient.from("perfiles").select("rol, tienda_id, nombre, foto_url").eq("id", user.id).maybeSingle();
+            // Registro controlado (11): con el código, el servidor activa la cuenta (compara con el correo de la sesión).
+            var codigo = (document.getElementById("reg-emp-codigo") || {}).value || "";
+            var activar = codigo.trim()
+              ? supabaseClient.rpc("activar_con_codigo", { p_codigo: codigo.trim() }).then(function (ra) {
+                  if (ra.error) avisoActivacion = Cat.mensajeError(ra.error);
+                  else if (String(ra.data || "").indexOf("CODIGO_INCORRECTO") === 0) avisoActivacion = "El código no coincide.";
+                })
+              : Promise.resolve();
+            return activar.then(function () {
+              return supabaseClient.from("perfiles").select("rol, tienda_id, nombre, foto_url").eq("id", user.id).maybeSingle();
+            });
           });
         }).then(function (resPerfil) {
           if (resPerfil.error) throw resPerfil.error;
@@ -3845,7 +3859,8 @@
             estadoPOS.tiendaId = null;
             aplicarUsuarioLocal(nombre, "Comprador", fotoUrl);
             cerrarModal("modal-registro-emprendedor");
-            alert("Tu cuenta ha sido creada como compradora. Para abrir una tienda, el administrador debe autorizar primero tu correo.");
+            alert("Tu cuenta se creó como compradora." + (avisoActivacion ? " " + avisoActivacion : "") +
+              " Para abrir tu tienda necesitas el código de activación que entrega la administración: escríbelo en «Mi perfil».");
             return;
           }
 
@@ -4982,13 +4997,21 @@
    * leen perfiles y cuentas autorizadas (solo lectura).
    */
   var EMPRENDEDORAS_SERVIDOR = [];
-  var ETIQUETA_ESTADO_EMP = { ACTIVA: "Activa", DESACTIVADA: "Desactivada", PENDIENTE_REGISTRO: "Pendiente: debe registrarse con este correo", SIN_TIENDA: "Sin tienda" };
+  var ETIQUETA_ESTADO_EMP = { ACTIVA: "Activa", DESACTIVADA: "Desactivada", PENDIENTE_REGISTRO: "Pendiente: debe registrarse con este correo",
+    PENDIENTE_ACTIVACION: "Pendiente: ya creó su cuenta, falta el código", SIN_TIENDA: "Sin tienda" };
+  var REGISTRO_CONTROLADO = null;   // true con la migración 11 (código de activación)
 
   function renderizarEmprendedorasServidor(cont, busq) {
     cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">Cargando cuentas…</p>';
     var filtroEl = document.getElementById("admin-filtro-estado-emp");
     var filtro = filtroEl ? filtroEl.value : "TODAS";
-    servicio.listarEmprendedorasServidor().then(function (r) {
+    var sinFuncion = function (r) { return /PGRST202|Could not find the function/i.test((r.error && r.error.message) || ""); };
+    servicio.listarCuentasEmprendedoras().then(function (r11) {
+      if (r11.ok) { REGISTRO_CONTROLADO = true; return r11; }
+      if (!sinFuncion(r11)) return r11;
+      REGISTRO_CONTROLADO = false;
+      return servicio.listarEmprendedorasServidor();
+    }).then(function (r) {
       if (r.ok) return { filas: r.datos || [], gestion: true };
       if (!/PGRST202|Could not find the function/i.test((r.error && r.error.message) || "")) return { error: r.error };
       // Sin la migración 10: lectura simple.
@@ -5007,20 +5030,31 @@
         var f = x.f;
         if (filtro === "ACTIVAS" && f.estado !== "ACTIVA") return false;
         if (filtro === "DESACTIVADAS" && f.estado !== "DESACTIVADA") return false;
+        if (filtro === "PENDIENTES" && f.estado !== "PENDIENTE_REGISTRO" && f.estado !== "PENDIENTE_ACTIVACION") return false;
+        if (filtro === "SIN_AUTORIZACION" && f.autorizada !== false) return false;
         return !busq || (String(f.nombre || "") + " " + String(f.email || "") + " " + String(f.tienda_nombre || "")).toLowerCase().indexOf(busq) >= 0;
       });
       if (!visibles.length) { cont.innerHTML = '<p style="font-size: 12.5px; color: var(--gris-texto);">No hay cuentas que coincidan.</p>'; return; }
       cont.innerHTML = visibles.map(function (x) {
         var f = x.f, acciones = "";
-        if (res.gestion && f.usuario_id) {
+        var pendiente = f.estado === "PENDIENTE_REGISTRO" || f.estado === "PENDIENTE_ACTIVACION";
+        var boton = function (texto, fn) { return '<button type="button" class="btn-accion-pill" style="min-height: 44px; font-size: 12.5px;" onclick="TramaWeb.' + fn + '(' + x.i + ')">' + texto + "</button>"; };
+        if (res.gestion && REGISTRO_CONTROLADO && pendiente) {
+          acciones = '<div style="display: flex; gap: 6px; flex-wrap: wrap;">' + boton("Código nuevo", "regenerarCodigoEmprendedora") + boton("Revocar", "revocarAutorizacionEmprendedora") +
+            (f.cuenta_anterior ? boton("Confirmé en persona", "permitirCuentaExistente") : "") + "</div>";
+        } else if (res.gestion && f.usuario_id) {
           acciones = '<div style="display: flex; gap: 6px; flex-wrap: wrap;">' +
-            '<button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.editarEmprendedoraServidor(' + x.i + ')">Editar</button>' +
-            (f.estado === "SIN_TIENDA" ? "" : '<button type="button" class="btn-accion-pill" style="min-height: 36px; font-size: 12px;" onclick="TramaWeb.cambiarEstadoEmprendedoraServidor(' + x.i + ')">' + (f.estado === "DESACTIVADA" ? "Reactivar" : "Desactivar") + "</button>") +
+            boton("Editar", "editarEmprendedoraServidor") +
+            (f.estado === "SIN_TIENDA" || pendiente ? "" : boton(f.estado === "DESACTIVADA" ? "Reactivar" : "Desactivar", "cambiarEstadoEmprendedoraServidor")) +
+            (f.autorizada === false ? boton("Regularizar", "regularizarEmprendedoraServidor") : "") +
             "</div>";
         }
+        var extra = pendiente && REGISTRO_CONTROLADO ? (f.codigo_vigente ? " · Código vigente" : " · Sin código vigente: genera uno nuevo") : "";
+        if (f.autorizada === false) extra += " · Sin autorización registrada (vía abierta anterior)";
+        if (f.cuenta_anterior) extra += " · La cuenta con este correo existía antes de autorizarla: confirma en persona que es suya";
         return '<div style="background: #fff; border: 1px solid var(--gris-borde); border-radius: 12px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">' +
           "<div><strong style=\"font-size: 13.5px;\">" + escaparHtml(f.nombre || f.email) + '</strong> <span style="font-size: 11px; color: ' + (f.estado === "DESACTIVADA" ? "#991b1b" : "var(--gris-texto)") + ';">· ' + escaparHtml(ETIQUETA_ESTADO_EMP[f.estado] || f.estado) + "</span><br>" +
-          '<span style="font-size: 12px; color: var(--gris-texto);">' + escaparHtml(f.email) + (f.tienda_nombre ? " · Tienda: " + escaparHtml(f.tienda_nombre) : "") + "</span></div>" +
+          '<span style="font-size: 12px; color: var(--gris-texto);">' + escaparHtml(f.email) + (f.tienda_nombre ? " · Tienda: " + escaparHtml(f.tienda_nombre) : "") + escaparHtml(extra) + "</span></div>" +
           acciones + "</div>";
       }).join("");
     });
@@ -5036,6 +5070,68 @@
     servicio.editarEmprendedora(f.usuario_id, nombre.trim(), tienda.trim()).then(function (r) {
       if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
       mostrarToast("Cuenta actualizada.");
+      renderizarAdminEmprendedoras();
+    });
+  }
+
+  /** Muestra el código de activación UNA vez (sin contraseñas: la elige ella al registrarse). */
+  function mostrarCodigoActivacion(nombre, datos) {
+    var box = document.getElementById("admin-box-credenciales");
+    var texto = document.getElementById("admin-texto-credenciales");
+    var mensaje = "Hola " + nombre + ": la administración de Alerce autorizó tu cuenta de emprendedora.\n" +
+      "1) Crea tu cuenta en la app o en la web con el correo " + datos.email + " y una contraseña que elijas tú.\n" +
+      "2) Entra y escribe este código de activación: " + datos.codigo + "\nEl código es personal, sirve una sola vez y vence en 14 días.";
+    ESTADO_ADMIN.credencialesGeneradas = { mensaje: mensaje };
+    if (texto) {
+      texto.innerHTML = "<strong>Emprendedora:</strong> " + escaparHtml(nombre) + "<br><strong>Correo:</strong> <code>" + escaparHtml(datos.email) + "</code><br>" +
+        '<strong>Código de activación:</strong> <code style="font-size: 1.4rem; letter-spacing: 3px;">' + escaparHtml(datos.codigo) + "</code><br>" +
+        "<small>Se muestra solo esta vez. Entrégalo en persona o por un canal de confianza. Vence en 14 días.</small>";
+    }
+    if (box) { box.style.display = "block"; box.scrollIntoView({ behavior: "smooth" }); }
+  }
+
+  function regenerarCodigoEmprendedora(i) {
+    var f = EMPRENDEDORAS_SERVIDOR[i];
+    if (!f || !servicio) return;
+    if (!confirm("¿Generar un código nuevo para " + f.email + "? El anterior deja de servir.")) return;
+    servicio.regenerarCodigo(f.email).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarCodigoActivacion(f.nombre || f.email, r.datos);
+      renderizarAdminEmprendedoras();
+    });
+  }
+
+  function revocarAutorizacionEmprendedora(i) {
+    var f = EMPRENDEDORAS_SERVIDOR[i];
+    if (!f || !servicio) return;
+    if (!confirm("¿Revocar la autorización de " + f.email + "? Su código deja de servir y, si ya creó su cuenta, queda como compradora.")) return;
+    servicio.revocarAutorizacion(f.email).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast("Autorización revocada en el servidor.");
+      renderizarAdminEmprendedoras();
+    });
+  }
+
+  /** La administración confirmó EN PERSONA que la cuenta anterior al código es de la emprendedora. */
+  function permitirCuentaExistente(i) {
+    var f = EMPRENDEDORAS_SERVIDOR[i];
+    if (!f || !servicio) return;
+    if (!confirm("¿Confirmaste EN PERSONA que la cuenta " + f.email + " es de " + (f.nombre || "ella") + "? (por ejemplo, entró a esa cuenta frente a ti). " +
+      "Esa cuenta existía antes de la autorización y podría ser de otra persona.")) return;
+    servicio.permitirCuentaExistente(f.email).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast("Listo: ahora puede activar su cuenta con el código.");
+      renderizarAdminEmprendedoras();
+    });
+  }
+
+  function regularizarEmprendedoraServidor(i) {
+    var f = EMPRENDEDORAS_SERVIDOR[i];
+    if (!f || !f.usuario_id || !servicio) return;
+    if (!confirm("¿Dejar constancia de que la administración conserva a " + (f.nombre || f.email) + " como emprendedora? No cambia su rol, su tienda ni sus datos.")) return;
+    servicio.regularizarEmprendedora(f.usuario_id).then(function (r) {
+      if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
+      mostrarToast("Quedó registrada su autorización.");
       renderizarAdminEmprendedoras();
     });
   }
@@ -5222,7 +5318,14 @@
     if (inpClave) inpClave.value = "alerce" + Math.floor(100 + Math.random() * 900);
     if (inpTel) inpTel.value = "+56 9 ";
 
-    if (selAsoc) {
+    if (selAsoc && servicio) {
+      selAsoc.innerHTML = '<option value="">Sin asociación asignada</option>';
+      servicio.listarAsociaciones().then(function (r) {
+        if (!r.ok) return;
+        selAsoc.innerHTML = '<option value="">Sin asociación asignada</option>' + (r.datos || []).filter(function (a) { return a.activa !== false; })
+          .map(function (a) { return '<option value="' + escaparHtml(a.id) + '">' + escaparHtml(a.nombre) + "</option>"; }).join("");
+      });
+    } else if (selAsoc) {
       selAsoc.innerHTML = '<option value="">Sin asociación asignada</option>' + 
         ESTADO_ADMIN.asociaciones.filter(function(a){ return a.activa; }).map(function(a) {
           return '<option value="' + a.id + '">' + a.nombre + ' (' + a.sector + ')</option>';
@@ -5266,8 +5369,8 @@
     var asocObj = ESTADO_ADMIN.asociaciones.find(function(a){ return a.id === asocId; });
     var asocNombre = asocObj ? asocObj.nombre : "Sin asociación";
 
-    if (!nombre || !tiendaNombre || !email) {
-      alert("Por favor completa el nombre, tienda y correo de la emprendedora.");
+    if (!nombre || !email || (!servicio && !tiendaNombre)) {
+      alert(servicio ? "Por favor completa el nombre y el correo de la emprendedora." : "Por favor completa el nombre, tienda y correo de la emprendedora.");
       return;
     }
 
@@ -5275,11 +5378,22 @@
     // con ese correo y su propia contraseña, y el servidor crea su tienda. No se inventan
     // tiendas ni contraseñas en el navegador.
     if (servicio) {
-      servicio.autorizarEmprendedora(email, nombre).then(function (r) {
-        if (!r.ok) { mostrarToast(Cat.mensajeError(r.error)); return; }
-        cerrarFormEmprendedora();
-        renderizarAdminEmprendedoras();
-        mostrarToast("Correo autorizado. La emprendedora debe registrarse con " + email + " en la app o la web; el servidor crea su tienda.");
+      servicio.autorizarConCodigo(email, nombre, asocId || null).then(function (r) {
+        if (r.ok) {
+          cerrarFormEmprendedora();
+          renderizarAdminEmprendedoras();
+          mostrarCodigoActivacion(nombre, r.datos);
+          mostrarToast("Correo autorizado. Entrega el código de activación a " + nombre + ".");
+          return;
+        }
+        if (!/PGRST202|Could not find the function/i.test((r.error && r.error.message) || "")) { mostrarToast(Cat.mensajeError(r.error)); return; }
+        // Servidor sin la migración 11: autorización anterior (sin código).
+        servicio.autorizarEmprendedora(email, nombre).then(function (r2) {
+          if (!r2.ok) { mostrarToast(Cat.mensajeError(r2.error)); return; }
+          cerrarFormEmprendedora();
+          renderizarAdminEmprendedoras();
+          mostrarToast("Correo autorizado (servidor sin registro controlado). La emprendedora debe registrarse con " + email + ".");
+        });
       });
       return;
     }
@@ -5390,6 +5504,11 @@
   function copiarCredencialesGeneradas() {
     var c = ESTADO_ADMIN.credencialesGeneradas;
     if (!c) return;
+    // Con servidor (11): se copia el mensaje con el código de activación; nunca una contraseña.
+    if (c.mensaje) {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c.mensaje).then(function () { mostrarToast("Mensaje con el código copiado."); });
+      return;
+    }
     var texto = "Plataforma de Emprendedoras Alerce\\n" +
                 "Hola " + (c.nombre || "") + ", aquí están tus credenciales de acceso:\\n" +
                 "Usuario: " + c.email + "\\n" +
@@ -6371,6 +6490,13 @@
 
 
   window.TramaWeb = {
+    obtenerServicio: function () { return servicio; },
+    clienteAuth: function () { return supabaseClient ? supabaseClient.auth : null; },
+    permitirCuentaExistente: permitirCuentaExistente,
+    obtenerUsuario: function () { return estado.usuario ? { email: estado.usuario.email, rol: estado.usuario.rol } : null; },
+    regenerarCodigoEmprendedora: regenerarCodigoEmprendedora,
+    revocarAutorizacionEmprendedora: revocarAutorizacionEmprendedora,
+    regularizarEmprendedoraServidor: regularizarEmprendedoraServidor,
     agregarOpcionPublicar: agregarOpcionPublicar,
     cambiarDisponibleSeleccion: cambiarDisponibleSeleccion,
     actualizarReglasPublicar: actualizarReglasPublicar,

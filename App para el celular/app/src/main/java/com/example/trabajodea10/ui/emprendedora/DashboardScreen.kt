@@ -138,6 +138,13 @@ fun PantallaEmprendedoraInicio(
         }
 
         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // 0. Cuenta desactivada por la administración (lo informa el servidor; la regla real está allá).
+            if (com.example.trabajodea10.data.SesionManager.cuentaDesactivada) {
+                AvisoAccion(
+                    texto = "La administración desactivó tu tienda: no se muestra en la vitrina y no puedes hacer cambios. Lo que guardaste se conserva.",
+                    tono = Tono.CORTEZA, icono = Icons.Filled.Warning
+                )
+            }
             // 1. Lo que espera respuesta
             if (porResponder.isNotEmpty()) {
                 AvisoAccion(

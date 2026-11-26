@@ -72,6 +72,7 @@ fun PantallaCentroAyuda(nav: ControladorNavegacion) {
             Destino.INICIO -> nav.seleccionarTab(Ruta.EmpInicio)
             Destino.AJUSTES -> nav.irA(Ruta.Ajustes)
             Destino.AYUDA -> Unit
+            else -> Unit   // destinos del asistente general: el centro de ayuda es de la emprendedora
         }
     }
 

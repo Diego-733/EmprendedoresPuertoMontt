@@ -68,7 +68,8 @@
     rpc: function (nombre, args) {
       F.llamadas.push({ rpc: nombre, args: copia(args || {}) });
       var cola = F.respuestasRpc[nombre] || [];
-      var r = cola.length ? cola.shift() : { data: null, error: { message: "Sin respuesta configurada para " + nombre } };
+      // Sin respuesta configurada: igual que un servidor que no tiene esa función (PostgREST PGRST202).
+      var r = cola.length ? cola.shift() : { data: null, error: { code: "PGRST202", message: "Could not find the function public." + nombre + " (sin respuesta configurada en la prueba)" } };
       return new Promise(function (resolver, rechazar) {
         setTimeout(function () {
           if (r.red) return rechazar(new TypeError("Failed to fetch"));

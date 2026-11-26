@@ -545,6 +545,18 @@
   }
 
   var MENSAJES = {
+    // Registro controlado (11): los códigos largos van primero porque se busca el primero contenido en el texto.
+    YA_ES_EMPRENDEDORA: "Ese correo ya es de una emprendedora activa.",
+    ES_ADMINISTRADOR: "Ese correo es de la administración: no puede ser emprendedora.",
+    ASOCIACION_NO_EXISTE: "Esa asociación ya no existe.",
+    CUENTA_ANTERIOR: "Tu cuenta se creó antes de la autorización. Por seguridad, pide a la administración que confirme en persona que la cuenta es tuya; después vuelve a escribir el código.",
+    CLAVE_ACTUAL_INCORRECTA: "La contraseña actual no es correcta. Si entras con Google, tu contraseña la administra Google.",
+    NO_AUTORIZADA: "Tu correo todavía no está autorizado como emprendedora. Pide a la administración que lo autorice y te dé un código de activación.",
+    CODIGO_VENCIDO: "El código venció. Pide a la administración un código nuevo.",
+    DEMASIADOS_INTENTOS: "Se probaron demasiados códigos incorrectos. Pide a la administración un código nuevo.",
+    SIN_CODIGO: "Tu autorización todavía no tiene código. Pide a la administración que genere uno.",
+    YA_ACTIVADA: "Esa autorización ya se usó: la cuenta está activada.",
+    USA_ADMINISTRADORES: "Las cuentas de administración se gestionan en «Administradores».",
     NO_AUTENTICADO: "Tu sesión no está activa. Vuelve a iniciar sesión.",
     SIN_TIENDA: "Tu cuenta todavía no tiene una tienda.",
     TIENDA_AJENA: "Esa tienda no es tuya.",
@@ -613,7 +625,7 @@
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(texto)) return "No hay conexión con el servidor. Revisa tu internet y vuelve a intentarlo.";
     if (/jwt expired|invalid jwt|refresh token/i.test(texto)) return "Tu sesión venció. Vuelve a iniciar sesión.";
     if (/permission denied|row-level security|42501/i.test(texto)) return "No tienes permiso para hacer esto con esta cuenta.";
-    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07, la 09 o la 10 en Supabase).";
+    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07, la 09, la 10 o la 11 en Supabase).";
     return "El servidor respondió con un error: " + (texto || "sin detalle") + ".";
   }
 

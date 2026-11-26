@@ -1,4 +1,8 @@
-# Propuesta: registro controlado de emprendedoras (RN-01) — NO implementada
+# Propuesta: registro controlado de emprendedoras (RN-01)
+
+> **Actualización 26-nov-2026:** implementada en local como la migración 11, con código de activación (la instancia
+> tiene el correo autoconfirmado, por lo que autorizar solo el correo no bastaba). **No está aplicada en Supabase real.**
+> Ver [docs/administracion/registro-controlado.md](../administracion/registro-controlado.md). El texto de abajo es la propuesta original.
 
 > Esto es solo documentación. No se cambió el servidor, ni RLS, ni el trigger, ni el registro actual. No se bloqueó ni eliminó ninguna cuenta.
 

@@ -14,6 +14,7 @@ const pruebasEntrega7 = require("./pruebas_entrega7");
 const pruebasEnvioAutomatico = require("./pruebas_envio_automatico");
 const pruebasAdministracion = require("./pruebas_administracion");
 const pruebasEmprendedorasTipos = require("./pruebas_emprendedoras_tipos");
+const pruebasRegistroControlado = require("./pruebas_registro_controlado");
 const concurrencia = require("./concurrencia");
 
 const COMMIT_ESQUEMA_ANTERIOR = "6859b8f";
@@ -75,6 +76,7 @@ async function instalacionLimpia(pg, r) {
     await pruebasEmprendedorasTipos(c, r);   // 10, después de 09
     await pruebasEnvioAutomatico(c, r);
     await concurrencia(pg, "limpia", c, r);
+    await pruebasRegistroControlado(c, r);   // 11, al final: cambia el alta de usuarios
   } finally {
     await c.end();
   }

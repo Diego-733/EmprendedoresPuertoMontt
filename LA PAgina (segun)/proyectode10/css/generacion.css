@@ -220,3 +220,23 @@ body { background: var(--neblina); }
   .admin-pestana { flex: 0 0 auto; white-space: nowrap; padding: 8px 14px; }
   .panel-admin-cuerpo { padding: 12px !important; border-radius: 18px; }
 }
+
+/* ---------- Cuentas: contraseña visible, activar con código y cambiar contraseña (js/cuentas.js) ---------- */
+.cuentas-clave { position: relative; display: block; }
+.cuentas-clave > input { width: 100%; padding-right: 96px !important; box-sizing: border-box; }
+.cuentas-ver-clave {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  min-height: 44px; min-width: 84px; padding: 0 12px; border-radius: 12px; border: 1.5px solid var(--linea);
+  background: #fff; color: var(--musgo); font-weight: 700; font-size: 0.875rem; cursor: pointer;
+}
+.cuentas-ver-clave:hover { background: var(--musgo-claro); }
+.cuentas-seccion { display: flex; flex-direction: column; gap: 12px; }
+.cuentas-bloque { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 16px; background: var(--neblina); }
+.cuentas-bloque[hidden] { display: none; }
+.cuentas-bloque > summary { font-weight: 800; cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.cuentas-bloque .btn-accion-pill { min-height: 44px; justify-content: center; margin-top: 6px; }
+.cuentas-ayuda { font-size: 0.875rem; color: var(--tinta-suave); margin: 0; }
+.cuentas-aviso { margin: 0; padding: 10px 12px; border-radius: 12px; font-weight: 600; font-size: 0.9375rem; }
+.cuentas-aviso.ok { background: var(--ok-fondo); color: var(--ok-texto); }
+.cuentas-aviso.error { background: var(--acabo-fondo); color: var(--acabo-texto); }
+#reg-emp-codigo, #cuentas-codigo { letter-spacing: 0.15em; font-weight: 700; }

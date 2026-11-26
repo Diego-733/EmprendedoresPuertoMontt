@@ -77,7 +77,7 @@ class RedisenoAdminTest {
     @Test
     fun administracionTieneGestionComoPestanaYLasRutasNuevasSeGuardan() {
         val pestanas = itemsSegunRol(Rol.ADMIN).map { it.etiqueta }
-        assertEquals(listOf("Inicio", "Ferias", "Emprendedoras", "Gestión"), pestanas)
+        assertEquals(listOf("Inicio", "Ferias", "Cuentas", "Gestión"), pestanas)
         listOf(Ruta.AdminGestion, Ruta.AdminAsociaciones, Ruta.AdminTipos, Ruta.AdminEquipo, Ruta.AdminBitacora).forEach { r ->
             assertEquals(r, CodigoRuta.desdeTexto(CodigoRuta.aTexto(r)))
         }

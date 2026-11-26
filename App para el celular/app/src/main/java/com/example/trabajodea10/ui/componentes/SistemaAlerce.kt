@@ -238,11 +238,14 @@ fun FilaGestion(
     ) {
         IconoTono(icono, tono)
         Spacer(Modifier.width(14.dp))
+        // Con letra grande la insignia va debajo del texto, para no aplastar el título.
+        val grande = letraGrande()
         Column(Modifier.weight(1f)) {
             Text(titulo, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = NegroApple)
             if (detalle != null) Text(detalle, fontSize = 14.sp, lineHeight = 19.sp, color = TextoSecundario)
+            if (insignia != null && grande) { Spacer(Modifier.height(4.dp)); Insignia(insignia) }
         }
-        if (insignia != null) { Spacer(Modifier.width(8.dp)); Insignia(insignia) }
+        if (insignia != null && !grande) { Spacer(Modifier.width(8.dp)); Insignia(insignia) }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextoSecundario)
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Icon
@@ -38,7 +39,7 @@ import com.example.trabajodea10.ui.theme.VerdeOk
  * También incluye los botones para agrandar el texto.
  */
 @Composable
-fun PantallaVisAyuda() {
+fun PantallaVisAyuda(onAsistente: () -> Unit = {}) {
 
     Column(modifier = Modifier.fillMaxSize()) {
         BarraSuperior(
@@ -59,6 +60,10 @@ fun PantallaVisAyuda() {
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
+            // Asistente 2.0: busca productos, tiendas y ferias, y explica cómo comprar o vender.
+            androidx.compose.material3.Button(onClick = onAsistente, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("Preguntarle al asistente")
+            }
             Tarjeta {
                 Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("¿Quieres comprar o preguntar por un producto?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)

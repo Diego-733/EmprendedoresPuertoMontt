@@ -224,7 +224,7 @@ private fun ContenidoSegunRuta(
         // Entrega 6: mapa de próximas ferias (pide la ubicación al abrirse) y directorio con filtros.
         Ruta.VisInicio -> com.example.trabajodea10.ui.comprador.PantallaMapaFerias(nav = nav)
         Ruta.VisProductos -> com.example.trabajodea10.ui.comprador.PantallaDirectorio(nav = nav, avisar = avisar)
-        Ruta.VisAyuda -> PantallaVisAyuda()
+        Ruta.VisAyuda -> PantallaVisAyuda(onAsistente = { nav.irA(Ruta.Asistente) })
         Ruta.VisMarketplaceClasico -> PantallaMarketplace(nav = nav, avisar = avisar)
         is Ruta.TiendaPublica -> com.example.trabajodea10.ui.comprador.PantallaTiendaPublica(ruta.tiendaId, nav, avisar)
         is Ruta.ProductoPublico -> com.example.trabajodea10.ui.comprador.PantallaProductoPublico(ruta.productoId, nav, avisar)

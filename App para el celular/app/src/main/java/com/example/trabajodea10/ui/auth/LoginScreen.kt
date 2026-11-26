@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -92,6 +94,8 @@ fun PantallaLogin(nav: ControladorNavegacion) {
     var pestanaModo by remember { mutableIntStateOf(0) } // 0: Emprendedora, 1: Comprador
     var correo by remember { mutableStateOf("") }
     var clave by remember { mutableStateOf("") }
+    var verClave by remember { mutableStateOf(false) }
+    var codigoActivacion by remember { mutableStateOf("") }
     var nombreRegistro by remember { mutableStateOf("") }
     var esModoRegistro by remember { mutableStateOf(false) }
     var cargando by remember { mutableStateOf(false) }
@@ -463,10 +467,33 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null, tint = GrisTexto) },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
-                        visualTransformation = PasswordVisualTransformation(),
+                        // Mostrar u ocultar la contraseña (nunca se guarda en el celular).
+                        visualTransformation = if (verClave) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            androidx.compose.material3.IconButton(onClick = { verClave = !verClave }, modifier = Modifier.size(48.dp)) {
+                                Icon(
+                                    if (verClave) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = if (verClave) "Ocultar la contraseña" else "Mostrar la contraseña",
+                                    tint = GrisTexto
+                                )
+                            }
+                        },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    // Registro controlado (RN-01): la emprendedora autorizada escribe el código que le dio la administración.
+                    if (esModoRegistro && pestanaModo == 0) {
+                        OutlinedTextField(
+                            value = codigoActivacion,
+                            onValueChange = { codigoActivacion = it.uppercase().take(9) },
+                            label = { Text("Código de activación") },
+                            supportingText = { Text("Te lo entrega la administración. Sin código, la cuenta queda como compradora y puedes activarla después en «Mi perfil».") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
                     if (!esModoRegistro) {
                         TextButton(
@@ -534,8 +561,19 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                                 } else {
                                     SesionManager.iniciarSesion(correo, clave)
                                 }
+                                // Con el código, el SERVIDOR activa la cuenta (comprueba el correo de la sesión).
+                                var avisoActivacion: String? = null
+                                val resFinal = res.mapCatching { rol ->
+                                    if (esModoRegistro && esPestanaEmprendedora && rol == Rol.VISITANTE && codigoActivacion.isNotBlank()) {
+                                        SesionManager.activarConCodigo(codigoActivacion).getOrElse { e ->
+                                            avisoActivacion = "Tu cuenta se creó como compradora: " + (e.message ?: "no se pudo activar.") +
+                                                " Puedes escribir el código otra vez en «Mi perfil»."
+                                            rol
+                                        }
+                                    } else rol
+                                }
                                 cargando = false
-                                res.onSuccess { rolObtenido ->
+                                resFinal.onSuccess { rolObtenido ->
                                     // Fotos elegidas en el registro (opcionales). Si algo falla,
                                     // la cuenta ya quedó creada y no se bloquea el ingreso.
                                     if (esModoRegistro) {
@@ -551,10 +589,12 @@ fun PantallaLogin(nav: ControladorNavegacion) {
                                         }
                                     }
                                     if (esPestanaEmprendedora && rolObtenido == Rol.VISITANTE) {
-                                        // RN-01: solo el administrador autoriza emprendedoras.
+                                        // RN-01: solo la administración autoriza emprendedoras (con código de activación).
                                         Toast.makeText(
                                             contexto,
-                                            "Tu cuenta quedó como compradora. Actualiza Supabase con 04_registro_vendedores.sql y vuelve a iniciar sesión para activar tu tienda.",
+                                            avisoActivacion ?: if (SesionManager.estadoCuenta == "AUTORIZACION_PENDIENTE")
+                                                "Tu correo está autorizado. Escribe tu código de activación en «Mi perfil» › «Activar mi tienda»."
+                                            else "Tu cuenta quedó como compradora. Para vender, pide a la administración que autorice tu correo y te dé un código.",
                                             Toast.LENGTH_LONG
                                         ).show()
                                         }

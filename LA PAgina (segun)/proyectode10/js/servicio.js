@@ -251,7 +251,34 @@
       editarAdmin: function (email, nombre) { return envolver(cliente.rpc("editar_admin", { p_email: email, p_nombre: nombre })); },
       cambiarEstadoAdmin: function (email, activo) { return envolver(cliente.rpc("cambiar_estado_admin", { p_email: email, p_activo: !!activo })); },
       /** Bitácora de acciones de administración (RNF-SEG-07): quién, qué y cuándo. */
-      verBitacora: function (limite) { return envolver(cliente.rpc("ver_bitacora", { p_limite: Math.min(Math.max(1, limite || 200), 500) })); }
+      verBitacora: function (limite) { return envolver(cliente.rpc("ver_bitacora", { p_limite: Math.min(Math.max(1, limite || 200), 500) })); },
+
+      // Registro controlado (supabase/11_registro_controlado.sql, RN-01). El rol lo asigna SIEMPRE el servidor.
+      /** Cuentas con todos los estados (11). Si el servidor no tiene 11, responde PGRST202 y se usa listarEmprendedorasServidor. */
+      listarCuentasEmprendedoras: function () { return envolver(cliente.rpc("listar_cuentas_emprendedoras")); },
+      /** Autoriza el correo y devuelve { email, codigo, expira, estado }. El código se muestra una sola vez. */
+      autorizarConCodigo: function (email, nombre, asociacionId) {
+        return envolver(cliente.rpc("autorizar_emprendedora", { p_email: String(email).trim().toLowerCase(), p_nombre: nombre, p_asociacion: asociacionId || null }));
+      },
+      regenerarCodigo: function (email) { return envolver(cliente.rpc("regenerar_codigo_emprendedora", { p_email: email })); },
+      revocarAutorizacion: function (email) { return envolver(cliente.rpc("revocar_autorizacion", { p_email: email })); },
+      permitirCuentaExistente: function (email) { return envolver(cliente.rpc("permitir_cuenta_existente", { p_email: email })); },
+      regularizarEmprendedora: function (usuarioId) { return envolver(cliente.rpc("regularizar_emprendedora", { p_usuario: usuarioId })); },
+      /** La emprendedora escribe su código: el servidor compara con el correo de la SESIÓN. */
+      activarConCodigo: function (codigo) { return envolver(cliente.rpc("activar_con_codigo", { p_codigo: String(codigo || "").trim() })); },
+      estadoMiCuenta: function () { return envolver(cliente.rpc("estado_mi_cuenta")); },
+      /**
+       * Cambio de contraseña con sesión: primero se comprueba la actual (reautenticación) y luego se
+       * pide el cambio a Supabase Auth. No se guarda ninguna contraseña en el navegador.
+       */
+      cambiarContrasena: function (email, actual, nueva) {
+        return cliente.auth.signInWithPassword({ email: email, password: actual }).then(function (r) {
+          if (r.error) return { ok: false, error: { message: "CLAVE_ACTUAL_INCORRECTA" } };
+          return cliente.auth.updateUser({ password: nueva }).then(function (u) {
+            return u.error ? { ok: false, error: u.error } : { ok: true, datos: null };
+          });
+        }).catch(function (e) { return { ok: false, error: e }; });
+      }
     };
   }
 

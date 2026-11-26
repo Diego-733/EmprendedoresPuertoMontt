@@ -122,6 +122,12 @@ fun PantallaAjustes(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (rol == Rol.EMPRENDEDORA && SesionManager.cuentaDesactivada) {
+                com.example.trabajodea10.ui.componentes.AvisoAccion(
+                    "La administración desactivó tu tienda: no se muestra en la vitrina y no puedes hacer cambios. Lo que guardaste se conserva. Si crees que es un error, contacta a la administración.",
+                    com.example.trabajodea10.ui.componentes.Tono.CORTEZA
+                )
+            }
             when (rol) {
                 Rol.ADMIN -> PerfilAdmin(avisar)
                 Rol.EMPRENDEDORA -> PerfilEmprendedora(nav, avisar)
@@ -169,6 +175,9 @@ fun PantallaAjustes(
                     )
                 }
             }
+
+            // Cambiar la contraseña con sesión iniciada (se comprueba la actual antes de cambiarla).
+            if (com.example.trabajodea10.data.remoto.ClienteSupabase.sesion != null) AjustesCambiarContrasena(avisar)
 
             if (rol == Rol.ADMIN) {
                 AjustesSistema()
@@ -629,6 +638,15 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
             }
         }
 
+        // Registro controlado (RN-01): ya no se crea una tienda libremente. Con una autorización de la
+        // administración, la persona escribe su código de activación y el servidor la convierte en emprendedora.
+        if (SesionManager.estadoCuenta == "AUTORIZACION_PENDIENTE") {
+            com.example.trabajodea10.ui.componentes.AvisoAccion(
+                if (SesionManager.codigoVigente) "La administración autorizó tu correo. Escribe tu código de activación para abrir tu tienda."
+                else "La administración autorizó tu correo, pero tu código venció o se agotaron los intentos. Pide uno nuevo.",
+                com.example.trabajodea10.ui.componentes.Tono.AMBAR
+            )
+        }
         OutlinedButton(
             onClick = { mostrarCrearTienda = true },
             shape = RoundedCornerShape(12.dp),
@@ -637,7 +655,7 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
         ) {
             Icon(Icons.Filled.Store, contentDescription = null, tint = NegroApple)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Crear mi tienda y empezar a vender", fontWeight = FontWeight.SemiBold, color = NegroApple)
+            Text("Activar mi tienda con un código", fontWeight = FontWeight.SemiBold, color = NegroApple)
         }
     }
 
@@ -647,18 +665,21 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
     if (mostrarCrearTienda) {
         AlertDialog(
             onDismissRequest = { if (!creandoTienda) mostrarCrearTienda = false },
-            title = { Text("Crear mi tienda", fontWeight = FontWeight.Bold) },
+            title = { Text("Activar mi tienda", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Con tu tienda podrás agregar productos, precios y fotos. Luego podrás completar sus datos desde la pestaña Tienda.")
+                    Text("Para vender en Alerce, la administración autoriza tu correo y te entrega un código de activación de 8 letras y números. Escríbelo aquí.")
                     OutlinedTextField(
                         value = nombreTienda,
-                        onValueChange = { nombreTienda = it },
-                        label = { Text("Nombre de la tienda") },
+                        onValueChange = { nombreTienda = it.uppercase().take(9) },
+                        label = { Text("Código de activación") },
+                        placeholder = { Text("ABCD-2345") },
                         singleLine = true,
                         enabled = !creandoTienda,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Text("El código sirve solo con el correo de esta cuenta. ¿No tienes uno? Pídelo a la administración de Alerce.",
+                        fontSize = 13.sp, color = com.example.trabajodea10.ui.theme.TextoSecundario)
                 }
             },
             confirmButton = {
@@ -667,18 +688,18 @@ private fun PerfilVisitante(nav: ControladorNavegacion, avisar: (String) -> Unit
                     onClick = {
                         creandoTienda = true
                         coroutineScope.launch {
-                            val resultado = SesionManager.crearTiendaParaUsuario(nombreTienda)
+                            val resultado = SesionManager.activarConCodigo(nombreTienda)
                             creandoTienda = false
                             resultado.onSuccess { rol ->
                                 mostrarCrearTienda = false
                                 nav.iniciarSesion(rol)
-                                avisar("Tienda creada. Ya puedes agregar tus productos.")
+                                avisar(if (rol == Rol.EMPRENDEDORA) "¡Listo! Tu tienda quedó activada. Ya puedes agregar tus productos." else "El servidor no activó la cuenta.")
                             }.onFailure { error ->
-                                avisar(error.message ?: "No se pudo crear tu tienda.")
+                                avisar(error.message ?: "No se pudo activar tu tienda.")
                             }
                         }
                     }
-                ) { Text(if (creandoTienda) "Creando…" else "Crear tienda") }
+                ) { Text(if (creandoTienda) "Activando…" else "Activar") }
             },
             dismissButton = {
                 TextButton(enabled = !creandoTienda, onClick = { mostrarCrearTienda = false }) {
@@ -870,4 +891,46 @@ private fun AjustesLecturaVoz() {
             }
         }
     }
+}
+
+
+/** Cambio de contraseña con sesión: contraseña actual (reautenticación), nueva y repetida. */
+@Composable
+private fun AjustesCambiarContrasena(avisar: (String) -> Unit) {
+    val ambito = androidx.compose.runtime.rememberCoroutineScope()
+    var abierto by remember { mutableStateOf(false) }
+    var actual by remember { mutableStateOf("") }
+    var nueva by remember { mutableStateOf("") }
+    var repetida by remember { mutableStateOf("") }
+    var ver by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var guardando by remember { mutableStateOf(false) }
+    BotonSecundario(texto = "Cambiar mi contraseña", onClick = { abierto = true; error = null })
+    if (!abierto) return
+    val transformacion = if (ver) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation()
+    AlertDialog(
+        onDismissRequest = { if (!guardando) abierto = false },
+        title = { Text("Cambiar mi contraseña", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(actual, { actual = it }, label = { Text("Contraseña actual") }, singleLine = true, visualTransformation = transformacion, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(nueva, { nueva = it }, label = { Text("Contraseña nueva (mínimo 8)") }, singleLine = true, visualTransformation = transformacion, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(repetida, { repetida = it }, label = { Text("Repite la contraseña nueva") }, singleLine = true, visualTransformation = transformacion, modifier = Modifier.fillMaxWidth())
+                com.example.trabajodea10.ui.componentes.FilaSwitch("Mostrar las contraseñas", "Solo en esta pantalla", ver, { ver = it })
+                error?.let { Text(it, color = com.example.trabajodea10.ui.theme.RojoAlerce) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !guardando, modifier = Modifier.heightIn(min = 48.dp), onClick = {
+                guardando = true; error = null
+                ambito.launch {
+                    SesionManager.cambiarContrasena(actual, nueva, repetida)
+                        .onSuccess { abierto = false; actual = ""; nueva = ""; repetida = ""; avisar("Tu contraseña se cambió. Úsala la próxima vez que entres.") }
+                        .onFailure { error = it.message ?: "No se pudo cambiar." }
+                    guardando = false
+                }
+            }) { Text(if (guardando) "Cambiando…" else "Cambiar", fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = { TextButton(enabled = !guardando, onClick = { abierto = false }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Cancelar") } }
+    )
 }

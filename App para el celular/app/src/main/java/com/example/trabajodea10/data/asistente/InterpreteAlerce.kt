@@ -49,6 +49,12 @@ object InterpreteAlerce {
         COMO_LLEGAR_FERIA(Clase.CONSULTA),
         CONSULTAR_TIENDA(Clase.CONSULTA),
         VER_FERIAS(Clase.NAVEGACION),
+        /** «Mis comprobantes», «el PDF de la venta», «historial de ventas». */
+        VER_HISTORIAL(Clase.NAVEGACION),
+        /** «¿Cuántos seguidores tengo?»: la app no tiene esa cifra para la emprendedora (se responde con honestidad). */
+        CONSULTAR_SEGUIDORES(Clase.CONSULTA),
+        /** «No eran tres, eran cuatro» sin nada a medio hacer. */
+        CORREGIR(Clase.CONVERSACION),
         COMPARTIR_TIENDA(Clase.NAVEGACION),
         CAMBIAR_WHATSAPP(Clase.NAVEGACION),
         VER_MENSAJES(Clase.NAVEGACION),
@@ -153,6 +159,10 @@ object InterpreteAlerce {
     private val TENGO_MAS = re("\\b(tengo|hay) (\\d+) mas\\b|\\b(\\d+) mas\\b")
     private val RECHAZO = re("^(no quiero|no voy a|no necesito|ya no quiero|no deseo|no) (registrar|anotar|agregar|subir|vender|cambiar|ocultar|borrar|hacer|crear|publicar|participar)\\b")
     private val OTRA_COSA = re("\\b(quiero hacer otra cosa|otra cosa|cambiemos de tema|olvida eso|dejemos eso)\\b")
+    // Asistente 2.0
+    private val HISTORIAL = re("\\b(historial|comprobantes?|boletas?|pdf|recibos?)\\b")
+    private val SEGUIDORES = re("\\b(seguidores|me siguen|me sigue|siguen mi tienda|sigue mi tienda)\\b")
+    private val CORRECCION = re("^(no|perdon|mejor dicho|me equivoque|error)\\b[ ,]*(no )?(eran|era|son|fueron|es)\\b|^(no|perdon)[ ,]+(eran|era|son|fueron) [a-z0-9]+ y no\\b")
 
     /**
      * Una regla: si la señal aparece (y se cumple la condición), la intención suma [peso].
@@ -173,6 +183,8 @@ object InterpreteAlerce {
         Regla(Intencion.CONSULTAR_PROXIMA_FERIA, 24, PROXIMA_FERIA),
         Regla(Intencion.CONSULTAR_TIENDA, 23, CONSULTA_TIENDA),
         Regla(Intencion.SABER_SI_SE_GUARDO, 22, GUARDO),
+        Regla(Intencion.CONSULTAR_SEGUIDORES, 26, SEGUIDORES),
+        Regla(Intencion.VER_HISTORIAL, 21, HISTORIAL),
         Regla(Intencion.NO_PARTICIPAR_FERIA, 21, NO_PARTICIPAR),
         Regla(Intencion.REGISTRAR_VENTA, 20, VENDI),
         Regla(Intencion.MARCAR_SE_ACABO, 19, SE_ACABO),
@@ -230,6 +242,7 @@ object InterpreteAlerce {
         val datos = extraerDatos(frase)
 
         // 1. Lo que nunca debe confundirse con una acción: «no quiero registrar…», «otra cosa», «¿cómo llego?».
+        if (CORRECCION.containsMatchIn(t)) return Resultado(Intencion.CORREGIR, datos)
         if (NO_PARTICIPAR.containsMatchIn(t)) return Resultado(Intencion.NO_PARTICIPAR_FERIA, datos)
         if (RECHAZO.containsMatchIn(t)) return Resultado(Intencion.RECHAZAR, datos)
         if (OTRA_COSA.containsMatchIn(t)) return Resultado(Intencion.OTRA_COSA, datos)

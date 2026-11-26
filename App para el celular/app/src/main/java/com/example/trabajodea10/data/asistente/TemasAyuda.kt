@@ -7,7 +7,10 @@ package com.example.trabajodea10.data.asistente
  */
 object TemasAyuda {
 
-    enum class Destino { MIS_PRODUCTOS, NUEVO_PRODUCTO, VENTA, FERIAS, TIENDA, COMPARTIR, MENSAJES, HISTORIAL, INICIO, AJUSTES, AYUDA }
+    enum class Destino { MIS_PRODUCTOS, NUEVO_PRODUCTO, VENTA, FERIAS, TIENDA, COMPARTIR, MENSAJES, HISTORIAL, INICIO, AJUSTES, AYUDA,
+        // Asistente general (2.0)
+        VITRINA, MAPA_FERIAS, AYUDA_PUBLICA, PERFIL, ADMIN_INICIO, ADMIN_CUENTAS, ADMIN_FERIAS, ADMIN_GESTION,
+        ADMIN_ASOCIACIONES, ADMIN_TIPOS, ADMIN_EQUIPO, ADMIN_BITACORA }
 
     enum class Tema(
         val titulo: String,

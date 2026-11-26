@@ -47,7 +47,17 @@ object EjecutorAsistente {
         else -> "No hay señal: quedó guardado en tu celular y se sube solo cuando vuelva."
     }
 
+    /** Acciones que cambian datos de la tienda: no se ejecutan con una cuenta desactivada (el servidor también las rechaza). */
+    fun cambiaDatos(a: Accion): Boolean = a is Accion.PrepararVenta || a is Accion.CambiarInventario ||
+        a is Accion.CambiarVisibilidad || a is Accion.AbrirEdicion || a is Accion.ResponderFeria
+
+    const val MENSAJE_DESACTIVADA = "La administración desactivó tu tienda: por ahora no puedo registrar ventas ni cambiar productos o ferias. Lo que guardaste se conserva."
+
     fun ejecutar(a: Accion, e: Entorno) {
+        // Una cuenta desactivada no opera por voz ni escribiendo (la regla real está en el servidor: CUENTA_DESACTIVADA).
+        if (cambiaDatos(a) && com.example.trabajodea10.data.SesionManager.cuentaDesactivada) { e.responder(MENSAJE_DESACTIVADA); return }
+        // El asistente solo opera con la cuenta de una emprendedora (nunca da permisos por comandos).
+        if (cambiaDatos(a) && TramaStore.rol != com.example.trabajodea10.data.Rol.EMPRENDEDORA) { e.responder("Estas acciones son solo para emprendedoras autorizadas."); return }
         when (a) {
             is Accion.PrepararVenta -> prepararVenta(a, e, reemplazarCarrito = false, preguntarSiHayCarrito = true)
             is Accion.CambiarInventario -> e.responder(cambiarInventario(a))

@@ -100,6 +100,21 @@ object PerfilRepositorio {
 // ===================================================================== Cuentas (admin)
 
 object CuentaRepositorio {
+    /**
+     * La emprendedora autorizada activa su cuenta con el código que le dio la administración (11).
+     * El servidor compara con el correo de la SESIÓN, no con uno enviado por la app.
+     * Devuelve ACTIVADA, YA_ACTIVA o CODIGO_INCORRECTO:<intentos que quedan>.
+     */
+    suspend fun activarConCodigo(codigo: String): String =
+        ClienteSupabase.json.parseToJsonElement(ClienteSupabase.pedir("POST", "/rest/v1/rpc/activar_con_codigo",
+            cuerpoJson = buildJsonObject { put("p_codigo", codigo.trim()) }.toString())).jsonPrimitive.content
+
+    /** Estado de la cuenta con sesión: COMPRADOR, AUTORIZACION_PENDIENTE, ACTIVA, DESACTIVADA, SIN_TIENDA o ADMIN. */
+    suspend fun estadoMiCuenta(): Pair<String, Boolean> {
+        val o = ClienteSupabase.json.parseToJsonElement(ClienteSupabase.pedir("POST", "/rest/v1/rpc/estado_mi_cuenta", cuerpoJson = "{}")).jsonObject
+        return (o["estado"]?.jsonPrimitive?.contentOrNull ?: "") to (o["codigo_vigente"]?.jsonPrimitive?.booleanOrNull ?: false)
+    }
+
     /** El administrador autoriza un correo como emprendedora (RN-01). */
     suspend fun autorizarEmprendedora(email: String, nombre: String) {
         val cuerpo = buildJsonObject {

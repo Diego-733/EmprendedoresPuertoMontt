@@ -133,6 +133,14 @@ fun PantallaDirectorio(nav: ControladorNavegacion, avisar: (String) -> Unit) {
         SesionManager.cargarTiendas()
         VitrinaStore.cargar()
     }
+    // Búsqueda pedida al asistente («busco gorros de lana»): se aplica una vez y queda editable.
+    LaunchedEffect(com.example.trabajodea10.ui.asistente.PedidoVitrina.pendiente) {
+        val p = com.example.trabajodea10.ui.asistente.PedidoVitrina.pendiente ?: return@LaunchedEffect
+        com.example.trabajodea10.ui.asistente.PedidoVitrina.pendiente = null
+        if (p.limpiar) { busqueda = ""; tipo = ""; sector = ""; asociacion = "" }
+        p.termino?.let { busqueda = it }
+        vista = when { p.verAsociaciones -> VISTA_ASOCIACIONES; p.verTiendas -> VISTA_TIENDAS; else -> VISTA_PRODUCTOS }
+    }
 
     val tiendas = SesionManager.tiendas.toList()
     val asociaciones = VitrinaStore.asociaciones.filter { it.activa }

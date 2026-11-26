@@ -177,7 +177,7 @@ object ClienteSupabase {
         MENSAJES_REGLAS.entries.firstOrNull { it.key in original }?.let { return it.value }
         return when {
             "could not find the function" in minus || "schema cache" in minus ->
-                "Supabase aún no tiene cargada la función para crear tiendas. Ejecuta supabase/04_registro_vendedores.sql en el SQL Editor de Supabase y vuelve a intentar."
+                "El servidor todavía no tiene esta función. La administración debe aplicar la actualización del servidor (supabase/README.md)."
             "invalid login credentials" in minus -> "Correo o contraseña incorrectos."
             "already registered" in minus || "already been registered" in minus ->
                 "Ese correo ya tiene cuenta. Usa «Iniciar sesión»."
@@ -194,6 +194,35 @@ object ClienteSupabase {
 
     /** Respuestas de las funciones del servidor (05_catalogo_ventas.sql) en palabras simples. */
     private val MENSAJES_REGLAS = linkedMapOf(
+        // Registro controlado y administración (09, 10, 11). Los códigos largos van antes que los cortos que contienen.
+        "YA_ES_EMPRENDEDORA" to "Ese correo ya es de una emprendedora activa.",
+        "ES_ADMINISTRADOR" to "Ese correo es de la administración: no puede ser emprendedora.",
+        "ASOCIACION_NO_EXISTE" to "Esa asociación ya no existe.",
+        "CUENTA_ANTERIOR" to "Tu cuenta se creó antes de la autorización. Por seguridad, pide a la administración que confirme en persona que la cuenta es tuya; después vuelve a escribir el código.",
+        "NO_AUTORIZADA" to "Tu correo todavía no está autorizado como emprendedora. Pide a la administración que lo autorice y te dé un código de activación.",
+        "CODIGO_VENCIDO" to "El código venció. Pide a la administración un código nuevo.",
+        "DEMASIADOS_INTENTOS" to "Se probaron demasiados códigos incorrectos. Pide a la administración un código nuevo.",
+        "SIN_CODIGO" to "Tu autorización todavía no tiene código. Pide a la administración que genere uno.",
+        "YA_ACTIVADA" to "Esa autorización ya se usó: la cuenta está activada.",
+        "USA_ADMINISTRADORES" to "Las cuentas de administración se gestionan en «Administradores».",
+        "ULTIMA_ADMIN" to "Debe quedar al menos otra cuenta de administración activa.",
+        "NO_PUEDES_DESACTIVARTE" to "No puedes desactivar tu propia cuenta de administración.",
+        "NOMBRE_TIENDA_INVALIDO" to "Revisa el nombre de la tienda.",
+        "TIPO_EN_USO" to "Hay productos con ese tipo: desactívalo en vez de borrarlo.",
+        "FERIA_INCOMPLETA" to "A la feria le falta el nombre o la fecha para publicarla.",
+        "FERIA_PASADA" to "No se puede publicar una feria que ya pasó.",
+        "FERIA_NO_EXISTE" to "Esa feria ya no existe.",
+        "FERIA_NO_ACTIVA" to "La feria no está publicada (o se canceló).",
+        "AUN_NO_ES_EL_DIA" to "La asistencia se registra desde el día de la feria.",
+        "PLAZO_VENCIDO" to "Pasaron más de 3 días desde la feria: ya no se puede cambiar la asistencia.",
+        "NO_PARTICIPA" to "Esa tienda no confirmó su participación.",
+        "SIN_PARTICIPACION" to "Esa tienda no está en la feria.",
+        "CORREO_INVALIDO" to "Revisa el correo: debe tener la forma nombre@dominio.cl.",
+        "NOMBRE_INVALIDO" to "Revisa el nombre (obligatorio, máximo 120 letras).",
+        "CATEGORIA_INVALIDA" to "Revisa la categoría.",
+        "YA_EXISTE" to "Ya existe una cuenta con ese correo.",
+        "SOLO_ADMIN" to "Solo la administración puede hacer esto.",
+        "SIN_SESION" to "Vuelve a iniciar sesión.",
         "STOCK_INSUFICIENTE" to "No quedan unidades suficientes de esa opción.",
         "PIEZA_VENDIDA" to "Esa pieza única ya se vendió.",
         "ENCARGO_NO_PERMITIDO" to "Una pieza única no se puede encargar.",
@@ -219,7 +248,7 @@ object ClienteSupabase {
     private fun leerSesion(texto: String, emailRespaldo: String): SesionSupabase {
         val o = json.parseToJsonElement(texto).jsonObject
         val access = o["access_token"]?.jsonPrimitive?.contentOrNull
-            ?: throw ErrorSupabase(0, "La cuenta se creó, pero falta confirmarla por correo.")
+            ?: throw ErrorSupabase(0, "Tu cuenta se creó. Te enviamos un correo para confirmarla: ábrelo y luego entra con tu correo y contraseña. Si tienes un código de activación, escríbelo después en «Mi perfil».")
         val refresh = o["refresh_token"]?.jsonPrimitive?.contentOrNull ?: ""
         val usuario = o["user"]?.jsonObject ?: JsonObject(emptyMap())
         val id = usuario["id"]?.jsonPrimitive?.contentOrNull
@@ -246,6 +275,16 @@ object ClienteSupabase {
         val nueva = leerSesion(texto, email.trim())
         guardarSesion(nueva)
         return nueva
+    }
+
+    /** Cierra las OTRAS sesiones de la cuenta (Supabase Auth: logout scope=others). La actual sigue abierta. */
+    suspend fun cerrarOtrasSesiones() {
+        pedir("POST", "/auth/v1/logout?scope=others")
+    }
+
+    /** Cambia la contraseña de la cuenta con sesión (Supabase Auth: PUT /auth/v1/user). No se guarda en el celular. */
+    suspend fun cambiarContrasena(nueva: String) {
+        pedir("PUT", "/auth/v1/user", cuerpoJson = buildJsonObject { put("password", nueva) }.toString())
     }
 
     suspend fun ingresar(email: String, clave: String): SesionSupabase {

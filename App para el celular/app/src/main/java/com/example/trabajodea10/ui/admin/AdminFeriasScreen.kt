@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -61,7 +62,12 @@ fun PantallaAdminFerias(
     avisar: (String) -> Unit
 ) {
     val contexto = androidx.compose.ui.platform.LocalContext.current
-    androidx.compose.runtime.LaunchedEffect(Unit) { com.example.trabajodea10.data.VitrinaStore.cargar() }
+    var nueva by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var gestionar by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.example.trabajodea10.data.FeriaPublica?>(null) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        runCatching { com.example.trabajodea10.data.VitrinaStore.cargarAdmin() }.onFailure { avisar(com.example.trabajodea10.data.AdminStore.mensajeDe(it)) }
+    }
+    val borradores = com.example.trabajodea10.data.VitrinaStore.ferias.filter { it.estado == "BORRADOR" }
     // Rediseño v2: agrupadas por momento (hoy, próximas, anteriores, canceladas) con bloque de fecha.
     val grupos = com.example.trabajodea10.data.ReglasAdmin.clasificarFerias(
         com.example.trabajodea10.data.VitrinaStore.ferias.toList(), com.example.trabajodea10.data.ReglasFerias.fechaSantiago())
@@ -75,7 +81,10 @@ fun PantallaAdminFerias(
                 com.example.trabajodea10.ui.componentes.CabeceraMarca(
                     sobretitulo = "Calendario",
                     titulo = "Ferias",
-                    subtitulo = "$total en el servidor · ${grupos.enCurso.size + grupos.proximas.size} por venir"
+                    subtitulo = "$total en el servidor · ${grupos.enCurso.size + grupos.proximas.size} por venir",
+                    acciones = {
+                        com.example.trabajodea10.ui.componentes.AccionCabecera(androidx.compose.material.icons.Icons.Filled.Add, "Nueva feria") { nueva = true }
+                    }
                 ) {
                     com.example.trabajodea10.ui.componentes.FilaCifras(
                         grupos.enCurso.size.toString() to "Hoy",
@@ -85,8 +94,12 @@ fun PantallaAdminFerias(
                 }
             }
             item {
+                com.example.trabajodea10.ui.componentes.BotonPrimario(
+                    texto = "Nueva feria", onClick = { nueva = true }, modifier = Modifier.padding(horizontal = 16.dp))
+            }
+            item {
                 com.example.trabajodea10.ui.componentes.AvisoAccion(
-                    "Crear, publicar, cancelar, invitar, el checklist, los avisos y la asistencia se hacen en el panel web.",
+                    "Toca una feria para editarla, publicarla, cancelarla, invitar tiendas o registrar la asistencia. La imagen, el mapa y los avisos manuales siguen en el panel web.",
                     com.example.trabajodea10.ui.componentes.Tono.AZUL, Modifier.padding(horizontal = 16.dp),
                     accion = "Abrir web",
                     onAccion = {
@@ -99,6 +112,7 @@ fun PantallaAdminFerias(
             }
             if (total == 0) item { Vacio(titulo = "Sin ferias", mensaje = "Aún no hay ferias publicadas en el servidor.") }
             listOf(
+                Triple("Borradores", borradores, false),
                 Triple("Hoy", grupos.enCurso, true), Triple("Próximas", grupos.proximas, false),
                 Triple("Anteriores", grupos.anteriores, false), Triple("Canceladas", grupos.canceladas, false)
             ).filter { it.second.isNotEmpty() }.forEach { (titulo, lista, hoy) ->
@@ -111,13 +125,15 @@ fun PantallaAdminFerias(
                         lista.forEachIndexed { i, f ->
                             if (i > 0) androidx.compose.material3.HorizontalDivider(
                                 color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(horizontal = 16.dp))
-                            FilaFeria(f, enCurso = hoy) { nav.irA(Ruta.FeriaPublica(f.id)) }
+                            FilaFeria(f, enCurso = hoy) { gestionar = f }
                         }
                     }
                 }
             }
         }
     }
+    if (nueva) HojaFormFeria(null, onCerrar = { nueva = false }, onResultado = avisar)
+    gestionar?.let { f -> HojaGestionFeria(f, nav, onCerrar = { gestionar = null }, onResultado = avisar) }
 }
 
 @Composable

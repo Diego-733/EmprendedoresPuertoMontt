@@ -104,11 +104,23 @@ object TramaStore {
 
     var emprendedoraActualId = "emp1"
 
-    val asociaciones = mutableStateListOf<Asociacion>().apply { addAll(MockData.asociaciones) }
-    val emprendedoras = mutableStateListOf<Emprendedora>().apply { addAll(MockData.emprendedoras) }
-    val ferias = mutableStateListOf<Feria>().apply { addAll(MockData.ferias) }
-    val productos = mutableStateListOf<Producto>().apply { addAll(MockData.productos) }
-    val ventas = mutableStateListOf<Venta>().apply { addAll(MockData.ventas) }
+    /*
+     * Datos de EJEMPLO (MockData) solo en el APK de pruebas sin servidor. En la app conectada se parte
+     * vacía y se llena con el servidor: antes, si una emprendedora entraba en un celular nuevo sin señal,
+     * «Vendido este mes» y su tienda mostraban ventas y datos inventados (auditoría 26-nov-2026).
+     */
+    private fun <T> ejemplos(lista: List<T>): List<T> = if (usarEjemplos) lista else emptyList()
+    val usarEjemplos: Boolean get() = !com.example.trabajodea10.data.remoto.ConfigSupabase.configurado || ejemplosParaPruebas
+    /** Solo pruebas JVM: permite usar los datos de ejemplo aunque la compilación tenga servidor. */
+    @JvmStatic var ejemplosParaPruebas = false
+    /** Tienda sin datos hasta que llega la del servidor (nunca la de ejemplo en la app conectada). */
+    private val TIENDA_VACIA = Tienda(id = "", nombre = "Tu tienda", instagram = "")
+
+    val asociaciones = mutableStateListOf<Asociacion>().apply { addAll(ejemplos(MockData.asociaciones)) }
+    val emprendedoras = mutableStateListOf<Emprendedora>().apply { addAll(ejemplos(MockData.emprendedoras)) }
+    val ferias = mutableStateListOf<Feria>().apply { addAll(ejemplos(MockData.ferias)) }
+    val productos = mutableStateListOf<Producto>().apply { addAll(ejemplos(MockData.productos)) }
+    val ventas = mutableStateListOf<Venta>().apply { addAll(ejemplos(MockData.ventas)) }
 
     // Carrito de venta (persiste entre navegación)
     val carritoVenta = mutableStateListOf<ItemVenta>()
@@ -127,7 +139,7 @@ object TramaStore {
         }
     }
 
-    var tienda by mutableStateOf(MockData.tienda)
+    var tienda by mutableStateOf(if (usarEjemplos) MockData.tienda else TIENDA_VACIA)
         private set
 
     var config by mutableStateOf(ConfigSistema())
@@ -283,15 +295,26 @@ object TramaStore {
         Sincronizador.activarCuenta(uid)
     }
 
+    /** Modo de prueba del equipo (tiendas de prueba): carga explícitamente los datos de EJEMPLO. */
+    fun cargarEjemplos() {
+        if (productos.none { p -> MockData.productos.any { it.id == p.id } }) {
+            asociaciones.clear(); asociaciones.addAll(MockData.asociaciones)
+            emprendedoras.clear(); emprendedoras.addAll(MockData.emprendedoras)
+            ferias.clear(); ferias.addAll(MockData.ferias)
+            productos.clear(); productos.addAll(MockData.productos)
+            ventas.clear(); ventas.addAll(MockData.ventas)
+        }
+    }
+
     private fun restablecerEnMemoria() {
         rol = null
         emprendedoraActualId = "emp1"
-        asociaciones.clear(); asociaciones.addAll(MockData.asociaciones)
-        emprendedoras.clear(); emprendedoras.addAll(MockData.emprendedoras)
-        ferias.clear(); ferias.addAll(MockData.ferias)
-        productos.clear(); productos.addAll(MockData.productos)
-        ventas.clear(); ventas.addAll(MockData.ventas)
-        tienda = MockData.tienda
+        asociaciones.clear(); asociaciones.addAll(ejemplos(MockData.asociaciones))
+        emprendedoras.clear(); emprendedoras.addAll(ejemplos(MockData.emprendedoras))
+        ferias.clear(); ferias.addAll(ejemplos(MockData.ferias))
+        productos.clear(); productos.addAll(ejemplos(MockData.productos))
+        ventas.clear(); ventas.addAll(ejemplos(MockData.ventas))
+        tienda = if (usarEjemplos) MockData.tienda else TIENDA_VACIA
         config = ConfigSistema()
         prefs = PreferenciasEmprendedora()
         inscripcionesVisitante.clear()

@@ -102,6 +102,29 @@
     editar_admin: function (a) { admins.forEach(function (x) { if (x.email === a.p_email) x.nombre = a.p_nombre; }); return ok(true); },
     cambiar_estado_admin: function (a) { admins.forEach(function (x) { if (x.email === a.p_email) x.estado = a.p_activa === false ? "DESACTIVADA" : "ACTIVA"; }); return ok(true); },
     listar_emprendedoras: function () { return ok(emprendedoras.slice()); },
+    // Registro controlado (11), datos FICTICIOS de la demo. El código de la demo es siempre ABCD-2345.
+    listar_cuentas_emprendedoras: function () {
+      return ok(emprendedoras.map(function (x) {
+        var pendiente = x.estado === "PENDIENTE_REGISTRO" || x.estado === "PENDIENTE_ACTIVACION";
+        return Object.assign({ autorizada: x.email !== "tejidos@alerce.app", codigo_vigente: pendiente, codigo_expira: pendiente ? "2026-12-05T12:00:00Z" : null, intentos: 0, asociaciones: [] }, x);
+      }));
+    },
+    autorizar_emprendedora: function (a) {
+      emprendedoras.unshift({ usuario_id: null, email: a.p_email, nombre: a.p_nombre, tienda_id: null, tienda_nombre: null, estado: "PENDIENTE_REGISTRO", creado_en: new Date().toISOString() });
+      return ok({ email: a.p_email, codigo: "ABCD-2345", expira: "2026-12-10T12:00:00Z", estado: "PENDIENTE_REGISTRO" });
+    },
+    regenerar_codigo_emprendedora: function (a) { return ok({ email: a.p_email, codigo: "WXYZ-6789", expira: "2026-12-10T12:00:00Z" }); },
+    revocar_autorizacion: function (a) { emprendedoras = emprendedoras.filter(function (x) { return x.email !== a.p_email; }); return ok("REVOCADA"); },
+    regularizar_emprendedora: function () { return ok("REGULARIZADA"); },
+    estado_mi_cuenta: function () {
+      var s = window.__FALSO__.sesion, uid = s && s.user && s.user.id;
+      var p = estado.tablas.perfiles.find(function (x) { return x.id === uid; });
+      if (!p) return ok({ rol: null, estado: "SIN_SESION" });
+      if (p.rol === "EMPRENDEDORA") return ok({ rol: "EMPRENDEDORA", estado: "ACTIVA" });
+      if (p.rol === "ADMIN") return ok({ rol: "ADMIN", estado: "ADMIN" });
+      return ok({ rol: "VISITANTE", estado: "AUTORIZACION_PENDIENTE", codigo_vigente: true });
+    },
+    activar_con_codigo: function (a) { return ok(String(a.p_codigo).replace(/[^A-Za-z0-9]/g, "").toUpperCase() === "ABCD2345" ? "ACTIVADA" : "CODIGO_INCORRECTO:4"); },
     editar_emprendedora: function () { return ok(true); },
     cambiar_estado_emprendedora: function (a) { emprendedoras.forEach(function (x) { if (x.email === a.p_email || x.usuario_id === a.p_usuario) x.estado = a.p_activa === false ? "DESACTIVADA" : "ACTIVA"; }); return ok(true); },
     ver_bitacora: function () { return ok(bitacora.slice()); },
@@ -123,6 +146,7 @@
       var rpc = c.rpc;
       c.rpc = function (nombre, args) {
         if (MANEJADORES[nombre]) {
+          window.__FALSO__.llamadas.push({ rpc: nombre, args: JSON.parse(JSON.stringify(args || {})) });
           var r = MANEJADORES[nombre](args || {});
           return new Promise(function (ok) { setTimeout(function () { ok(r); }, 60); });
         }

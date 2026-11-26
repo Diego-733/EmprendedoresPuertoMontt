@@ -164,6 +164,53 @@ object SesionManager {
         prepararSesion()
     }.onFailure { Log.w(TAG, "Registro fallido: ${it.message}") }
 
+    // ============================================================ Registro controlado (11) y contraseña
+
+    /** Estado de la cuenta según el servidor (estado_mi_cuenta). null = servidor sin 11 o sin dato. */
+    var estadoCuenta by mutableStateOf<String?>(null)
+        private set
+    var codigoVigente by mutableStateOf(false)
+        private set
+    val cuentaDesactivada: Boolean get() = estadoCuenta == "DESACTIVADA"
+
+    private suspend fun leerEstadoCuenta() {
+        runCatching { com.example.trabajodea10.data.remoto.CuentaRepositorio.estadoMiCuenta() }
+            .onSuccess { (estado, vigente) -> estadoCuenta = estado.ifBlank { null }; codigoVigente = vigente }
+            .onFailure { estadoCuenta = null; codigoVigente = false }   // servidor sin 11: no se inventa un estado
+    }
+
+    /** Activa la cuenta de emprendedora con el código (11). Devuelve el rol nuevo; nunca lo decide la app. */
+    suspend fun activarConCodigo(codigo: String): Result<Rol> = runCatching {
+        val limpio = codigo.filter { it.isLetterOrDigit() }
+        if (limpio.length != 8) throw ErrorSupabase(0, "El código tiene 8 letras y números (por ejemplo, ABCD-2345).")
+        val r = com.example.trabajodea10.data.remoto.CuentaRepositorio.activarConCodigo(limpio)
+        if (r.startsWith("CODIGO_INCORRECTO")) {
+            val quedan = r.substringAfter(':', "").toIntOrNull()
+            throw ErrorSupabase(0, "El código no coincide." + (quedan?.let { if (it > 0) " Te quedan $it intentos." else " Ya no quedan intentos: pide un código nuevo." } ?: ""))
+        }
+        // Seguridad: quien haya entrado antes con esta cuenta (en otro dispositivo) pierde el acceso.
+        if (r.startsWith("ACTIVADA")) runCatching { ClienteSupabase.cerrarOtrasSesiones() }
+        prepararSesion()
+    }.onFailure { Log.w(TAG, "Activación con código no completada") }
+
+    /**
+     * Cambio de contraseña con sesión iniciada. Primero se comprueba la contraseña actual volviendo a
+     * ingresar (reautenticación), y recién entonces se pide el cambio a Supabase Auth. No se guarda
+     * ninguna contraseña en el celular ni se escribe en los registros.
+     */
+    suspend fun cambiarContrasena(actual: String, nueva: String, repetida: String): Result<Unit> = runCatching {
+        val correo = ClienteSupabase.sesion?.email ?: throw ErrorSupabase(0, "Vuelve a iniciar sesión.")
+        if (nueva.length < 8) throw ErrorSupabase(0, "La contraseña nueva debe tener al menos 8 caracteres.")
+        if (nueva != repetida) throw ErrorSupabase(0, "Las contraseñas nuevas no coinciden.")
+        if (nueva == actual) throw ErrorSupabase(0, "La contraseña nueva debe ser distinta de la actual.")
+        try {
+            ClienteSupabase.ingresar(correo, actual)
+        } catch (e: ErrorSupabase) {
+            throw ErrorSupabase(e.codigo, if (e.codigo == 400) "La contraseña actual no es correcta. Si entras con Google, tu contraseña la administra Google." else (e.message ?: "No se pudo comprobar."))
+        }
+        ClienteSupabase.cambiarContrasena(nueva)
+    }.onFailure { Log.w(TAG, "Cambio de contraseña no completado") }
+
     /** Una cuenta compradora existente puede abrir su propia tienda. */
     suspend fun crearTiendaParaUsuario(nombre: String): Result<Rol> = runCatching {
         if (nombre.isBlank()) throw ErrorSupabase(0, "Escribe el nombre de tu tienda.")
@@ -289,6 +336,7 @@ object SesionManager {
         }
         runCatching { TipoRepositorio.listar() }.onSuccess { TramaStore.reemplazarTipos(it) }
         runCatching { FeriaRepositorio.listar() }.onSuccess { TramaStore.reemplazarFeriasPlataforma(it) }
+        leerEstadoCuenta()
         TramaStore.iniciarSesion(perfil.rol)
         Sincronizador.subirEnSegundoPlano()
         // Entrega 7: seguimientos, consentimiento, mis ferias, avisos y la acción pendiente.
@@ -327,6 +375,7 @@ object SesionManager {
     /** Acceso a las tiendas de ejemplo sin servidor (solo en el APK de pruebas). */
     fun entrarModoDesarrolladorPrueba(tiendaId: String, rol: Rol) {
         val tiendaPrueba = TIENDAS_INICIALES_ALERCE.find { it.id == tiendaId } ?: TIENDAS_INICIALES_ALERCE.first()
+        TramaStore.cargarEjemplos()   // solo en el modo de prueba del equipo: datos de ejemplo explícitos
         nombreUsuarioActual = if (rol == Rol.ADMIN) "Administración de prueba" else tiendaPrueba.nombre
         rolUsuarioActual = rol
         if (rol == Rol.EMPRENDEDORA) TramaStore.guardarTienda(tiendaPrueba)

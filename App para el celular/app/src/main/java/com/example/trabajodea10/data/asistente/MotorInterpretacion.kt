@@ -27,7 +27,8 @@ interface MotorInterpretacion {
 
 /** Motor local por reglas (no es inteligencia artificial). */
 object MotorLocal : MotorInterpretacion {
-    override fun interpretar(frase: String): InterpreteAlerce.Resultado = InterpreteAlerce.interpretar(frase)
+    /** Asistente 2.0: primero la capa flexible (voz, tipeo, diminutivos y formas equivalentes), luego las reglas. */
+    override fun interpretar(frase: String): InterpreteAlerce.Resultado = InterpreteAlerce.interpretar(Canonizador.canonizar(frase))
 }
 
 /**

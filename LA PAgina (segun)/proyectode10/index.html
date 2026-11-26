@@ -44,7 +44,7 @@
   <!-- Identidad Alerce (paleta, tipografía y distribución móvil primero). Va al final: ordena lo anterior. -->
   <link rel="stylesheet" href="css/alerce.css?v=20261125_fotos">
   <!-- Rediseño v2: nueva generación visual (se carga al final) -->
-  <link rel="stylesheet" href="css/generacion.css?v=20261126_v2">
+  <link rel="stylesheet" href="css/generacion.css?v=20261126_admin">
 </head>
 <body>
 
@@ -388,6 +388,8 @@
                 <option value="TODAS">Todas</option>
                 <option value="ACTIVAS">🟢 Activas</option>
                 <option value="DESACTIVADAS">🔴 Desactivadas</option>
+                <option value="PENDIENTES">⏳ Pendientes</option>
+                <option value="SIN_AUTORIZACION">Sin autorización registrada</option>
               </select>
             </div>
             <button type="button" class="btn-accion-pill btn-negro" style="height: 38px; font-size: 12.5px; background: #059669; border-color: #059669;" onclick="TramaWeb.abrirFormCrearEmprendedora()">
@@ -398,9 +400,9 @@
           <!-- Cuadro de Credenciales Generadas (W05 / WA5) -->
           <div id="admin-box-credenciales" style="display: none; background: #ecfdf5; border: 1px solid #10b981; border-radius: 12px; padding: 14px 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong style="color: #065f46; font-size: 13.5px;">🔑 Credenciales listas para entregar a la emprendedora</strong>
+              <strong style="color: #065f46; font-size: 13.5px;">🔑 Datos para entregar a la emprendedora</strong>
               <button type="button" class="btn-accion-pill" style="height: 30px; font-size: 11px; background: #059669; color: #fff; border: none;" onclick="TramaWeb.copiarCredencialesGeneradas()">
-                📋 Copiar credenciales
+                📋 Copiar mensaje para la emprendedora
               </button>
             </div>
             <div style="font-family: monospace; font-size: 13px; color: #047857; background: #fff; padding: 10px 12px; border-radius: 8px; border: 1px solid #a7f3d0;" id="admin-texto-credenciales">
@@ -1645,7 +1647,13 @@
 
         <div>
           <label class="label-fb-market">Contraseña (mínimo 6 caracteres) *</label>
-          <input type="password" id="reg-emp-password" class="input-fb-market" placeholder="••••••••">
+          <input type="password" id="reg-emp-password" class="input-fb-market" placeholder="••••••••" autocomplete="new-password">
+        </div>
+
+        <div>
+          <label class="label-fb-market" for="reg-emp-codigo">Código de activación</label>
+          <input type="text" id="reg-emp-codigo" class="input-fb-market" placeholder="ABCD-2345" autocomplete="one-time-code" maxlength="9" style="text-transform: uppercase;">
+          <p style="font-size: 12px; color: var(--gris-texto); margin: 4px 0 0;">Te lo entrega la administración de Alerce. Sin código, la cuenta queda como compradora y puedes activarla después en «Mi perfil».</p>
         </div>
 
         <div>
@@ -1949,15 +1957,17 @@
 
   <!-- Scripts -->
   <script src="js/qrcode.min.js"></script>
-  <script src="js/catalogo.js?v=20261125_voz"></script>
+  <script src="js/catalogo.js?v=20261126_admin"></script>
   <script src="js/busquedaVoz.js?v=20261125_lectura"></script>
   <script src="js/lecturaVoz.js?v=20261125_lectura"></script>
   <script src="js/guiaProducto.js?v=20261125_lectura"></script>
   <script src="js/asistenteWeb.js?v=20261126_asistente"></script>
-  <script src="js/servicio.js?v=20261119_e7"></script>
+  <script src="js/servicio.js?v=20261126_admin"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script src="js/vitrina6.js?v=20261126_rediseno"></script>
   <script src="js/ferias7.js?v=20261119_e7"></script>
-  <script src="js/main.js?v=20261126_asistente"></script>
+  <script src="js/main.js?v=20261126_admin"></script>
+  <!-- Administración integral: mostrar/ocultar contraseñas, activar con código, cambiar contraseña y cuenta desactivada -->
+  <script src="js/cuentas.js?v=20261126_admin"></script>
 </body>
 </html>

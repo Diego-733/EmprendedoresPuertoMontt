@@ -57,6 +57,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.trabajodea10.data.EstadoInvitacion7
 import com.example.trabajodea10.data.EstadoSync
+import com.example.trabajodea10.data.AdminStore
 import com.example.trabajodea10.data.FeriasStore
 import com.example.trabajodea10.data.GuiaProducto
 import com.example.trabajodea10.data.ItemVenta
@@ -206,24 +207,32 @@ object AsistenteMemoria {
     data class Conflicto(val producto: ProductoAsistido, val nombreBorrador: String, val borradorEsNuevo: Boolean)
 
     /** [cuentaId] = cuenta con sesión + tienda: dos cuentas nunca comparten conversación ni producto anotado. */
+    /** Visitante, comprador o administración: conversación de solo consulta y navegación (AsistenteGeneral). */
+    var general: com.example.trabajodea10.data.asistente.AsistenteGeneral? = null
+        private set
+
     fun asegurar(cuentaId: String) {
-        if (sesion != null && cuenta == cuentaId) return
-        cuenta = cuentaId
+        val rolGeneral = ContextoGeneralApp.rolActual()
+        val clave = "$cuentaId|${rolGeneral ?: "EMPRENDEDORA"}"
+        if (sesion != null && cuenta == clave) return
+        cuenta = clave
         val s = SesionAsistente(ContextoAsistenteApp())
         sesion = s
+        general = rolGeneral?.let { com.example.trabajodea10.data.asistente.AsistenteGeneral(it, ContextoGeneralApp(it)) }
         mensajes.clear()
         producto = null
         conflicto = null
         carritoPendiente = null
         estado = null
         SugerenciaVenta.olvidar()
-        agregar(s.saludo(SesionManager.nombreSaludo))
+        agregar(general?.saludo(SesionManager.nombreSaludo) ?: s.saludo(SesionManager.nombreSaludo))
     }
 
     /** Al cerrar sesión: se olvida la conversación y lo preparado (en un celular compartido nadie más lo ve ni lo ejecuta). */
     fun olvidar() {
         cuenta = null
         sesion = null
+        general = null
         mensajes.clear()
         producto = null
         conflicto = null
@@ -285,6 +294,18 @@ fun PantallaAsistente(nav: ControladorNavegacion, avisar: (String) -> Unit) {
             Destino.NUEVO_PRODUCTO -> nav.irA(Ruta.ProductoDetalle(TramaStore.crearProductoBorrador()))
             Destino.AJUSTES -> nav.irA(Ruta.Ajustes)
             Destino.AYUDA -> nav.irA(Ruta.CentroAyuda)
+            Destino.VITRINA -> nav.seleccionarTab(Ruta.VisProductos)
+            Destino.MAPA_FERIAS -> nav.seleccionarTab(Ruta.VisInicio)
+            Destino.AYUDA_PUBLICA -> nav.seleccionarTab(Ruta.VisAyuda)
+            Destino.PERFIL -> nav.seleccionarTab(Ruta.Ajustes)
+            Destino.ADMIN_INICIO -> nav.seleccionarTab(Ruta.AdminInicio)
+            Destino.ADMIN_CUENTAS -> nav.seleccionarTab(Ruta.AdminEmprendedoras)
+            Destino.ADMIN_FERIAS -> nav.seleccionarTab(Ruta.AdminFerias)
+            Destino.ADMIN_GESTION -> nav.seleccionarTab(Ruta.AdminGestion)
+            Destino.ADMIN_ASOCIACIONES -> nav.irA(Ruta.AdminAsociaciones)
+            Destino.ADMIN_TIPOS -> nav.irA(Ruta.AdminTipos)
+            Destino.ADMIN_EQUIPO -> nav.irA(Ruta.AdminEquipo)
+            Destino.ADMIN_BITACORA -> nav.irA(Ruta.AdminBitacora)
         }
     }
 
@@ -320,10 +341,17 @@ fun PantallaAsistente(nav: ControladorNavegacion, avisar: (String) -> Unit) {
             texto == SesionAsistente.ACCION_GUIA -> iniciarGuia(foto = false)
             texto == SesionAsistente.ACCION_GUIA_FOTO -> iniciarGuia(foto = true)
             else -> {
-                val r = sesion.responder(texto)
+                val r = AsistenteMemoria.general?.responder(texto) ?: sesion.responder(texto)
                 val m = AsistenteMemoria.agregar(r)
                 when (val a = r.accion) {
                     is Accion.Navegar -> ir(a.destino)
+                    is Accion.Buscar -> { PedidoVitrina.pendiente = a; nav.seleccionarTab(Ruta.VisProductos) }
+                    is Accion.AbrirTienda -> nav.irA(Ruta.TiendaPublica(a.tiendaId))
+                    is Accion.BuscarCuenta -> {
+                        AdminStore.busquedaAlAbrir = a.texto
+                        if (a.soloPendientes) AdminStore.filtroAlAbrir = com.example.trabajodea10.data.EstadoCuentaAdmin.PENDIENTE_ACTIVACION
+                        nav.seleccionarTab(Ruta.AdminEmprendedoras)
+                    }
                     is Accion.IniciarGuia -> iniciarGuia(a.foto)
                     is Accion.AbrirFormularioProducto -> abrirFormulario(a.datos, reemplazar = false)
                     null -> hablarSiCorresponde(m)

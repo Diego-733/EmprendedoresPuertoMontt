@@ -165,6 +165,13 @@ object VitrinaStore {
         return navegacion
     }
 
+    /** Administración: ferias leídas con la sesión (incluye borradores). Sin servidor, las de ejemplo. */
+    suspend fun cargarAdmin() {
+        if (!ConfigSupabase.configurado) { cargar(); return }
+        val f = VitrinaRepositorio.ferias(conToken = true)
+        ferias.clear(); ferias.addAll(f)
+    }
+
     suspend fun cargar() {
         if (!ConfigSupabase.configurado) {
             if (asociaciones.isEmpty()) asociaciones.addAll(ASOCIACIONES_EJEMPLO)

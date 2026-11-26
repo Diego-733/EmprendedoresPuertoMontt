@@ -44,8 +44,9 @@ object VitrinaRepositorio {
             )
         }.filter { it.id.isNotBlank() }
 
-    suspend fun ferias(): List<FeriaPublica> =
-        lista(ClienteSupabase.pedir("GET", "/rest/v1/ferias?select=*&order=fecha_inicio.asc.nullslast", conToken = false)).map { o ->
+    /** conToken = true: con la sesión de administración también llegan los borradores (RLS de ferias). */
+    suspend fun ferias(conToken: Boolean = false): List<FeriaPublica> =
+        lista(ClienteSupabase.pedir("GET", "/rest/v1/ferias?select=*&order=fecha_inicio.asc.nullslast", conToken = conToken)).map { o ->
             val punto = coordenadas(o.num("latitud"), o.num("longitud"))
             FeriaPublica(
                 id = o.txt("id").orEmpty(),

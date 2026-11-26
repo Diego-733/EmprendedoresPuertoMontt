@@ -1,0 +1,642 @@
+/**
+ * Reglas del catálogo compartidas por la vitrina y la gestión web.
+ * Son las mismas que aplica el servidor (supabase/05_catalogo_ventas.sql,
+ * estado_publico_producto) y la app (data/ReglasCatalogo.kt). El contrato
+ * está en docs/entrega5/contrato-catalogo.md.
+ *
+ * Sin dependencias ni acceso a la red: se prueba con `node --test tests/web`.
+ */
+(function (raiz, fabrica) {
+  "use strict";
+  var modulo = fabrica();
+  if (typeof module === "object" && module.exports) module.exports = modulo;
+  else raiz.AlerceCatalogo = modulo;
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  var MODALIDADES = ["REGULAR", "A_PEDIDO", "PIEZA_UNICA"];
+  var AL_AGOTARSE = ["MOSTRAR_AGOTADO", "OCULTAR", "PASAR_A_PEDIDO"];
+  var CATEGORIAS = {
+    TEXTIL: "Textil", CUERO: "Cuero", JOYERIA: "Joyería",
+    COSMETICA: "Cosmética", GOURMET: "Gourmet", DECORACION: "Decoración"
+  };
+  var ETIQUETA_MODALIDAD = { REGULAR: "Regular", A_PEDIDO: "A pedido", PIEZA_UNICA: "Pieza única" };
+  var ETIQUETA_AL_AGOTARSE = {
+    MOSTRAR_AGOTADO: "Mostrar «Agotado»", OCULTAR: "Ocultar", PASAR_A_PEDIDO: "Pasar a «A pedido»"
+  };
+  var MEDIOS_PAGO = { Efectivo: "EFECTIVO", Transferencia: "TRANSFERENCIA", Tarjeta: "DEBITO", QR: "QR" };
+
+  function entero(valor) {
+    var n = typeof valor === "number" ? valor : (typeof valor === "string" && valor.trim() !== "" ? Number(valor) : NaN);
+    if (!isFinite(n)) return 0;
+    return Math.max(0, Math.floor(n));
+  }
+
+  function numeroONulo(valor) {
+    if (valor === null || valor === undefined || valor === "") return null;
+    var n = Number(valor);
+    return isFinite(n) && n >= 0 ? n : null;
+  }
+
+  /** Solo URLs https (o http en localhost para desarrollo). Nada de javascript:, data: ni rutas relativas. */
+  function urlImagenSegura(url) {
+    if (typeof url !== "string") return "";
+    var limpia = url.trim();
+    if (/^https:\/\/[^\s"'<>]+$/i.test(limpia)) return limpia;
+    if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/[^\s"'<>]*$/i.test(limpia)) return limpia;
+    return "";
+  }
+
+  function colorHex(valor, respaldo) {
+    if (typeof valor === "string" && /^#[0-9a-f]{6}$/i.test(valor)) return valor.toUpperCase();
+    if (typeof valor === "number" && isFinite(valor)) {
+      return "#" + (Number(valor) & 0xFFFFFF).toString(16).padStart(6, "0").toUpperCase();
+    }
+    return respaldo || "#4A5568";
+  }
+
+  function normalizarOpcion(v, productoId, indice) {
+    v = v || {};
+    return {
+      id: (typeof v.id === "string" && v.id.trim()) ? v.id : productoId + "_v" + (indice + 1),
+      nombre: typeof v.nombre === "string" && v.nombre.trim() ? v.nombre : "Opción " + (indice + 1),
+      stock: entero(v.stock),
+      precio: numeroONulo(v.precio),
+      fotoUrl: urlImagenSegura(v.foto_url || v.fotoUrl || "")
+    };
+  }
+
+  /** Fila de Supabase → producto de la web. No inventa cantidades ni categorías. */
+  function normalizarProducto(fila) {
+    fila = fila || {};
+    var variantes = fila.variantes;
+    if (typeof variantes === "string") {
+      try { variantes = JSON.parse(variantes); } catch (e) { variantes = []; }
+    }
+    if (!Array.isArray(variantes)) variantes = [];
+    var fotos = Array.isArray(fila.fotos) ? fila.fotos.map(urlImagenSegura).filter(Boolean) : [];
+    return {
+      id: String(fila.id || ""),
+      tiendaId: String(fila.tienda_id || fila.tiendaId || ""),
+      nombre: String(fila.nombre || ""),
+      descripcion: String(fila.descripcion || ""),
+      categoria: String(fila.categoria || ""),
+      tipo: fila.tipo ? String(fila.tipo) : "",
+      atributos: (fila.atributos && typeof fila.atributos === "object" && !Array.isArray(fila.atributos)) ? fila.atributos : {},
+      precio: Number(fila.precio) >= 0 ? Number(fila.precio) : 0,
+      publicado: fila.publicado === true,
+      disponible: fila.disponible !== false,
+      destacado: fila.destacado === true,
+      colorFoto: colorHex(fila.color_foto, "#4A5568"),
+      fotoUrl: urlImagenSegura(fila.foto_url || fila.fotoUrl || ""),
+      fotos: fotos,
+      modalidad: MODALIDADES.indexOf(fila.modalidad) >= 0 ? fila.modalidad : "REGULAR",
+      manejaStock: fila.modalidad === "PIEZA_UNICA" ? true : fila.maneja_stock !== false && fila.manejaStock !== false,
+      alAgotarse: fila.modalidad === "PIEZA_UNICA" ? "OCULTAR" : (AL_AGOTARSE.indexOf(fila.al_agotarse || fila.alAgotarse) >= 0 ? (fila.al_agotarse || fila.alAgotarse) : "MOSTRAR_AGOTADO"),
+      vendidaEn: fila.vendida_en || fila.vendidaEn || null,
+      variantes: variantes.map(function (v, i) { return normalizarOpcion(v, String(fila.id || ""), i); }),
+      actualizadoEn: fila.actualizado_en || null
+    };
+  }
+
+  var MODOS_CONTACTO = ["WHATSAPP", "FORMULARIO", "AMBOS"];
+  function modoContacto(valor) {
+    var v = String(valor || "").toUpperCase();
+    return MODOS_CONTACTO.indexOf(v) >= 0 ? v : "AMBOS";
+  }
+  function puntoValido(lat, lng) {
+    if (lat === null || lat === undefined || lat === "" || lng === null || lng === undefined || lng === "") return false;
+    var a = Number(lat), b = Number(lng);
+    return isFinite(a) && isFinite(b) && a >= -90 && a <= 90 && b >= -180 && b <= 180;
+  }
+  // ---------- WhatsApp de cada tienda (misma regla que ContactoWhatsApp.kt en Android) ----------
+  var SIN_WHATSAPP = "Esta tienda aún no tiene un WhatsApp de contacto";
+  /** Sin WhatsApp utilizable y sin mensajes por la vitrina: una sola frase, sin destino de reemplazo. */
+  var SIN_CONTACTO = "Por ahora esta tienda no recibe mensajes desde la vitrina";
+
+  /**
+   * Número chileno para wa.me ("56912345678") o null. Acepta "+56 9 1234 5678", "56912345678",
+   * "9 1234 5678" y fijos de 11 dígitos con 56. Sin número de respaldo: si no es válido, null.
+   */
+  function numeroWhatsapp(texto) {
+    var d = String(texto == null ? "" : texto).replace(/[^0-9]/g, "");
+    if (d.indexOf("00") === 0) d = d.slice(2);
+    if (d.length === 9 && d.charAt(0) === "9") d = "56" + d;
+    if (d.length !== 11 || d.indexOf("56") !== 0) return null;
+    if (d.charAt(2) < "2" || d.charAt(2) > "9") return null;
+    return d;
+  }
+  /** "+56 9 1234 5678" (celular) o "+56 65 212 3456" (fijo); null si no es válido. */
+  function formatearWhatsapp(texto) {
+    var d = numeroWhatsapp(texto);
+    if (!d) return null;
+    return d.charAt(2) === "9" ? "+56 9 " + d.slice(3, 7) + " " + d.slice(7) : "+56 " + d.slice(2, 4) + " " + d.slice(4, 7) + " " + d.slice(7);
+  }
+  /**
+   * Números de ejemplo que vienen en los datos de prueba (supabase/02_datos_prueba.sql, la demo de la
+   * web y MockData/SesionManager en Android). Si una tienda real los conserva, abrir WhatsApp le
+   * escribiría a un desconocido: se tratan como «sin WhatsApp». Misma lista en ContactoWhatsApp.kt.
+   */
+  var NUMEROS_DEMOSTRACION = ["56987654321", "56991234567", "56976543210", "56965432109", "56912345678", "56988887777"];
+  function esNumeroDemostracion(texto) {
+    var d = numeroWhatsapp(texto);
+    if (!d) return false;
+    if (NUMEROS_DEMOSTRACION.indexOf(d) >= 0) return true;
+    var ocho = d.slice(-8);
+    if (/^(\d)\1{7}$/.test(ocho) || ocho === "12345678" || ocho === "87654321") return true;   // 0000 0000, 1234 5678…
+    // Serie 9 6123 de los ejemplos: el antiguo «soporte» terminado en 0000 y 4500 a 4520 (asociaciones y tiendas).
+    return /^96123(0000|45[01]\d|4520)$/.test(d.slice(2));
+  }
+  /** Número para abrir WhatsApp: válido y que no sea de los datos de ejemplo. Si no, null. */
+  function whatsappDeContacto(texto) {
+    var d = numeroWhatsapp(texto);
+    return d && !esNumeroDemostracion(d) ? d : null;
+  }
+  function enlaceWhatsapp(numero, texto) {
+    var d = whatsappDeContacto(numero);
+    return d ? "https://wa.me/" + d + "?text=" + encodeURIComponent(texto || "") : null;
+  }
+  /** Rótulos que dicen, antes de tocar, a quién le llega y por qué canal. */
+  function etiquetaWhatsapp(nombre) { return "Enviar WhatsApp a " + nombre; }
+  function etiquetaMensaje(nombre) { return "Enviar mensaje a " + nombre; }
+  function etiquetaPedidoWhatsapp(nombre) { return "Enviar pedido por WhatsApp a " + nombre; }
+
+  /** Qué vías de contacto ofrece la vitrina según lo que configuró la emprendedora. */
+  function viasContacto(tienda) {
+    var modo = modoContacto(tienda && tienda.contactoModo);
+    var quiereWhatsapp = modo === "WHATSAPP" || modo === "AMBOS";
+    var tieneNumero = !!(tienda && whatsappDeContacto(tienda.whatsapp));
+    var formulario = modo === "FORMULARIO" || modo === "AMBOS";
+    return {
+      whatsapp: quiereWhatsapp && tieneNumero,
+      // Eligió WhatsApp pero el número falta, no sirve o es de ejemplo: se avisa en vez de abrir otro chat.
+      faltaWhatsapp: quiereWhatsapp && !tieneNumero,
+      formulario: formulario,
+      sinCanal: !(quiereWhatsapp && tieneNumero) && !formulario
+    };
+  }
+  /** La frase que explica por qué no hay botón de WhatsApp ("" si lo hay). */
+  function avisoContacto(vias) {
+    if (!vias || vias.sinCanal) return SIN_CONTACTO;
+    return vias.faltaWhatsapp ? SIN_WHATSAPP : "";
+  }
+
+  // ---------- Búsqueda pública (la misma para lo escrito y lo dictado) ----------
+  var PALABRAS_VACIAS = ["de", "del", "la", "las", "el", "los", "un", "una", "unos", "unas", "y", "o", "para", "con", "en", "por",
+    "a", "al", "me", "mi", "quiero", "busco", "necesito", "comprar", "algo", "hay"];
+  /** Sin tildes ni mayúsculas: «panaderia» encuentra «Panadería». */
+  function normalizarBusqueda(texto) {
+    var t = String(texto == null ? "" : texto).toLowerCase();
+    return (t.normalize ? t.normalize("NFD").replace(/[̀-ͯ]/g, "") : t).replace(/\s+/g, " ").trim();
+  }
+  /** Palabras que importan de la consulta («quiero una torta de cumpleaños» → torta, cumpleanos). */
+  function palabrasBusqueda(consulta) {
+    var todas = normalizarBusqueda(consulta).replace(/[^a-z0-9ñ ]/g, " ").split(" ").filter(Boolean);
+    var utiles = todas.filter(function (w) { return PALABRAS_VACIAS.indexOf(w) < 0; });
+    return utiles.length ? utiles : todas;
+  }
+  /**
+   * true si TODAS las palabras útiles aparecen en alguno de los campos, en cualquier orden.
+   * Acepta el singular de un plural simple: «tortas» encuentra «torta». Consulta vacía: true.
+   */
+  function coincideBusqueda(consulta, campos) {
+    var palabras = palabrasBusqueda(consulta);
+    if (!palabras.length) return true;
+    var texto = " " + (campos || []).map(normalizarBusqueda).join(" ") + " ";
+    return palabras.every(function (w) {
+      if (texto.indexOf(w) !== -1) return true;
+      return w.length > 3 && /s$/.test(w) && texto.indexOf(w.replace(/e?s$/, "")) !== -1;
+    });
+  }
+
+  /**
+   * Pedido del carrito agrupado por tienda (por su ID) con el contacto ACTUAL de cada una:
+   * si la dueña cambió su número después de agregar un producto, se usa el nuevo. Cada grupo
+   * lleva solo sus productos. numero = null si esa tienda no tiene WhatsApp utilizable.
+   */
+  function agruparPedido(carrito, tiendas) {
+    var orden = [], grupos = {};
+    (carrito || []).forEach(function (item) {
+      if (!grupos[item.tiendaId]) {
+        var t = (tiendas || []).find(function (x) { return x.id === item.tiendaId; }) || null;
+        var vias = viasContacto(t);
+        grupos[item.tiendaId] = { tiendaId: item.tiendaId, nombre: t ? t.nombre : (item.tiendaNombre || "Tienda"),
+          numero: vias.whatsapp ? whatsappDeContacto(t.whatsapp) : null, formulario: !!(t && vias.formulario),
+          disponible: !!t, items: [], total: 0 };
+        orden.push(item.tiendaId);
+      }
+      grupos[item.tiendaId].items.push(item);
+      grupos[item.tiendaId].total += (Number(item.precio) || 0) * (Number(item.cantidad) || 0);
+    });
+    return orden.map(function (id) { return grupos[id]; });
+  }
+
+  /** Texto del pedido para UNA tienda (solo sus productos). */
+  function textoPedido(grupo, datos) {
+    var d = datos || {}, fmt = d.formatear || function (n) { return "$" + n; };
+    var lineas = ["¡Hola " + grupo.nombre + "! Quiero hacer este pedido desde la vitrina de Alerce Emprende:", ""];
+    grupo.items.forEach(function (i) {
+      var opcion = i.varianteNombre && i.varianteNombre !== "Estándar" && i.varianteNombre !== "Única" ? " (" + i.varianteNombre + ")" : "";
+      lineas.push("• " + i.cantidad + " x " + i.nombre + opcion + " — " + fmt(i.precio * i.cantidad));
+    });
+    lineas.push("", "Total: " + fmt(grupo.total));
+    if (d.medioPago) lineas.push("Medio de pago: " + d.medioPago);
+    if (d.cliente) lineas.push("Nombre: " + d.cliente);
+    return lineas.join("\n");
+  }
+  /** "Consultar precio" cuando la emprendedora ocultó sus precios. */
+  function textoPrecio(tienda, monto, formatear) {
+    if (tienda && tienda.mostrarPrecios === false) return "Consultar precio";
+    return formatear(monto);
+  }
+  /** Feria del servidor → feria de la web. */
+  function normalizarFeria(f) {
+    f = f || {};
+    var lat = f.latitud, lng = f.longitud;
+    return {
+      id: String(f.id || ""),
+      nombre: String(f.nombre || "Feria"),
+      descripcion: String(f.descripcion || ""),
+      imagenUrl: urlImagenSegura(f.imagen_url || ""),
+      lugar: String(f.ubicacion || ""),
+      fechaInicio: f.fecha_inicio || null,
+      fechaFin: f.fecha_fin || f.fecha_inicio || null,
+      horario: String(f.horario || ""),
+      organizador: String(f.organizador || ""),
+      estado: String(f.estado || "PROXIMA"),
+      lat: puntoValido(lat, lng) ? Number(lat) : null,
+      lng: puntoValido(lat, lng) ? Number(lng) : null
+    };
+  }
+  /** Fecha AAAA-MM-DD en America/Santiago (las reglas de calendario del proyecto usan esa zona). */
+  function fechaSantiago(instante) {
+    var d = instante instanceof Date ? instante : new Date(instante === undefined ? Date.now() : instante);
+    try {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    } catch (e) {
+      return d.toISOString().slice(0, 10);
+    }
+  }
+  /** Activa = publicada (PROXIMA/EN_CURSO) y su último día es hoy o después (Santiago). */
+  function feriaActiva(f, hoyIso) {
+    if (!f || ["PROXIMA", "EN_CURSO"].indexOf(f.estado) < 0) return false;
+    var hoy = hoyIso || fechaSantiago();
+    var fin = String(f.fechaFin || f.fechaInicio || hoy).slice(0, 10);
+    return fin >= hoy;
+  }
+  /** Próximas: no borrador/cancelada/finalizada y que no hayan terminado. Ordenadas por fecha. */
+  function feriasProximas(ferias, hoyIso) {
+    var hoy = hoyIso || fechaSantiago();
+    return (ferias || []).filter(function (f) {
+      if (["BORRADOR", "CANCELADA", "FINALIZADA"].indexOf(f.estado) >= 0) return false;
+      return !f.fechaFin || String(f.fechaFin).slice(0, 10) >= hoy;
+    }).sort(function (a, b) { return String(a.fechaInicio || "9999").localeCompare(String(b.fechaInicio || "9999")); });
+  }
+  var MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  /** Calendario de próximas ferias agrupado por mes (RF-CMP-04). */
+  function calendarioFerias(ferias, hoyIso) {
+    var grupos = [];
+    feriasProximas(ferias, hoyIso).forEach(function (f) {
+      var mes = f.fechaInicio ? String(f.fechaInicio).slice(0, 7) : "sin-fecha";
+      var g = grupos.find(function (x) { return x.mes === mes; });
+      if (!g) {
+        var p = mes.split("-");
+        g = { mes: mes, etiqueta: mes === "sin-fecha" ? "Fecha por confirmar" : MESES[Number(p[1]) - 1] + " de " + p[0], ferias: [] };
+        grupos.push(g);
+      }
+      g.ferias.push(f);
+    });
+    return grupos;
+  }
+
+  var ETIQUETA_INVITACION = { PENDIENTE: "Invitada", CONFIRMADA: "Confirmada", RECHAZADA: "Rechazada", AGREGADA: "Agregada por administración" };
+  var ETIQUETA_ASISTENCIA = { PENDIENTE: "Sin registrar", ASISTIO: "Asistió", NO_ASISTIO: "No asistió" };
+  function etiquetaInvitacion(e) { return ETIQUETA_INVITACION[e] || String(e || ""); }
+
+  /** Checklist del administrador: búsqueda y filtros por estado, tipo de emprendimiento y asociación (RF-FER-05). */
+  function filtrarChecklist(filas, filtro) {
+    filtro = filtro || {};
+    var texto = String(filtro.texto || "").trim().toLowerCase();
+    return (filas || []).filter(function (f) {
+      if (filtro.estado && f.invitacion !== filtro.estado) return false;
+      if (filtro.tipo && f.rubro !== filtro.tipo) return false;
+      if (filtro.asociacion) {
+        var asocs = f.asociaciones || [];
+        if (filtro.asociacion === "__ninguna" ? asocs.length > 0 : asocs.indexOf(filtro.asociacion) < 0) return false;
+      }
+      if (texto && [f.nombre, f.rubro, f.sector].join(" ").toLowerCase().indexOf(texto) < 0) return false;
+      return true;
+    });
+  }
+
+  /** Muestra del catálogo público de una tienda: nunca productos ocultos, privados o no disponibles. */
+  function muestraCatalogo(productos, tiendaId, cantidad) {
+    return (productos || []).filter(function (p) {
+      return p.tiendaId === tiendaId && estadoPublico(p) !== "OCULTO";
+    }).slice(0, cantidad || 3);
+  }
+
+  /** ¿La tienda pertenece a la asociación? Usa la lista de pertenencias (07) o la asociación única (06). */
+  function perteneceA(tienda, asociacionId) {
+    if (!tienda) return false;
+    var lista = Array.isArray(tienda.asociaciones) && tienda.asociaciones.length ? tienda.asociaciones : (tienda.asociacionId ? [tienda.asociacionId] : []);
+    if (asociacionId === "__ninguna") return lista.length === 0;
+    return lista.indexOf(asociacionId) >= 0;
+  }
+
+  /** Acción que un visitante intentó antes de iniciar sesión (RF-ACC-08). Vence a los 15 minutos. */
+  var VIGENCIA_PENDIENTE_MS = 15 * 60 * 1000;
+  function crearAccionPendiente(accion, tipo, id, nombre, ahora) {
+    return { accion: accion, tipo: tipo, id: String(id), nombre: String(nombre || ""), creada: ahora === undefined ? Date.now() : ahora };
+  }
+  function accionPendienteVigente(p, ahora) {
+    if (!p || typeof p !== "object" || !p.accion || !p.tipo || !p.id) return false;
+    if (["seguir"].indexOf(p.accion) < 0 || ["TIENDA", "ASOCIACION"].indexOf(p.tipo) < 0) return false;
+    var t = ahora === undefined ? Date.now() : ahora;
+    return typeof p.creada === "number" && t - p.creada >= 0 && t - p.creada <= VIGENCIA_PENDIENTE_MS;
+  }
+
+  /** Enlace "Cómo llegar": en el celular abre la aplicación de mapas en ese punto. */
+  function urlComoLlegar(lat, lng) {
+    if (!puntoValido(lat, lng)) return "";
+    return "https://www.google.com/maps/dir/?api=1&destination=" + Number(lat) + "," + Number(lng);
+  }
+
+  function normalizarTienda(t) {
+    t = t || {};
+    var nec = t.necesidades;
+    if (typeof nec === "string") { try { nec = JSON.parse(nec); } catch (e) { nec = {}; } }
+    nec = nec && typeof nec === "object" ? nec : {};
+    var valores = t.valores_producto && typeof t.valores_producto === "object" ? t.valores_producto : {};
+    return {
+      id: String(t.id || ""),
+      ownerId: t.owner_id || null,
+      nombre: String(t.nombre || "Emprendimiento"),
+      rubro: String(t.rubro || ""),
+      sector: String(t.sector || ""),
+      bio: String(t.bio || ""),
+      whatsapp: String(t.whatsapp || ""),
+      instagram: String(t.instagram || ""),
+      colorPortada: colorHex(t.color_portada, "#1A202C"),
+      colorLogo: colorHex(t.color_logo, "#2B6CB0"),
+      logoUrl: urlImagenSegura(t.logo_url || ""),
+      historialActivo: t.historial_activo !== false,
+      // Entrega 6: configuración de la vitrina (RF-CFG-01/02, RF-MAP-04) y asociación (RF-CMP-01).
+      mostrarPrecios: t.mostrar_precios !== false && t.mostrarPrecios !== false,
+      contactoModo: modoContacto(t.contacto_modo || t.contactoModo),
+      asociacionId: t.asociacion_id || t.asociacionId || null,
+      puntoRetiro: puntoValido(t.punto_lat, t.punto_lng) ? { lat: Number(t.punto_lat), lng: Number(t.punto_lng), nombre: String(t.punto_nombre || "") } : null,
+      valoresProducto: valores,
+      necesidades: {
+        tieneStock: nec.tieneStock !== false,
+        tieneAgendamiento: nec.tieneAgendamiento === true,
+        tieneVentaPorWhatsApp: nec.tieneVentaPorWhatsApp !== false,
+        tieneProductosAPedido: nec.tieneProductosAPedido === true,
+        participaEnFerias: nec.participaEnFerias === true,
+        tieneForoComunidad: nec.tieneForoComunidad === true
+      }
+    };
+  }
+
+  function unidadesVendibles(producto) {
+    return (producto.variantes || []).reduce(function (s, v) { return s + entero(v.stock); }, 0);
+  }
+
+  /** OCULTO | A_PEDIDO | AGOTADO | DISPONIBLE (misma tabla que el servidor). */
+  function estadoPublico(p) {
+    if (!p.publicado || p.disponible === false) return "OCULTO";
+    if (p.vendidaEn) return "OCULTO";
+    if (p.modalidad === "A_PEDIDO") return "A_PEDIDO";
+    var unidades = unidadesVendibles(p);
+    if (p.modalidad === "PIEZA_UNICA") return unidades > 0 ? "DISPONIBLE" : "OCULTO";
+    if (p.manejaStock === false) return "DISPONIBLE";
+    if (unidades > 0) return "DISPONIBLE";
+    if (p.alAgotarse === "OCULTAR") return "OCULTO";
+    if (p.alAgotarse === "PASAR_A_PEDIDO") return "A_PEDIDO";
+    return "AGOTADO";
+  }
+
+  function etiquetaEstado(estado) {
+    return { DISPONIBLE: "Disponible", AGOTADO: "Se acabó", A_PEDIDO: "A pedido", OCULTO: "No se muestra" }[estado] || "";
+  }
+
+  function etiquetaCategoria(p) {
+    var cat = CATEGORIAS[p.categoria] || (p.categoria ? p.categoria.charAt(0) + p.categoria.slice(1).toLowerCase() : "");
+    return [cat, p.tipoNombre || ""].filter(Boolean).join(" · ");
+  }
+
+  function precioDeOpcion(p, opcion) {
+    if (opcion && opcion.precio !== null && opcion.precio !== undefined) return opcion.precio;
+    return p.precio;
+  }
+
+  function fotoDeOpcion(p, opcion) {
+    return (opcion && opcion.fotoUrl) || p.fotoUrl || (p.fotos && p.fotos[0]) || "";
+  }
+
+  /** ¿Se puede vender esta opción como entrega inmediata? */
+  function opcionVendible(p, opcion) {
+    if (!opcion || p.vendidaEn) return false;
+    if (p.modalidad === "A_PEDIDO") return false;
+    if (p.modalidad === "PIEZA_UNICA") return unidadesVendibles(p) > 0;
+    if (p.manejaStock === false) return true;
+    return entero(opcion.stock) > 0;
+  }
+
+  /** Validación previa de una línea de venta (el servidor vuelve a validar). */
+  function validarLineaVenta(p, opcion, cantidad, encargo) {
+    if (!opcion) return "Elige una opción.";
+    if (!(Number.isInteger(cantidad) && cantidad >= 1 && cantidad <= 9999)) return "La cantidad debe ser un número entero mayor que cero.";
+    if (p.vendidaEn) return "Esta pieza única ya se vendió.";
+    if (encargo || p.modalidad === "A_PEDIDO") {
+      if (p.modalidad === "PIEZA_UNICA") return "Una pieza única no se puede encargar.";
+      return null;
+    }
+    if (p.modalidad === "PIEZA_UNICA") return cantidad === 1 && unidadesVendibles(p) > 0 ? null : "Una pieza única se vende una sola vez.";
+    if (p.manejaStock === false) return null;
+    if (entero(opcion.stock) < cantidad) return "Solo quedan " + entero(opcion.stock) + " de «" + opcion.nombre + "».";
+    return null;
+  }
+
+  /**
+   * Aplica una respuesta del servidor al catálogo mostrado.
+   * Respuesta válida (aunque venga vacía) → reemplaza todo.
+   * Error → conserva lo anterior y lo informa; nunca equivale a catálogo vacío.
+   */
+  function aplicarRespuesta(anterior, respuesta, normalizar) {
+    anterior = anterior || { elementos: [], cargado: false, error: null };
+    if (respuesta && respuesta.ok) {
+      return { elementos: (respuesta.datos || []).map(normalizar), cargado: true, error: null };
+    }
+    return { elementos: anterior.elementos, cargado: anterior.cargado, error: (respuesta && respuesta.error) || "Error desconocido" };
+  }
+
+  function nuevoId(prefijo) {
+    var c = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID()
+      : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (ch) {
+          var r = Math.random() * 16 | 0; return (ch === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+    return (prefijo || "") + c;
+  }
+
+  /**
+   * Formulario → cuerpo de guardar_producto(). Para opciones existentes envía
+   * stockBase (lo que se veía al editar) para no pisar ventas simultáneas.
+   */
+  function productoParaGuardar(form, previo) {
+    var previas = {};
+    ((previo && previo.variantes) || []).forEach(function (v) { previas[v.id] = v; });
+    var modalidad = MODALIDADES.indexOf(form.modalidad) >= 0 ? form.modalidad : "REGULAR";
+    return {
+      id: form.id || (previo && previo.id) || nuevoId("p_"),
+      nombre: String(form.nombre || "").trim(),
+      descripcion: String(form.descripcion || "").trim(),
+      categoria: CATEGORIAS[form.categoria] ? form.categoria : "TEXTIL",
+      tipo: form.tipo || null,
+      atributos: form.atributos || {},
+      precio: Math.max(0, Math.round(Number(form.precio) || 0)),
+      publicado: form.publicado === true,
+      disponible: form.disponible !== false,
+      destacado: form.destacado === true,
+      modalidad: modalidad,
+      manejaStock: modalidad === "PIEZA_UNICA" ? true : form.manejaStock !== false,
+      alAgotarse: modalidad === "PIEZA_UNICA" ? "OCULTAR" : (AL_AGOTARSE.indexOf(form.alAgotarse) >= 0 ? form.alAgotarse : "MOSTRAR_AGOTADO"),
+      fotoUrl: urlImagenSegura(form.fotoUrl || "") || null,
+      fotos: (form.fotos || []).map(urlImagenSegura).filter(Boolean),
+      variantes: (form.variantes || []).map(function (v, i) {
+        var salida = {
+          id: v.id || nuevoId("v_"),
+          nombre: String(v.nombre || "").trim() || "Opción " + (i + 1),
+          precio: numeroONulo(v.precio),
+          fotoUrl: urlImagenSegura(v.fotoUrl || "") || null,
+          stock: entero(v.stock)
+        };
+        if (previas[salida.id]) salida.stockBase = entero(previas[salida.id].stock);
+        return salida;
+      })
+    };
+  }
+
+  function fechaLocal(fecha) {
+    var d = fecha || new Date();
+    function dos(n) { return String(n).padStart(2, "0"); }
+    return d.getFullYear() + "-" + dos(d.getMonth() + 1) + "-" + dos(d.getDate()) + " " + dos(d.getHours()) + ":" + dos(d.getMinutes());
+  }
+
+  /** Ticket del POS → cuerpo de registrar_venta(). La tienda la decide el servidor. */
+  function ventaParaRegistrar(ticket, opciones) {
+    opciones = opciones || {};
+    return {
+      id: opciones.id || nuevoId("v_"),
+      items: ticket.map(function (l) {
+        return {
+          productoId: l.productoId, varianteId: l.varianteId, cantidad: l.cantidad,
+          encargo: l.encargo === true, precio: l.precio, nombre: l.nombre, detalle: l.detalle,
+          fotoUrl: urlImagenSegura(l.fotoUrl || "") || null
+        };
+      }),
+      medioPago: MEDIOS_PAGO[opciones.medioPago] || "EFECTIVO",
+      lugarTipo: opciones.feriaId ? "FERIA" : (opciones.lugarNombre ? "OTRO" : null),
+      feriaId: opciones.feriaId || null,
+      lugarNombre: opciones.lugarNombre || null,
+      fechaLocal: fechaLocal(opciones.fecha),
+      conHistorial: opciones.conHistorial !== false
+    };
+  }
+
+  var MENSAJES = {
+    NO_AUTENTICADO: "Tu sesión no está activa. Vuelve a iniciar sesión.",
+    SIN_TIENDA: "Tu cuenta todavía no tiene una tienda.",
+    TIENDA_AJENA: "Esa tienda no es tuya.",
+    PRODUCTO_AJENO: "Ese producto pertenece a otra tienda.",
+    PRODUCTO_NO_ENCONTRADO: "Uno de los productos ya no existe en tu tienda.",
+    OPCION_NO_ENCONTRADA: "Una de las opciones ya no existe. Recarga tu catálogo.",
+    STOCK_INSUFICIENTE: "No quedan unidades suficientes. Revisa las cantidades.",
+    PIEZA_VENDIDA: "Esa pieza única ya se vendió.",
+    ENCARGO_NO_PERMITIDO: "Una pieza única no se puede encargar.",
+    ID_CONFLICTO: "Ya existe otra venta con ese código. Vuelve a intentarlo.",
+    CANTIDAD_INVALIDA: "Revisa las cantidades: deben ser números enteros desde 0.",
+    PRECIO_INVALIDO: "Revisa el precio.",
+    NOMBRE_OBLIGATORIO: "Escribe el nombre del producto.",
+    OPCIONES_OBLIGATORIAS: "Agrega al menos una opción.",
+    OPCION_SIN_NOMBRE: "Cada opción necesita un nombre.",
+    OPCION_DUPLICADA: "Hay dos opciones con el mismo código.",
+    PIEZA_UNICA_UNA_UNIDAD: "Una pieza única tiene una sola unidad en total.",
+    CONFLICTO_STOCK: "Mientras editabas se vendieron unidades. Revisa la cantidad actual y vuelve a guardar.",
+    FOTO_OPCION_INVALIDA: "La foto de una opción no es válida.",
+    FERIA_NO_ENCONTRADA: "Esa feria no existe en la plataforma.",
+    SOLO_ADMIN: "Solo la administración puede hacer esto.",
+    FERIA_NO_EXISTE: "Esa feria ya no existe.",
+    FERIA_NO_ACTIVA: "La feria no está activa (puede estar cancelada, terminada o sin publicar).",
+    FERIA_INCOMPLETA: "Para publicarla, la feria necesita nombre y fecha.",
+    FERIA_PASADA: "No se puede publicar una feria que ya terminó.",
+    SIN_INVITACION: "No tienes una invitación para esta feria.",
+    AGREGADA_POR_ADMINISTRACION: "La administración te agregó a esta feria; para cambiarlo, comunícate con ella.",
+    AUN_NO_ES_EL_DIA: "La asistencia se registra desde el día de la feria.",
+    PLAZO_VENCIDO: "Ya pasó el plazo para registrar la asistencia (3 días después de la feria).",
+    NO_PARTICIPA: "Solo se registra la asistencia de quienes confirmaron o fueron agregadas.",
+    SIN_SESION: "Inicia sesión para continuar.",
+    CALIFICACIONES_DESACTIVADAS: "Esta tienda no recibe calificaciones.",
+    PROPIA_TIENDA: "No puedes calificar tu propia tienda.",
+    TIENDA_NO_EXISTE: "Una de las tiendas ya no existe.",
+    ASOCIACION_NO_EXISTE: "Una de las asociaciones ya no existe.",
+    FALTA_MENSAJE: "Escribe el mensaje del aviso.",
+    MODALIDAD_INVALIDA: "Elige la modalidad.",
+    AL_AGOTARSE_INVALIDO: "Elige qué pasa al agotarse.",
+    // Entrega 8 (09_administracion.sql)
+    CORREO_INVALIDO: "Escribe un correo válido.",
+    NOMBRE_INVALIDO: "Escribe el nombre (máximo 120 letras).",
+    ES_EMPRENDEDORA: "Ese correo es de una emprendedora; no puede ser administradora.",
+    YA_EXISTE: "Esa cuenta de administración ya existe.",
+    NO_PUEDES_DESACTIVARTE: "No puedes desactivar tu propia cuenta.",
+    ULTIMA_ADMIN: "Debe quedar al menos otra administradora activa.",
+    NO_EXISTE: "Esa cuenta ya no existe.",
+    CUENTA_DESACTIVADA: "La administración desactivó esta cuenta: su tienda no se muestra y no se pueden hacer cambios.",
+    NOMBRE_TIENDA_INVALIDO: "Escribe el nombre de la tienda (máximo 120 letras).",
+    CATEGORIA_INVALIDA: "Elige una categoría de la lista.",
+    TIPO_EN_USO: "Ese tipo lo usan productos: desactívalo en vez de eliminarlo (los productos lo conservan).",
+    ID_INVALIDO: "El código no es válido: usa solo minúsculas, números o guion bajo (2 a 40)."
+  };
+
+  /** Error de Supabase/red → mensaje en español para la emprendedora. */
+  function mensajeError(error) {
+    if (!error) return "";
+    var texto = typeof error === "string" ? error : (error.message || error.error_description || "");
+    var codigo = Object.keys(MENSAJES).filter(function (k) { return texto.indexOf(k) >= 0; })[0];
+    if (codigo) {
+      var mensaje = MENSAJES[codigo];
+      if (codigo === "STOCK_INSUFICIENTE" && error.details) {
+        try { var d = JSON.parse(error.details); if (typeof d.disponible === "number") mensaje = "No quedan unidades suficientes: quedan " + d.disponible + "."; } catch (e) { /* sin detalle */ }
+      }
+      return mensaje;
+    }
+    if (/failed to fetch|networkerror|load failed|network request failed/i.test(texto)) return "No hay conexión con el servidor. Revisa tu internet y vuelve a intentarlo.";
+    if (/jwt expired|invalid jwt|refresh token/i.test(texto)) return "Tu sesión venció. Vuelve a iniciar sesión.";
+    if (/permission denied|row-level security|42501/i.test(texto)) return "No tienes permiso para hacer esto con esta cuenta.";
+    if (/PGRST202|Could not find the function|PGRST205|Could not find the table/i.test(texto)) return "Esta función aún no está instalada en el servidor (falta aplicar la migración 07, la 09 o la 10 en Supabase).";
+    return "El servidor respondió con un error: " + (texto || "sin detalle") + ".";
+  }
+
+  return {
+    MODALIDADES: MODALIDADES, AL_AGOTARSE: AL_AGOTARSE, CATEGORIAS: CATEGORIAS,
+    ETIQUETA_MODALIDAD: ETIQUETA_MODALIDAD, ETIQUETA_AL_AGOTARSE: ETIQUETA_AL_AGOTARSE,
+    urlImagenSegura: urlImagenSegura, colorHex: colorHex,
+    normalizarProducto: normalizarProducto, normalizarTienda: normalizarTienda,
+    unidadesVendibles: unidadesVendibles, estadoPublico: estadoPublico, etiquetaEstado: etiquetaEstado,
+    etiquetaCategoria: etiquetaCategoria, precioDeOpcion: precioDeOpcion, fotoDeOpcion: fotoDeOpcion,
+    opcionVendible: opcionVendible, validarLineaVenta: validarLineaVenta,
+    aplicarRespuesta: aplicarRespuesta, productoParaGuardar: productoParaGuardar,
+    ventaParaRegistrar: ventaParaRegistrar, mensajeError: mensajeError, nuevoId: nuevoId, fechaLocal: fechaLocal,
+    MODOS_CONTACTO: MODOS_CONTACTO, modoContacto: modoContacto, puntoValido: puntoValido, viasContacto: viasContacto,
+    SIN_WHATSAPP: SIN_WHATSAPP, numeroWhatsapp: numeroWhatsapp, formatearWhatsapp: formatearWhatsapp, enlaceWhatsapp: enlaceWhatsapp,
+    SIN_CONTACTO: SIN_CONTACTO, esNumeroDemostracion: esNumeroDemostracion, whatsappDeContacto: whatsappDeContacto, avisoContacto: avisoContacto,
+    etiquetaWhatsapp: etiquetaWhatsapp, etiquetaMensaje: etiquetaMensaje, etiquetaPedidoWhatsapp: etiquetaPedidoWhatsapp,
+    normalizarBusqueda: normalizarBusqueda, palabrasBusqueda: palabrasBusqueda, coincideBusqueda: coincideBusqueda,
+    agruparPedido: agruparPedido, textoPedido: textoPedido,
+    textoPrecio: textoPrecio, normalizarFeria: normalizarFeria, feriasProximas: feriasProximas, urlComoLlegar: urlComoLlegar,
+    fechaSantiago: fechaSantiago, feriaActiva: feriaActiva, calendarioFerias: calendarioFerias,
+    ETIQUETA_INVITACION: ETIQUETA_INVITACION, ETIQUETA_ASISTENCIA: ETIQUETA_ASISTENCIA, etiquetaInvitacion: etiquetaInvitacion,
+    filtrarChecklist: filtrarChecklist, muestraCatalogo: muestraCatalogo, perteneceA: perteneceA,
+    crearAccionPendiente: crearAccionPendiente, accionPendienteVigente: accionPendienteVigente, VIGENCIA_PENDIENTE_MS: VIGENCIA_PENDIENTE_MS
+  };
+});
